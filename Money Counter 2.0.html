@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coin & Bill Counter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e5e7eb;
+      --accent: #2563eb;
+      --accent-2: #60a5fa;
+      --success: #16a34a;
+      --radius: 16px;
+      --shadow: 0 8px 30px rgba(2,6,23,.08);
+      --w: 520px;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#0b1220;
+        --card:#0f172a;
+        --text:#e5e7eb;
+        --muted:#9aa4b2;
+        --line:#1f2a44;
+        --accent:#60a5fa;
+        --accent-2:#93c5fd;
+        --shadow: 0 10px 30px rgba(0,0,0,.35);
+      }
+    }
+
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Roboto, Arial, "Helvetica Neue", Helvetica, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1000px 400px at 10% -10%, rgba(96,165,250,.20), transparent 60%),
+        radial-gradient(900px 500px at 120% 10%, rgba(37,99,235,.12), transparent 60%),
+        var(--bg);
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+
+    .card{
+      width: min(100%, var(--w));
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .header{
+      display:flex; align-items:center; gap:.75rem;
+      padding:20px 22px 12px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(37,99,235,.06), transparent 60%);
+    }
+    .logo{
+      width:40px; height:40px; border-radius:12px;
+      display:grid; place-items:center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color:white; font-weight:800; letter-spacing:.5px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
+    }
+    .title{ margin:0; font-size:1.25rem; line-height:1.1; }
+    .subtitle{ margin:.2rem 0 0; color:var(--muted); font-size:.9rem; }
+
+    .content{ padding:18px 22px 6px; }
+
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      overflow:hidden;
+      border:1px solid var(--line);
+      border-radius:12px;
+    }
+    thead th{
+      background:linear-gradient(180deg, #dbeafe, #bfdbfe);
+      color:#0b3b73;
+      text-align:right;
+      padding:10px 12px;
+      font-weight:700;
+      font-size:.92rem;
+      border-bottom:1px solid var(--line);
+    }
+    @media (prefers-color-scheme: dark){
+      thead th{
+        background:linear-gradient(180deg, #0f2546, #0a1a33);
+        color:#cfe3ff;
+      }
+    }
+    th:first-child, td:first-child{ text-align:center }
+    th:first-child{ width:38% }
+    td{ padding:10px 12px; border-bottom:1px solid var(--line) }
+    tbody tr:nth-child(odd) td{ background: rgba(99,102,241,0.03) }
+    tbody tr:last-child td{ border-bottom:none }
+    tfoot td{
+      padding:12px; font-weight:800; font-size:1.05rem;
+      border-top:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(37,99,235,.05), transparent);
+    }
+
+    input[type="number"]{
+      width:7.5rem;
+      padding:.55rem .6rem;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:transparent;
+      color:inherit;
+      text-align:right;
+      font-variant-numeric: tabular-nums;
+      outline:none;
+      transition:border-color .15s, box-shadow .15s, background-color .15s;
+    }
+    input[type="number"]:focus{
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+    input[readonly]{
+      width:10rem;
+      border:none;
+      background:transparent;
+      color:inherit;
+      text-align:right;
+      font-weight:600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .actions{
+      display:flex; gap:.6rem; justify-content:flex-end;
+      padding:14px 22px 20px;
+      border-top:1px solid var(--line);
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,.02));
+    }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      padding:.65rem 1rem;
+      border-radius:999px;
+      font-weight:600;
+      letter-spacing:.2px;
+      transition: transform .05s ease, filter .15s ease, background-color .2s ease;
+    }
+    .btn:active{ transform: translateY(1px) }
+    .btn.primary{
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color:white;
+      box-shadow: 0 6px 18px rgba(37,99,235,.35);
+    }
+    .btn.ghost{
+      background:transparent; color:var(--text);
+      border:1px solid var(--line);
+    }
+    .note{ margin:10px 0 0; color:var(--muted); font-size:.9rem; }
+
+    @media print{
+      body{ background:white; padding:0 }
+      .card{ box-shadow:none; border:none }
+      .header, .actions{ display:none }
+      .content{ padding:0 }
+      input[type="number"]{ border:none }
+      input[readonly]{ font-weight:700 }
+    }
+    /* Compact tweaks */
+.header {
+  padding: 14px 18px 10px; /* was 20px 22px 12px */
+}
+
+.content {
+  padding: 12px 16px 4px; /* was 18px 22px 6px */
+}
+
+td {
+  padding: 4px 6px; /* was 10px 12px */
+}
+
+tfoot td {
+  padding: 10px; /* was 12px */
+}
+
+.actions {
+  padding: 12px 18px 14px; /* was 14px 22px 20px */
+}
+
+input[type="number"] {
+  padding: .45rem .55rem; /* was .55rem .6rem */
+  font-size: 0.9rem;      /* slightly smaller */
+}
+
+input[readonly] {
+  width: 9rem;            /* was 10rem */
+  font-size: 0.95rem;     /* slightly smaller */
+}
+  </style>
+</head>
+<body>
+  <main class="card" aria-labelledby="app-title">
+    <header class="header">
+      <div class="logo" aria-hidden="true">¢$</div>
+      <div>
+        <h1 id="app-title" class="title">Coin & Bill Counter</h1>
+        <p class="subtitle">Enter whole numbers only. Subtotals for coins show in cents until they reach a dollar.</p>
+      </div>
+    </header>
+
+    <section class="content">
+      <form id="moneyForm" autocomplete="off">
+        <table role="grid" aria-describedby="app-title">
+          <thead>
+            <tr>
+              <th scope="col" style="text-align:center">Count</th>
+              <th scope="col" style="text-align:right">Denomination</th>
+              <th scope="col" style="text-align:right">Total</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+          <tfoot>
+            <tr>
+              <td></td>
+              <td>Grand Total</td>
+              <td><input id="grandTotal" name="GrandTot" readonly tabindex="-1" aria-live="polite" /></td>
+            </tr>
+          </tfoot>
+        </table>
+        <p class="note">Tip: Use ↑↓ in a number field to adjust by 1.</p>
+
+        <div class="actions">
+          <button id="printPageButton" type="button" class="btn primary" onclick="window.print()">Print</button>
+          <button id="resetButton" type="reset" class="btn ghost">Reset</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const DENOMS = [
+      { key: "pny", label: "1¢",     cents: 1,     coin: true  },
+      { key: "nck", label: "5¢",     cents: 5,     coin: true  },
+      { key: "dme", label: "10¢",    cents: 10,    coin: true  },
+      { key: "qtr", label: "25¢",    cents: 25,    coin: true  },
+      { key: "hlf", label: "50¢",    cents: 50,    coin: true  },
+      { key: "one", label: "$1.00",  cents: 100,   coin: false },
+      { key: "fiv", label: "$5.00",  cents: 500,   coin: false },
+      { key: "ten", label: "$10.00", cents: 1000,  coin: false },
+      { key: "twe", label: "$20.00", cents: 2000,  coin: false },
+      { key: "fif", label: "$50.00", cents: 5000,  coin: false },
+      { key: "hun", label: "$100.00",cents: 10000, coin: false }
+    ];
+
+    const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    const toUsd = cents => usd.format(cents / 100);
+    const toCentsLabel = cents => cents >= 100 ? toUsd(cents) : `${cents}¢`;
+
+    const form = document.getElementById("moneyForm");
+    const tbody = document.getElementById("rows");
+    const grandTotalEl = document.getElementById("grandTotal");
+
+    for (const d of DENOMS) {
+      const tr = document.createElement("tr");
+
+      const tdCount = document.createElement("td");
+      const input = document.createElement("input");
+      input.type = "number";
+      input.inputMode = "numeric";
+      input.min = "0";
+      input.step = "1";
+      input.name = d.key;
+      input.id = d.key;
+      input.autocomplete = "off";
+      input.setAttribute("aria-label", `${d.label} count`);
+      tdCount.appendChild(input);
+
+      const tdLabel = document.createElement("td");
+      tdLabel.style.textAlign = "right";
+      tdLabel.textContent = d.label;
+
+      const tdTotal = document.createElement("td");
+      tdTotal.style.textAlign = "right";
+      const out = document.createElement("input");
+      out.name = d.key + "Tot";
+      out.id = d.key + "Tot";
+      out.readOnly = true;
+      out.tabIndex = -1; // <<< prevent tabbing to subtotal
+      tdTotal.appendChild(out);
+
+      tr.append(tdCount, tdLabel, tdTotal);
+      tbody.appendChild(tr);
+    }
+
+    const firstInput = document.getElementById(DENOMS[0].key);
+    window.addEventListener("DOMContentLoaded", () => firstInput.focus());
+
+    form.addEventListener("reset", () => {
+      setTimeout(() => { calculate(); firstInput.focus(); }, 0);
+    });
+
+    form.addEventListener("input", (e) => {
+      if (e.target.matches('input[type="number"]')) {
+        const v = e.target.value.trim();
+        if (v !== "" && !/^\d+$/.test(v)) {
+          e.target.value = v.replace(/\D+/g, "");
+        }
+        calculate();
+      }
+    });
+
+    function calculate() {
+      let grandCents = 0;
+
+      for (const d of DENOMS) {
+        const count = parseInt(document.getElementById(d.key).value || "0", 10);
+        const subtotalCents = count * d.cents;
+        grandCents += subtotalCents;
+
+        const out = document.getElementById(d.key + "Tot");
+        out.value = subtotalCents ? (d.coin ? toCentsLabel(subtotalCents) : toUsd(subtotalCents)) : "";
+      }
+      grandTotalEl.value = toUsd(grandCents);
+      grandTotalEl.style.color = grandCents ? "var(--success)" : "inherit";
+    }
+
+    calculate();
+  </script>
+</body>
+</html>
