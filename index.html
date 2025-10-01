@@ -6,14 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
-      --bg: #f6f8fb; --card: #ffffff; --text: #0f172a; --muted: #64748b;
-      --line: #e5e7eb; --accent: #2563eb; --accent-2: #60a5fa; --success: #16a34a;
-      --radius: 16px; --shadow: 0 8px 30px rgba(2,6,23,.08); --w: 520px;
+      --bg:#f6f8fb; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e5e7eb;
+      --accent:#2563eb; --accent-2:#60a5fa; --success:#16a34a;
+      --radius:16px; --shadow:0 8px 30px rgba(2,6,23,.08);
+
+      /* Card width scales: min 320px, ~92vw on phones, max 680px desktop */
+      --w: clamp(320px, 92vw, 680px);
+
+      /* Font scaling */
+      --font-base: clamp(15px, 0.8vw + 14px, 16px);
+      --font-sm: clamp(13px, 0.5vw + 12px, 14px);
+      --font-lg: clamp(18px, 1vw + 16px, 22px);
     }
     @media (prefers-color-scheme: dark){
       :root{
         --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2; --line:#1f2a44;
-        --accent:#60a5fa; --accent-2:#93c5fd; --shadow: 0 10px 30px rgba(0,0,0,.35);
+        --accent:#60a5fa; --accent-2:#93c5fd; --shadow:0 10px 30px rgba(0,0,0,.35);
       }
     }
 
@@ -22,70 +30,123 @@
     body{
       margin:0;
       font-family: ui-sans-serif,-apple-system,system-ui,"Segoe UI",Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;
-      color:var(--text);
+      font-size: var(--font-base);
+      color: var(--text);
       background:
         radial-gradient(1000px 400px at 10% -10%, rgba(96,165,250,.20), transparent 60%),
         radial-gradient(900px 500px at 120% 10%, rgba(37,99,235,.12), transparent 60%),
         var(--bg);
-      display:grid; place-items:center; padding:24px;
+      display:grid; place-items:center; padding: clamp(12px, 3vw, 24px);
     }
 
-    .card{ width:min(100%,var(--w)); background:var(--card); border:1px solid var(--line);
-      border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .card{
+      width:min(100%, var(--w));
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
 
-    .header{ display:flex; align-items:center; gap:.5rem; padding:12px 16px 8px;
+    .header{
+      display:flex; align-items:center; gap:.5rem;
+      padding: clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 16px) clamp(6px, 1vw, 8px);
       border-bottom:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(37,99,235,.06), transparent 60%); }
-    .logo{ width:32px; height:32px; border-radius:8px; display:grid; place-items:center;
-      background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; font-weight:800; }
-    .title{ margin:0; font-size:1.25rem; line-height:1.1 }
-    .subtitle{ margin:.2rem 0 0; color:var(--muted); font-size:.9rem }
-    .content{ padding:12px 16px 4px }
+      background:linear-gradient(180deg, rgba(37,99,235,.06), transparent 60%);
+    }
+    .logo{
+      width: clamp(28px, 6vw, 36px);
+      height: clamp(28px, 6vw, 36px);
+      border-radius:8px;
+      display:grid; place-items:center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color:#fff; font-weight:800; font-size: var(--font-sm);
+    }
+    .title{ margin:0; font-size: var(--font-lg); line-height:1.1 }
+    .subtitle{ margin:.2rem 0 0; color:var(--muted); font-size: var(--font-sm) }
 
-    table{ width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--line); border-radius:12px; overflow:hidden }
+    .content{ padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px) 4px }
+
+    table{
+      width:100%;
+      border-collapse:separate; border-spacing:0;
+      border:1px solid var(--line); border-radius:12px; overflow:hidden;
+    }
     thead th{
-      background:linear-gradient(180deg,#dbeafe,#bfdbfe); color:#0b3b73;
-      text-align:right; padding:6px 8px; font-weight:700; font-size:.92rem; border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,#dbeafe,#bfdbfe);
+      color:#0b3b73; text-align:right;
+      padding: clamp(6px, 1.2vw, 10px) clamp(8px, 1.5vw, 12px);
+      font-weight:700; font-size: clamp(.9rem, .6vw + .85rem, .95rem);
+      border-bottom:1px solid var(--line);
     }
     @media (prefers-color-scheme: dark){
       thead th{ background:linear-gradient(180deg,#0f2546,#0a1a33); color:#cfe3ff }
     }
     th:first-child, td:first-child{ text-align:center }
-    th:first-child{ width:38% }
-    td{ padding:6px 8px; border-bottom:1px solid var(--line) }
+    th:first-child{ width: 36% }
+    td{
+      padding: clamp(6px, 1.2vw, 10px) clamp(8px, 1.5vw, 12px);
+      border-bottom:1px solid var(--line);
+    }
     tbody tr:nth-child(odd) td{ background: rgba(99,102,241,0.03) }
     tbody tr:last-child td{ border-bottom:none }
-    tfoot td{ padding:8px; font-weight:800; font-size:1.05rem; border-top:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(37,99,235,.05), transparent); }
+    tfoot td{
+      padding: clamp(8px, 1.4vw, 12px);
+      font-weight:800; font-size: clamp(1rem, .6vw + .95rem, 1.05rem);
+      border-top:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(37,99,235,.05), transparent);
+    }
 
     input[type="number"]{
-      width:6.5rem; padding:.35rem .45rem; border:1px solid var(--line); border-radius:10px;
-      background:transparent; color:inherit; text-align:right; font-variant-numeric: tabular-nums;
-      outline:none; transition:border-color .15s, box-shadow .15s, background-color .15s; font-size:.9rem;
+      width: clamp(5.5rem, 24vw, 7rem);
+      padding: clamp(.4rem, 1.2vw, .55rem) clamp(.45rem, 1vw, .6rem);
+      border:1px solid var(--line); border-radius:10px;
+      background:transparent; color:inherit; text-align:right;
+      font-variant-numeric: tabular-nums; outline:none;
+      transition:border-color .15s, box-shadow .15s, background-color .15s;
+      font-size: 1em;
     }
     input[type="number"]:focus{
       border-color: var(--accent);
       box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
       background: color-mix(in srgb, var(--accent) 8%, transparent);
     }
-    input[readonly]{ width:8rem; border:none; background:transparent; color:inherit;
-      text-align:right; font-weight:600; font-variant-numeric: tabular-nums; font-size:.9rem; }
+    input[readonly]{
+      width: clamp(6.5rem, 28vw, 9rem);
+      border:none; background:transparent; color:inherit;
+      text-align:right; font-weight:600; font-variant-numeric: tabular-nums;
+      font-size: 1em;
+    }
 
-    .actions{ display:flex; gap:.6rem; justify-content:flex-end; padding:10px 16px 12px;
-      border-top:1px solid var(--line); background:linear-gradient(180deg,transparent,rgba(0,0,0,.02)); }
-    .btn{ appearance:none; border:none; cursor:pointer; padding:.45rem .8rem; border-radius:999px;
-      font-weight:600; letter-spacing:.2px; transition:transform .05s, filter .15s, background-color .2s; font-size:.9rem; }
+    .actions{
+      display:flex; gap:.6rem; justify-content:flex-end;
+      padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px) clamp(10px, 2vw, 12px);
+      border-top:1px solid var(--line);
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,.02));
+    }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      padding: clamp(.5rem, 2.2vw, .7rem) clamp(.8rem, 3vw, 1rem);
+      border-radius:999px; font-weight:600; letter-spacing:.2px;
+      transition: transform .05s, filter .15s, background-color .2s;
+      font-size: 1em;
+    }
     .btn:active{ transform: translateY(1px) }
     .btn.primary{ background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; box-shadow:0 6px 18px rgba(37,99,235,.35) }
     .btn.ghost{ background:transparent; color:var(--text); border:1px solid var(--line) }
-    .note{ margin:10px 0 0; color:var(--muted); font-size:.9rem }
+    .note{ margin:10px 0 0; color:var(--muted); font-size: var(--font-sm) }
+
+    @media (pointer: coarse){
+      input[type="number"]{ padding: .5rem .6rem }
+      .btn{ padding: .6rem 1rem }
+    }
 
     @media print{
       body{ background:#fff; padding:0 }
       .card{ box-shadow:none; border:none }
       .header, .actions{ display:none }
       .content{ padding:0 }
-      input[type=\"number\"]{ border:none }
+      input[type="number"]{ border:none }
       input[readonly]{ font-weight:700 }
     }
   </style>
@@ -130,7 +191,6 @@
   </main>
 
   <script>
-    // Data in CENTS to avoid float issues
     const DENOMS = [
       { key:"pny", label:"1¢",      cents:1,     coin:true  },
       { key:"nck", label:"5¢",      cents:5,     coin:true  },
@@ -153,7 +213,6 @@
     const tbody = document.getElementById("rows");
     const grandTotalEl = document.getElementById("grandTotal");
 
-    // Build rows
     for (const d of DENOMS) {
       const tr = document.createElement("tr");
 
@@ -179,7 +238,7 @@
       out.name = d.key + "Tot";
       out.id = d.key + "Tot";
       out.readOnly = true;
-      out.tabIndex = -1; // skip in tab order
+      out.tabIndex = -1;
       tdTotal.appendChild(out);
 
       tr.append(tdCount, tdLabel, tdTotal);
@@ -202,16 +261,12 @@
       grandTotalEl.style.color = grandCents ? "var(--success)" : "inherit";
     }
 
-    // Focus and initial compute
     window.addEventListener("DOMContentLoaded", () => {
       firstInput && firstInput.focus();
-      // compute immediately
       calculate();
-      // compute again on next tick in case iOS restores values after DOMContentLoaded
       setTimeout(calculate, 0);
     });
 
-    // Recompute on user edits (input + change for iOS oddities)
     form.addEventListener("input", (e) => {
       if (e.target.matches('input[type="number"]')) {
         const v = e.target.value.trim();
@@ -223,13 +278,11 @@
       if (e.target.matches('input[type="number"]')) calculate();
     });
 
-    // Recompute when page becomes visible or is shown from bfcache (iOS Safari)
     window.addEventListener("pageshow", () => setTimeout(calculate, 0));
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) setTimeout(calculate, 0);
     });
 
-    // Reset handler
     form.addEventListener("reset", () => {
       setTimeout(() => { calculate(); firstInput && firstInput.focus(); }, 0);
     });
