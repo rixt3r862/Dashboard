@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Current Time</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg:#36454f;
+        --fg:antiquewhite;
+        --muted:#cfd6db;
+        --time-font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: var(--bg);
+        display: grid;
+        grid-template-rows: auto 1fr;
+        align-items: center;
+        justify-items: center;
+        gap: 2rem;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+
+      /* Controls bar */
+      .controls {
+        margin-top: 1rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        color: var(--muted);
+        font-size: 0.95rem;
+        user-select: none;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .controls label, .controls .control {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        cursor: pointer;
+      }
+      .controls input[type="checkbox"] {
+        inline-size: 1.15rem;
+        block-size: 1.15rem;
+        accent-color: var(--fg);
+        cursor: pointer;
+      }
+      .controls select {
+        appearance: none;
+        border: 1px solid rgba(255,255,255,.25);
+        background: transparent;
+        color: var(--muted);
+        padding: .35rem .6rem;
+        border-radius: .4rem;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+
+      #time {
+        color: var(--fg);
+        font-weight: 800;
+        font-size: clamp(48px, 18vw, 260px);
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.02em;
+        user-select: none;
+        font-family: var(--time-font);
+      }
+
+      /* Only the colon blinks */
+      .colon {
+        display: inline-block;
+        width: 0.65ch;   /* keeps layout steady during blink */
+        text-align: center;
+        transition: opacity 0.2s linear;
+      }
+      .colon.off { opacity: 0; }
+
+      .ampm {
+        font-size: .35em;
+        font-weight: 700;
+        vertical-align: baseline;
+        margin-left: .15em;
+        letter-spacing: .04em;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Controls -->
+    <div class="controls" role="group" aria-label="Time display options">
+      <label><input id="toggle-24h" type="checkbox" /> 24-hour time</label>
+      <label><input id="toggle-seconds" type="checkbox" /> Show seconds</label>
+
+      <!-- New: Font selector -->
+      <div class="control" aria-label="Font selector">
+        <span>Font:</span>
+        <select id="font-select">
+          <!-- Built-in stacks (no network needed) -->
+          <option value="system">System (Default)</option>
+          <option value="sf-compact">SF Compact Display</option>
+          <option value="segoe">Segoe UI</option>
+          <option value="roboto-local">Roboto (fallback stack)</option>
+          <option value="inter-local">Inter (fallback stack)</option>
+          <option value="mono">Monospace (Jet look)</option>
+          <option value="serif">Serif (Georgia)</option>
+          <!-- Optional Google Fonts (loaded on demand) -->
+          <option value="roboto-web">Roboto (web)</option>
+          <option value="inter-web">Inter (web)</option>
+          <option value="jetbrains-web">JetBrains Mono (web)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Time -->
+    <div id="time" aria-live="polite" aria-atomic="true">--:--</div>
+
+    <!-- Dynamic webfont link (only used if a web font is chosen) -->
+    <link id="webfont-link" rel="stylesheet" href="" />
+
+    <script>
+      (function () {
+        const el = document.getElementById('time');
+        const chk24 = document.getElementById('toggle-24h');
+        const chkSec = document.getElementById('toggle-seconds');
+        const fontSelect = document.getElementById('font-select');
+        const webfontLink = document.getElementById('webfont-link');
+
+        // Font registry: key -> { stack, webHref? }
+        const FONT_MAP = {
+          system: {
+            stack: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"'
+          },
+          'sf-compact': {
+            // Looks great on Apple displays; falls back elsewhere gracefully.
+            stack: '-apple-system, system-ui, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial'
+          },
+          segoe: {
+            stack: 'Segoe UI, system-ui, -apple-system, Roboto, Helvetica, Arial'
+          },
+          'roboto-local': {
+            stack: 'Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial'
+          },
+          'inter-local': {
+            stack: 'Inter, system-ui, -apple-system, Segoe UI, Helvetica, Arial'
+          },
+          mono: {
+            stack: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+          },
+          serif: {
+            stack: 'Georgia, Cambria, "Times New Roman", Times, serif'
+          },
+          // Web fonts (loaded on demand)
+          'roboto-web': {
+            stack: '"Roboto", system-ui, -apple-system, Segoe UI, Helvetica, Arial',
+            webHref: 'https://fonts.googleapis.com/css2?family=Roboto:wght@700;800&display=swap'
+          },
+          'inter-web': {
+            stack: '"Inter", system-ui, -apple-system, Segoe UI, Helvetica, Arial',
+            webHref: 'https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap'
+          },
+          'jetbrains-web': {
+            stack: '"JetBrains Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+            webHref: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&display=swap'
+          }
+        };
+
+        // Load saved prefs (default: 12h, no seconds, system font)
+        const prefs = JSON.parse(localStorage.getItem('timePrefs') || '{}');
+        chk24.checked = !!prefs.is24h;
+        chkSec.checked = !!prefs.showSeconds;
+        const savedFontKey = prefs.fontKey || 'system';
+        if (FONT_MAP[savedFontKey]) fontSelect.value = savedFontKey;
+
+        function savePrefs() {
+          localStorage.setItem('timePrefs', JSON.stringify({
+            is24h: chk24.checked,
+            showSeconds: chkSec.checked,
+            fontKey: fontSelect.value
+          }));
+        }
+
+        chk24.addEventListener('change', () => { savePrefs(); formatTime(); });
+        chkSec.addEventListener('change', () => { savePrefs(); formatTime(); });
+        fontSelect.addEventListener('change', () => { applyFont(fontSelect.value); savePrefs(); });
+
+        function applyFont(key) {
+          const def = FONT_MAP[key] || FONT_MAP.system;
+          // Apply stack
+          document.documentElement.style.setProperty('--time-font', def.stack);
+          // Manage webfont link if needed
+          if (def.webHref) {
+            webfontLink.href = def.webHref;
+          } else {
+            webfontLink.removeAttribute('href');
+          }
+        }
+
+        function pad2(n) { return n < 10 ? '0' + n : String(n); }
+        function colonSpan(off) { return `<span class="colon${off ? ' off' : ''}">:</span>`; }
+
+        function formatTime() {
+          const t = new Date();
+          const h24 = t.getHours(), m = t.getMinutes(), s = t.getSeconds();
+          const is24h = chk24.checked;
+          const showSeconds = chkSec.checked;
+
+          // 12h special labels (only in 12-hour mode)
+          if (!is24h) {
+            if (h24 === 12 && m === 0 && s === 0) {
+              el.textContent = showSeconds ? '12:00:00 Noon' : '12:00 Noon';
+              return;
+            }
+            if (h24 === 0 && m === 0 && s === 0) {
+              el.textContent = showSeconds ? '12:00:00 Midnight' : '12:00 Midnight';
+              return;
+            }
+          }
+
+          const blinkOff = (s % 2 !== 0); // colon hidden on odd seconds when seconds are OFF
+
+          if (is24h) {
+            const hh = pad2(h24), mm = pad2(m), ss = pad2(s);
+            if (showSeconds) {
+              el.innerHTML = `${hh}${colonSpan(false)}${mm}${colonSpan(false)}${ss}`;
+            } else {
+              el.innerHTML = `${hh}${colonSpan(blinkOff)}${mm}`;
+            }
+          } else {
+            const ap = h24 >= 12 ? 'PM' : 'AM';
+            const h12 = (h24 % 12) || 12;
+            const mm = pad2(m), ss = pad2(s);
+
+            if (showSeconds) {
+              el.innerHTML = `${h12}${colonSpan(false)}${mm}${colonSpan(false)}${ss} <span class="ampm">${ap}</span>`;
+            } else {
+              el.innerHTML = `${h12}${colonSpan(blinkOff)}${mm} <span class="ampm">${ap}</span>`;
+            }
+          }
+        }
+
+        // Initialize
+        applyFont(savedFontKey);
+        formatTime();
+        setInterval(formatTime, 500);
+      })();
+    </script>
+  </body>
+</html>
