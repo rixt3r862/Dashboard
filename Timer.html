@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Progress Bar Timer</title>
+  <style>
+    :root{
+      --bg: #0b0f14;
+      --panel: #121823;
+      --accent: #4f8cff;
+      --accent-2:#22c55e;
+      --text: #e6eefb;
+      --muted:#8aa0bd;
+      --bar-bg:#1e293b;
+      --bar-fill: linear-gradient(90deg, #60a5fa, #34d399);
+      --ring:#2b384d;
+      --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 900px at 80% -10%, #0f172a, var(--bg));
+      color:var(--text);
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+    .app{
+      width:min(760px, 100%);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 120px), var(--panel);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+      padding:24px;
+    }
+    header{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:18px}
+    h1{font-size:20px; margin:0; letter-spacing:.3px}
+    .sub{color:var(--muted); font-size:12px}
+
+    .grid{display:grid; grid-template-columns: 1fr; gap:16px}
+    @media (min-width: 640px){
+      .grid{grid-template-columns: 1fr 1fr}
+    }
+
+    .card{
+      background: rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:16px;
+    }
+
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:8px}
+    .inputs{display:flex; gap:12px}
+    .inputs input{
+      appearance:textfield;
+      width:100%;
+      padding:14px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.1);
+      background:#0f1520;
+      color:var(--text);
+      font-size:16px;
+      outline:none;
+      transition:border-color .2s ease;
+    }
+    .inputs input:focus{border-color: var(--accent)}
+    .inputs .unit{position:relative; flex:1}
+    .inputs .unit span{
+      position:absolute; right:10px; top:50%; translate:0 -50%;
+      color:var(--muted); font-size:12px; pointer-events:none
+    }
+
+    .btns{display:flex; flex-wrap:wrap; gap:10px}
+    button{
+      appearance:none; border:0; cursor:pointer; padding:12px 16px; border-radius:12px;
+      background: var(--accent); color:white; font-weight:600; letter-spacing:.2px;
+      box-shadow: 0 6px 20px rgba(79,140,255,.35);
+      transition: transform .08s ease, filter .2s ease, background .2s ease;
+    }
+    button.secondary{background:#223049; color:#dbe7ff; box-shadow:none; border:1px solid rgba(255,255,255,.08)}
+    button.ghost{background:transparent; color:#c7d6f5; border:1px dashed #2b3a53}
+    button.danger{background:var(--danger)}
+    button:disabled{opacity:.55; filter:saturate(.7); cursor:not-allowed}
+    button:active{transform: translateY(1px)}
+
+    .progress-wrap{display:grid; gap:10px}
+    .progress{
+      height:20px; border-radius:999px; background:var(--bar-bg); overflow:hidden; position:relative;
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .progress .fill{
+      height:100%; width:0%; background: var(--bar-fill);
+      transition: width .1s linear;
+    }
+    .progress .tick{
+      position:absolute; inset:0; background-image: repeating-linear-gradient(90deg, transparent 0 24px, rgba(255,255,255,.06) 24px 25px);
+      pointer-events:none;
+    }
+    .meta{display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:14px}
+    .meta strong{color:var(--text); letter-spacing:.4px}
+
+    .ring{
+      --size: 120px;
+      width:var(--size); height:var(--size); border-radius:50%; position:relative; display:grid; place-items:center;
+      background: conic-gradient(var(--accent) var(--angle,0deg), #172034 0deg);
+      transition: background .2s linear;
+      margin:auto;
+    }
+    .ring::before{
+      content:""; position:absolute; inset:8px; border-radius:50%; background: #0f1520; box-shadow: inset 0 0 0 1px var(--ring);
+    }
+    .ring .tt{position:relative; font-weight:700}
+
+    .presets{display:flex; gap:8px; flex-wrap:wrap}
+    .preset{background:#162236; color:#b7c9eb; border:1px solid #24344f; padding:8px 10px; border-radius:10px; font-size:13px; cursor:pointer}
+    .preset:hover{border-color:#35507d}
+    
+    footer{margin-top:16px; color:var(--muted); font-size:12px; text-align:center}
+    a { color:#90c2ff }
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Progress bar timer">
+    <header>
+      <div>
+        <h1>Progress Bar Timer</h1>
+        <div class="sub">Set a duration, then start. The bar fills to 100% and the timer ends.</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <label for="mins">Duration</label>
+        <div class="inputs" aria-describedby="durationHelp">
+          <div class="unit"><input id="mins" type="number" min="0" step="1" value="0" inputmode="numeric" aria-label="Minutes"><span>min</span></div>
+          <div class="unit"><input id="secs" type="number" min="0" max="59" step="1" value="30" inputmode="numeric" aria-label="Seconds"><span>sec</span></div>
+        </div>
+        <div id="durationHelp" class="sub" style="margin-top:8px">Tip: use presets below for quick starts.</div>
+        <div class="presets" style="margin-top:12px">
+          <button class="preset" data-sec="10">10s</button>
+          <button class="preset" data-sec="30">30s</button>
+          <button class="preset" data-sec="60">1m</button>
+          <button class="preset" data-sec="300">5m</button>
+          <button class="preset" data-sec="600">10m</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="ring" aria-hidden="true"><div class="tt" id="timeLabel">00:30</div></div>
+        <div class="btns" style="margin-top:14px">
+          <button id="startBtn">Start</button>
+          <button id="pauseBtn" class="secondary" disabled>Pause</button>
+          <button id="resetBtn" class="ghost" disabled>Reset</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <div class="progress-wrap" aria-live="polite">
+        <div class="meta">
+          <div>Progress: <strong id="percentLabel">0%</strong></div>
+          <div>Remaining: <strong id="remainingLabel">00:30</strong></div>
+        </div>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Time progress">
+          <div class="fill" id="bar"></div>
+          <div class="tick"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Keyboard: Space to start/pause, R to reset. Works offline. Accessible labels included.
+    </footer>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const mins = $('#mins');
+    const secs = $('#secs');
+    const timeLabel = $('#timeLabel');
+    const percentLabel = $('#percentLabel');
+    const remainingLabel = $('#remainingLabel');
+    const bar = $('#bar');
+    const startBtn = $('#startBtn');
+    const pauseBtn = $('#pauseBtn');
+    const resetBtn = $('#resetBtn');
+    const progressEl = document.querySelector('.progress');
+    const ring = document.querySelector('.ring');
+
+    let totalMs = getTotalMs();
+    let startTime = null;
+    let rafId = null;
+    let pausedAccum = 0;
+    let running = false;
+    let completed = false;
+
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function fmt(ms){
+      ms = Math.max(0, ms);
+      const s = Math.ceil(ms/1000);
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${pad(m)}:${pad(r)}`;
+    }
+    function getTotalMs(){
+      const m = Math.max(0, parseInt(mins.value||0,10));
+      const s = Math.max(0, Math.min(59, parseInt(secs.value||0,10)));
+      return (m*60 + s) * 1000;
+    }
+    function setTotalFromSeconds(sec){
+      sec = Math.max(0, Math.floor(sec));
+      mins.value = Math.floor(sec/60);
+      secs.value = Math.floor(sec%60);
+      totalMs = getTotalMs();
+      updateStaticLabels();
+    }
+
+    function updateStaticLabels(){
+      totalMs = getTotalMs();
+      timeLabel.textContent = fmt(totalMs);
+      remainingLabel.textContent = fmt(totalMs);
+      percentLabel.textContent = '0%';
+      bar.style.width = '0%';
+      progressEl.setAttribute('aria-valuenow', '0');
+      ring.style.setProperty('--angle', '0deg');
+      document.title = '⏳ Progress Bar Timer';
+    }
+
+    function tick(){
+      const now = performance.now();
+      const elapsed = (now - startTime) + pausedAccum;
+      const pct = Math.min(100, (elapsed / totalMs) * 100);
+      const remain = Math.max(0, totalMs - elapsed);
+
+      percentLabel.textContent = `${pct.toFixed(0)}%`;
+      remainingLabel.textContent = fmt(remain);
+      bar.style.width = `${pct}%`;
+      progressEl.setAttribute('aria-valuenow', pct.toFixed(0));
+      ring.style.setProperty('--angle', `${pct * 3.6}deg`);
+      timeLabel.textContent = fmt(remain);
+      document.title = (running? '▶️':'⏸️') + ` ${fmt(remain)} • Timer`;
+
+      if (pct >= 100) {
+        finish();
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function start(){
+      totalMs = getTotalMs();
+      if (!totalMs) return;
+      if (completed) { reset(true); }
+      startTime = performance.now();
+      running = true; completed = false;
+      startBtn.textContent = 'Resume';
+      startBtn.disabled = true; // once started, enable via pause
+      pauseBtn.disabled = false;
+      resetBtn.disabled = false;
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function pause(){
+      if (!running) return;
+      running = false;
+      cancelAnimationFrame(rafId);
+      const now = performance.now();
+      pausedAccum += (now - startTime);
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+    }
+
+    function reset(soft=false){
+      running = false; completed = false;
+      cancelAnimationFrame(rafId);
+      startTime = null; pausedAccum = 0;
+      if (!soft) updateStaticLabels(); else {
+        // soft reset keeps current duration
+        percentLabel.textContent = '0%';
+        remainingLabel.textContent = fmt(getTotalMs());
+        timeLabel.textContent = fmt(getTotalMs());
+        bar.style.width = '0%';
+        progressEl.setAttribute('aria-valuenow', '0');
+        ring.style.setProperty('--angle', '0deg');
+      }
+      startBtn.textContent = 'Start';
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      resetBtn.disabled = true;
+      document.title = '⏳ Progress Bar Timer';
+    }
+
+    function finish(){
+      running = false; completed = true;
+      cancelAnimationFrame(rafId);
+      percentLabel.textContent = '100%';
+      remainingLabel.textContent = '00:00';
+      timeLabel.textContent = 'Done';
+      bar.style.width = '100%';
+      progressEl.setAttribute('aria-valuenow', '100');
+      ring.style.setProperty('--angle', `360deg`);
+      pauseBtn.disabled = true;
+      startBtn.disabled = false; // allow restart
+      startBtn.textContent = 'Start';
+      notify();
+      document.title = '✅ Timer complete';
+    }
+
+    function notify(){
+      // Vibrate (if supported)
+      if (navigator.vibrate) {
+        try { navigator.vibrate([120, 80, 120]); } catch {}
+      }
+      // Beep using WebAudio (no external file)
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 880; // A5
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+        o.start(); o.stop(ctx.currentTime + 0.26);
+      } catch {}
+      // Screen flash accent
+      document.body.animate([
+        { filter:'brightness(1)' },
+        { filter:'brightness(1.6)' },
+        { filter:'brightness(1)' }
+      ], { duration: 500, easing: 'ease-out' });
+    }
+
+    // Event wiring
+    document.addEventListener('keydown', (e)=>{
+      if (e.code === 'Space') { e.preventDefault(); running ? pause() : start(); }
+      if (e.key.toLowerCase() === 'r') { reset(); }
+    });
+
+    startBtn.addEventListener('click', ()=> running ? start() : start());
+    pauseBtn.addEventListener('click', pause);
+    resetBtn.addEventListener('click', ()=> reset());
+
+    mins.addEventListener('change', ()=>{ if (!running) updateStaticLabels(); });
+    secs.addEventListener('change', ()=>{ if (!running) updateStaticLabels(); });
+
+    document.querySelectorAll('.preset').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const s = parseInt(btn.dataset.sec, 10) || 0;
+        setTotalFromSeconds(s);
+        reset(true);
+      });
+    });
+
+    // Initialize
+    updateStaticLabels();
+  </script>
+</body>
+</html>
