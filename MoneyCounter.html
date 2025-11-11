@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <title>Coin & Bill Counter</title>
-  <!-- iOS safe-area aware viewport -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <style>
     :root{
       --bg:#f6f8fb; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e5e7eb;
       --accent:#2563eb; --accent-2:#60a5fa; --success:#16a34a;
       --radius:16px; --shadow:0 8px 30px rgba(2,6,23,.08);
-      --w: clamp(320px, 92vw, 680px);
+      --w: clamp(320px, 95vw, 1000px);
       --font-base: clamp(15px, 0.8vw + 14px, 16px);
       --font-sm: clamp(13px, 0.5vw + 12px, 14px);
       --font-lg: clamp(18px, 1vw + 16px, 22px);
@@ -23,13 +22,13 @@
         --accent:#60a5fa; --accent-2:#93c5fd; --shadow:0 10px 30px rgba(0,0,0,.35);
       }
     }
-
     *{ box-sizing:border-box }
     html,body{ height:auto; min-height:100dvh }
     body{
       margin:0;
       font-family: ui-sans-serif,-apple-system,system-ui,"Segoe UI",Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;
-      font-size: var(--font-base); color: var(--text);
+      font-size: var(--font-base);
+      color: var(--text);
       background:
         radial-gradient(1000px 400px at 10% -10%, rgba(96,165,250,.20), transparent 60%),
         radial-gradient(900px 500px at 120% 10%, rgba(37,99,235,.12), transparent 60%),
@@ -52,7 +51,7 @@
 
     .header{
       display:flex; align-items:center; gap:.5rem;
-      padding: clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 16px) clamp(6px, 1vw, 8px);
+      padding: clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 16px);
       border-bottom:1px solid var(--line);
       background:linear-gradient(180deg, rgba(37,99,235,.06), transparent 60%);
     }
@@ -66,10 +65,27 @@
     .title{ margin:0; font-size: var(--font-lg); line-height:1.1 }
     .subtitle{ margin:.2rem 0 0; color:var(--muted); font-size: var(--font-sm) }
 
-    .content{ padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px) 4px }
+    .content{
+      padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px) clamp(8px, 2vw, 12px);
+      display: grid;
+      gap: 1rem;
+    }
+
+    /* Two column layout for panels */
+    .panel-grid{
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    @media (min-width: 768px){
+      .panel-grid{ grid-template-columns: 1fr 1fr; }
+    }
 
     .panel{
-      margin-bottom: clamp(12px, 3vw, 18px);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding: clamp(8px, 2vw, 12px);
+      background: linear-gradient(180deg, rgba(0,0,0,.02), transparent 70%);
     }
     .panel h2{
       margin:.25rem 0 .6rem; font-size:1.05rem;
@@ -79,13 +95,13 @@
     table{
       width:100%; border-collapse:separate; border-spacing:0;
       border:1px solid var(--line); border-radius:12px; overflow:hidden;
-      margin: .25rem 0 .5rem;
+      margin-bottom:.5rem;
     }
     thead th{
       background:linear-gradient(180deg,#dbeafe,#bfdbfe);
       color:#0b3b73; text-align:right;
-      padding: clamp(6px, 1.2vw, 10px) clamp(8px, 1.5vw, 12px);
-      font-weight:700; font-size: clamp(.9rem, .6vw + .85rem, .95rem);
+      padding:.4rem .6rem;
+      font-weight:700; font-size:.9rem;
       border-bottom:1px solid var(--line);
     }
     @media (prefers-color-scheme: dark){
@@ -93,39 +109,35 @@
     }
     th:first-child, td:first-child{ text-align:center }
     td{
-      padding: clamp(6px, 1.2vw, 10px) clamp(8px, 1.5vw, 12px);
+      padding:.4rem .6rem;
       border-bottom:1px solid var(--line);
     }
     tbody tr:nth-child(odd) td{ background: rgba(99,102,241,0.03) }
     tbody tr:last-child td{ border-bottom:none }
     tfoot td{
-      padding: clamp(8px, 1.4vw, 12px);
-      font-weight:800; font-size: clamp(1rem, .6vw + .95rem, 1.05rem);
-      border-top:1px solid var(--line);
+      padding:.5rem;
+      font-weight:800; border-top:1px solid var(--line);
       background:linear-gradient(180deg, rgba(37,99,235,.05), transparent);
       text-align:right;
     }
 
-    /* Inputs */
     input[type="number"]{
-      width: clamp(5.5rem, 24vw, 7rem);
-      padding: clamp(.4rem, 1.2vw, .55rem) clamp(.45rem, 1vw, .6rem);
+      width: clamp(5rem, 24vw, 7rem);
+      padding:.35rem .5rem;
       border:1px solid var(--line); border-radius:10px;
       background:transparent; color:inherit; text-align:right;
       font-variant-numeric: tabular-nums; outline:none;
-      transition:border-color .15s, box-shadow .15s, background-color .15s;
-      font-size: 1em;
     }
     input[type="number"]:focus{
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
       background: color-mix(in srgb, var(--accent) 8%, transparent);
     }
     input[readonly]{
-      width: clamp(6.5rem, 28vw, 9rem);
+      width: clamp(6rem, 28vw, 9rem);
       border:none; background:transparent; color:inherit;
-      text-align:right; font-weight:600; font-variant-numeric: tabular-nums;
-      font-size: 1em;
+      text-align:right; font-weight:600;
+      font-variant-numeric: tabular-nums;
     }
 
     .summary{
@@ -135,7 +147,6 @@
       border-radius:12px;
       padding: clamp(8px, 2vw, 12px);
       background: linear-gradient(180deg, rgba(0,0,0,.02), transparent 70%);
-      margin-top: .5rem;
     }
     .summary label{ color:var(--muted); font-weight:600 }
     .summary output{
@@ -145,353 +156,167 @@
 
     .actions{
       display:flex; gap:.6rem; justify-content:flex-end;
-      padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px) clamp(10px, 2vw, 12px);
+      padding: clamp(8px, 2vw, 12px);
       border-top:1px solid var(--line);
       background: linear-gradient(180deg, transparent, rgba(0,0,0,.02));
     }
     .btn{
       appearance:none; border:none; cursor:pointer;
-      padding: clamp(.5rem, 2.2vw, .7rem) clamp(.8rem, 3vw, 1rem);
-      border-radius:999px; font-weight:600; letter-spacing:.2px;
-      transition: transform .05s, filter .15s, background-color .2s;
-      font-size: 1em;
+      padding:.5rem 1rem;
+      border-radius:999px; font-weight:600;
     }
-    .btn:active{ transform: translateY(1px) }
-    .btn.primary{ background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; box-shadow:0 6px 18px rgba(37,99,235,.35) }
+    .btn.primary{ background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; }
     .btn.ghost{ background:transparent; color:var(--text); border:1px solid var(--line) }
-    .note{ margin:10px 0 0; color:var(--muted); font-size: var(--font-sm) }
 
-    @media (pointer: coarse){
-      input[type="number"]{ padding: .5rem .6rem }
-      .btn{ padding: .6rem 1rem }
-    }
-
-    /* Print */
     @media print{
       body{ background:#fff; padding:0 }
       .card{ box-shadow:none; border:none }
       .header, .actions{ display:none }
       .content{ padding:0 }
-      input[type="number"]{ border:none }
-      input[readonly]{ font-weight:700 }
-      .summary{ border:none; padding:0; background:none }
     }
   </style>
 </head>
 <body>
-  <main class="card" aria-labelledby="app-title">
+  <main class="card">
     <header class="header">
-      <div class="logo" aria-hidden="true">¢$</div>
+      <div class="logo">¢$</div>
       <div>
-        <h1 id="app-title" class="title">Coin & Bill Counter</h1>
-        <p class="subtitle">Enter whole numbers only. Subtotals for coins show in cents until they reach a dollar.</p>
+        <h1 class="title">Coin & Bill Counter</h1>
+        <p class="subtitle">Includes dynamic check entry and full summary.</p>
       </div>
     </header>
 
     <section class="content">
       <form id="moneyForm" autocomplete="off">
-        <!-- Cash panel -->
-        <section class="panel" aria-labelledby="cash-title">
-          <h2 id="cash-title">Cash</h2>
-          <table role="grid" aria-describedby="cash-title">
-            <thead>
-              <tr>
-                <th scope="col" style="text-align:center">Count</th>
-                <th scope="col" style="text-align:right">Denomination</th>
-                <th scope="col" style="text-align:right">Total</th>
-              </tr>
-            </thead>
-            <tbody id="cash-rows"></tbody>
-            <tfoot>
-              <tr>
-                <td></td>
-                <td>Cash Total</td>
-                <td><input id="grandTotalCash" name="GrandTotCash" readonly tabindex="-1" aria-live="polite" /></td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
+        <div class="panel-grid">
+          <!-- Cash panel -->
+          <section class="panel">
+            <h2>Cash</h2>
+            <table>
+              <thead><tr><th>Count</th><th>Denomination</th><th>Total</th></tr></thead>
+              <tbody id="cash-rows"></tbody>
+              <tfoot><tr><td></td><td>Cash Total</td><td><input id="grandTotalCash" readonly tabindex="-1" /></td></tr></tfoot>
+            </table>
+          </section>
 
-        <!-- Checks panel -->
-        <section class="panel" aria-labelledby="checks-title">
-          <h2 id="checks-title">Checks</h2>
-          <table role="grid" aria-describedby="checks-title">
-            <thead>
-              <tr>
-                <th scope="col" style="text-align:center">#</th>
-                <th scope="col" style="text-align:right">Amount</th>
-                <th scope="col" style="text-align:right">Formatted</th>
-              </tr>
-            </thead>
-            <tbody id="check-rows"></tbody>
-            <tfoot>
-              <tr>
-                <td></td>
-                <td>Checks Total</td>
-                <td><input id="checksTotal" name="ChecksTot" readonly tabindex="-1" /></td>
-              </tr>
-            </tfoot>
-          </table>
-          <p class="note">Enter a check amount to reveal the next line. Leave blank to skip.</p>
-        </section>
+          <!-- Checks panel -->
+          <section class="panel">
+            <h2>Checks</h2>
+            <table>
+              <thead><tr><th>#</th><th>Amount</th><th>Formatted</th></tr></thead>
+              <tbody id="check-rows"></tbody>
+              <tfoot><tr><td></td><td>Checks Total</td><td><input id="checksTotal" readonly tabindex="-1" /></td></tr></tfoot>
+            </table>
+          </section>
+        </div>
 
-        <!-- Combined summary -->
-        <section class="summary" aria-label="Summary">
-          <label for="grandTotalCash">Cash</label>
-          <output id="summaryCash">$0.00</output>
-
-          <label for="checksTotal">Checks</label>
-          <output id="summaryChecks">$0.00</output>
-
-          <label>Total (Cash + Checks)</label>
-          <output id="summaryBoth">$0.00</output>
+        <!-- Summary below the two columns -->
+        <section class="summary">
+          <label>Cash</label><output id="summaryCash">$0.00</output>
+          <label>Checks</label><output id="summaryChecks">$0.00</output>
+          <label>Total (Cash + Checks)</label><output id="summaryBoth">$0.00</output>
         </section>
 
         <div class="actions">
-          <button id="printPageButton" type="button" class="btn primary" onclick="window.print()">Print</button>
-          <button id="resetButton" type="reset" class="btn ghost">Reset</button>
+          <button type="button" class="btn primary" onclick="window.print()">Print</button>
+          <button type="reset" class="btn ghost">Reset</button>
         </div>
       </form>
     </section>
   </main>
 
   <script>
-    // ------- Utilities -------
-    const usd = new Intl.NumberFormat("en-US", { style:"currency", currency:"USD" });
-    const toUsd = cents => usd.format(cents / 100);
-    const toCentsLabel = cents => cents >= 100 ? toUsd(cents) : `${cents}¢`;
+    const usd = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
+    const toUsd=c=>usd.format(c/100);const toCentsLabel=c=>c>=100?toUsd(c):`${c}¢`;
+    const parseMoneyToCents=s=>{if(!s)return 0;const c=String(s).replace(/[^\d.]/g,"");if(!c)return 0;const p=c.split(".");let n=0;if(p.length===1)n=parseInt(p[0])*100;else{const w=parseInt(p[0]||"0");const f=(p[1]||"0").slice(0,2).padEnd(2,"0");n=w*100+parseInt(f)}return isNaN(n)?0:n};
 
-    // Parse a decimal string like "12.34" safely into integer cents
-    function parseMoneyToCents(str){
-      if (!str) return 0;
-      const cleaned = String(str).replace(/[^\d.]/g, "");
-      if (!cleaned) return 0;
-      const parts = cleaned.split(".");
-      let cents = 0;
-      if (parts.length === 1){
-        cents = parseInt(parts[0], 10) * 100;
-      } else {
-        const whole = parseInt(parts[0] || "0", 10);
-        const frac = (parts[1] || "0").slice(0,2).padEnd(2,"0");
-        cents = whole * 100 + parseInt(frac || "0", 10);
-      }
-      return isNaN(cents) ? 0 : cents;
-    }
-
-    // ------- Cash section -------
-    const DENOMS = [
-      { key:"pny", label:"1¢",      cents:1,     coin:true  },
-      { key:"nck", label:"5¢",      cents:5,     coin:true  },
-      { key:"dme", label:"10¢",     cents:10,    coin:true  },
-      { key:"qtr", label:"25¢",     cents:25,    coin:true  },
-      { key:"hlf", label:"50¢",     cents:50,    coin:true  },
-      { key:"one", label:"$1.00",   cents:100,   coin:false },
-      { key:"fiv", label:"$5.00",   cents:500,   coin:false },
-      { key:"ten", label:"$10.00",  cents:1000,  coin:false },
-      { key:"twe", label:"$20.00",  cents:2000,  coin:false },
-      { key:"fif", label:"$50.00",  cents:5000,  coin:false },
-      { key:"hun", label:"$100.00", cents:10000, coin:false }
+    const DENOMS=[
+      {key:"pny",label:"1¢",cents:1,coin:true},
+      {key:"nck",label:"5¢",cents:5,coin:true},
+      {key:"dme",label:"10¢",cents:10,coin:true},
+      {key:"qtr",label:"25¢",cents:25,coin:true},
+      {key:"hlf",label:"50¢",cents:50,coin:true},
+      {key:"one",label:"$1.00",cents:100},
+      {key:"fiv",label:"$5.00",cents:500},
+      {key:"ten",label:"$10.00",cents:1000},
+      {key:"twe",label:"$20.00",cents:2000},
+      {key:"fif",label:"$50.00",cents:5000},
+      {key:"hun",label:"$100.00",cents:10000}
     ];
 
-    const form = document.getElementById("moneyForm");
-    const cashTbody = document.getElementById("cash-rows");
-    const cashTotalEl = document.getElementById("grandTotalCash");
+    const cashTbody=document.getElementById("cash-rows");
+    const checkTbody=document.getElementById("check-rows");
+    const cashTotalEl=document.getElementById("grandTotalCash");
+    const checksTotalEl=document.getElementById("checksTotal");
+    const summaryCash=document.getElementById("summaryCash");
+    const summaryChecks=document.getElementById("summaryChecks");
+    const summaryBoth=document.getElementById("summaryBoth");
 
-    for (const d of DENOMS) {
-      const tr = document.createElement("tr");
-
-      const tdCount = document.createElement("td");
-      tdCount.style.textAlign = "center";
-      const input = document.createElement("input");
-      input.type = "number";
-      input.inputMode = "numeric";
-      input.min = "0";
-      input.step = "1";
-      input.name = d.key;
-      input.id = d.key;
-      input.autocomplete = "off";
-      input.setAttribute("aria-label", `${d.label} count`);
-      tdCount.appendChild(input);
-
-      const tdLabel = document.createElement("td");
-      tdLabel.style.textAlign = "right";
-      tdLabel.textContent = d.label;
-
-      const tdTotal = document.createElement("td");
-      tdTotal.style.textAlign = "right";
-      const out = document.createElement("input");
-      out.name = d.key + "Tot";
-      out.id = d.key + "Tot";
-      out.readOnly = true;
-      out.tabIndex = -1; // skip
-      tdTotal.appendChild(out);
-
-      tr.append(tdCount, tdLabel, tdTotal);
+    DENOMS.forEach(d=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td><input type="number" min="0" step="1" id="${d.key}"></td><td style="text-align:right">${d.label}</td><td style="text-align:right"><input id="${d.key}Tot" readonly tabindex="-1"></td>`;
       cashTbody.appendChild(tr);
-    }
+    });
 
-    function calculateCashCents(){
-      let grand = 0;
-      for (const d of DENOMS) {
-        const count = parseInt(document.getElementById(d.key).value || "0", 10);
-        const subtotal = count * d.cents;
-        grand += subtotal;
-        const out = document.getElementById(d.key + "Tot");
-        out.value = subtotal ? (d.coin ? toCentsLabel(subtotal) : toUsd(subtotal)) : "";
-      }
-      cashTotalEl.value = toUsd(grand);
-      return grand;
-    }
-
-    // ------- Checks section -------
-    const checksTbody = document.getElementById("check-rows");
-    const checksTotalEl = document.getElementById("checksTotal");
-    const summaryCash = document.getElementById("summaryCash");
-    const summaryChecks = document.getElementById("summaryChecks");
-    const summaryBoth = document.getElementById("summaryBoth");
-
-    let checkRowCount = 0;
+    let checkCount=0;
     function addCheckRow(){
-      checkRowCount += 1;
-      const idx = checkRowCount;
-
-      const tr = document.createElement("tr");
-
-      const tdIdx = document.createElement("td");
-      tdIdx.style.textAlign = "center";
-      tdIdx.textContent = idx;
-
-      const tdInput = document.createElement("td");
-      tdInput.style.textAlign = "right";
-      const input = document.createElement("input");
-      input.type = "number";
-      input.step = "0.01";         // allow decimals
-      input.inputMode = "decimal"; // iOS numeric w/ decimal
-      input.min = "0";
-      input.placeholder = "0.00";
-      input.name = `chk_${idx}`;
-      input.id = `chk_${idx}`;
-      input.autocomplete = "off";
-      input.setAttribute("aria-label", `Check ${idx} amount`);
-      tdInput.appendChild(input);
-
-      const tdFmt = document.createElement("td");
-      tdFmt.style.textAlign = "right";
-      const out = document.createElement("input");
-      out.readOnly = true;
-      out.tabIndex = -1; // skip
-      out.name = `chk_${idx}_fmt`;
-      out.id = `chk_${idx}_fmt`;
-      tdFmt.appendChild(out);
-
-      tr.append(tdIdx, tdInput, tdFmt);
-      checksTbody.appendChild(tr);
-
-      return input;
+      checkCount++;
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${checkCount}</td><td><input type="number" step="0.01" inputmode="decimal" id="chk_${checkCount}" placeholder="0.00"></td><td style="text-align:right"><input id="chk_${checkCount}_fmt" readonly tabindex="-1"></td>`;
+      checkTbody.appendChild(tr);
     }
 
-    function ensureTrailingBlankRow(){
-      const inputs = checksTbody.querySelectorAll('input[type="number"]');
-      if (inputs.length === 0){
-        addCheckRow();
-        return;
-      }
-      const last = inputs[inputs.length - 1];
-      if (last.value.trim() !== ""){
-        addCheckRow();
-      }
+    function ensureExtraCheckRow(){
+      const inputs=checkTbody.querySelectorAll('input[type="number"]');
+      if(inputs.length===0||inputs[inputs.length-1].value.trim()!=="") addCheckRow();
     }
 
-    function calculateChecksCents(){
-      let cents = 0;
-      const inputs = checksTbody.querySelectorAll('input[type="number"]');
-      inputs.forEach(inp => {
-        const v = inp.value.trim();
-        const c = parseMoneyToCents(v);
-        cents += c;
-        const fmt = document.getElementById(`${inp.id}_fmt`);
-        fmt.value = c ? toUsd(c) : "";
+    function calcCash(){
+      let c=0;
+      DENOMS.forEach(d=>{
+        const v=parseInt(document.getElementById(d.key).value||0);
+        const s=v*d.cents;c+=s;
+        document.getElementById(`${d.key}Tot`).value=s?toUsd(s):"";
       });
-      checksTotalEl.value = toUsd(cents);
-      return cents;
+      cashTotalEl.value=toUsd(c);
+      return c;
     }
 
-    function calculateAll(){
-      const cash = calculateCashCents();
-      const checks = calculateChecksCents();
-
-      cashTotalEl.style.color = cash ? "var(--success)" : "inherit";
-      checksTotalEl.style.color = checks ? "var(--success)" : "inherit";
-
-      summaryCash.textContent = toUsd(cash);
-      summaryChecks.textContent = toUsd(checks);
-      summaryBoth.textContent = toUsd(cash + checks);
+    function calcChecks(){
+      let c=0;
+      const inputs=checkTbody.querySelectorAll('input[type="number"]');
+      inputs.forEach(inp=>{
+        const v=inp.value.trim();const cents=parseMoneyToCents(v);
+        c+=cents;
+        document.getElementById(`${inp.id}_fmt`).value=cents?toUsd(cents):"";
+      });
+      checksTotalEl.value=toUsd(c);
+      return c;
     }
 
-    // ------- Events & lifecycle -------
-    const firstCashInput = document.getElementById(DENOMS[0].key);
+    function calcAll(){
+      const cash=calcCash(),checks=calcChecks();
+      summaryCash.textContent=toUsd(cash);
+      summaryChecks.textContent=toUsd(checks);
+      summaryBoth.textContent=toUsd(cash+checks);
+    }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      firstCashInput && firstCashInput.focus();
-      addCheckRow(); // start with one check line
-      calculateAll();
-      setTimeout(() => { ensureTrailingBlankRow(); calculateAll(); }, 0);
-    });
-
-    // Cash edits
-    form.addEventListener("input", (e) => {
-      if (e.target.matches('#cash-rows input[type="number"]')) {
-        const v = e.target.value.trim();
-        if (v !== "" && !/^\d+$/.test(v)) {
-          e.target.value = v.replace(/\D+/g, "");
-        }
-        calculateAll();
-      }
-    });
-    form.addEventListener("change", (e) => {
-      if (e.target.matches('#cash-rows input[type="number"]')) calculateAll();
-    });
-
-    // Checks edits
-    form.addEventListener("input", (e) => {
-      if (e.target.matches('#check-rows input[type="number"]')) {
-        // sanitize to digits + at most one dot, two decimals
-        let v = e.target.value;
-        v = v.replace(/[^0-9.]/g, "");
-        const dot = v.indexOf(".");
-        if (dot !== -1) {
-          const whole = v.slice(0, dot);
-          const frac = v.slice(dot + 1).replace(/\./g, "").slice(0, 2);
-          v = whole + "." + frac;
-        }
-        e.target.value = v;
-        ensureTrailingBlankRow();
-        calculateAll();
-      }
-    });
-    form.addEventListener("change", (e) => {
-      if (e.target.matches('#check-rows input[type="number"]')) {
-        ensureTrailingBlankRow();
-        calculateAll();
+    document.getElementById("moneyForm").addEventListener("input",e=>{
+      if(e.target.matches('#cash-rows input'))calcAll();
+      if(e.target.matches('#check-rows input')){
+        ensureExtraCheckRow();
+        calcAll();
       }
     });
 
-    // iOS restore cases
-    window.addEventListener("pageshow", () => setTimeout(calculateAll, 0));
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) setTimeout(calculateAll, 0);
+    document.getElementById("moneyForm").addEventListener("reset",()=>{
+      setTimeout(()=>{
+        cashTbody.querySelectorAll('input').forEach(i=>i.value="");
+        checkTbody.innerHTML="";checkCount=0;addCheckRow();calcAll();
+      },0);
     });
 
-    // Reset
-    form.addEventListener("reset", () => {
-      setTimeout(() => {
-        cashTbody.querySelectorAll('input[type="number"]').forEach(i => i.value = "");
-        checksTbody.innerHTML = "";
-        addCheckRow();
-        calculateAll();
-        firstCashInput && firstCashInput.focus();
-      }, 0);
-    });
+    window.addEventListener("DOMContentLoaded",()=>{addCheckRow();calcAll();});
   </script>
 </body>
 </html>
