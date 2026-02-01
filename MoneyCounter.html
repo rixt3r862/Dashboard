@@ -22,6 +22,7 @@
         --accent:#60a5fa; --accent-2:#93c5fd; --shadow:0 10px 30px rgba(0,0,0,.35);
       }
     }
+
     *{ box-sizing:border-box }
     html,body{ height:auto; min-height:100dvh }
     body{
@@ -121,12 +122,21 @@
       text-align:right;
     }
 
+    /* Safari dark mode: hide native steppers */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button{
+      -webkit-appearance: none;
+      margin: 0;
+    }
     input[type="number"]{
+      -moz-appearance: textfield;
       width: clamp(5rem, 24vw, 7rem);
       padding:.35rem .5rem;
       border:1px solid var(--line); border-radius:10px;
       background:transparent; color:inherit; text-align:right;
       font-variant-numeric: tabular-nums; outline:none;
+      font-size: clamp(1rem, 4vw, 1.1rem);
+      -webkit-text-size-adjust: 100%;
     }
     input[type="number"]:focus{
       border-color: var(--accent);
@@ -139,18 +149,30 @@
       text-align:right; font-weight:600;
       font-variant-numeric: tabular-nums;
     }
-    input[type="number"]{
-      font-size: clamp(1rem, 4vw, 1.1rem);
-      -webkit-text-size-adjust: 100%;
+
+    /* Custom +/- controls for Cash counts */
+    .numwrap{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:.35rem;
     }
-    /* Hide native number steppers (Safari/Chrome) so dark mode doesn't make them disappear) */
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button{
-       -webkit-appearance: none;
-        margin: 0;
+    .stepbtn{
+      width: 2.1rem;
+      height: 2.1rem;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--card) 85%, transparent);
+      color: var(--text);
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
     }
-    input[type="number"]{
-      -moz-appearance: textfield; /* Firefox */
+    .stepbtn:active{ transform: translateY(1px); }
+
+    @media (pointer: coarse){
+      .stepbtn{ width: 2.4rem; height: 2.4rem; }
     }
 
     .summary{
@@ -186,6 +208,8 @@
       .card{ box-shadow:none; border:none }
       .header, .actions{ display:none }
       .content{ padding:0 }
+      .stepbtn{ display:none; }  /* don't print buttons */
+      .numwrap{ gap:0; }
     }
   </style>
 </head>
@@ -240,15 +264,28 @@
 
   <script>
     const usd = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
-    const toUsd=c=>usd.format(c/100);const toCentsLabel=c=>c>=100?toUsd(c):`${c}¢`;
-    const parseMoneyToCents=s=>{if(!s)return 0;const c=String(s).replace(/[^\d.]/g,"");if(!c)return 0;const p=c.split(".");let n=0;if(p.length===1)n=parseInt(p[0])*100;else{const w=parseInt(p[0]||"0");const f=(p[1]||"0").slice(0,2).padEnd(2,"0");n=w*100+parseInt(f)}return isNaN(n)?0:n};
+    const toUsd=c=>usd.format(c/100);
+    const parseMoneyToCents=s=>{
+      if(!s)return 0;
+      const c=String(s).replace(/[^\d.]/g,"");
+      if(!c)return 0;
+      const p=c.split(".");
+      let n=0;
+      if(p.length===1) n=parseInt(p[0])*100;
+      else{
+        const w=parseInt(p[0]||"0");
+        const f=(p[1]||"0").slice(0,2).padEnd(2,"0");
+        n=w*100+parseInt(f);
+      }
+      return isNaN(n)?0:n
+    };
 
     const DENOMS=[
-      {key:"pny",label:"1¢",cents:1,coin:true},
-      {key:"nck",label:"5¢",cents:5,coin:true},
-      {key:"dme",label:"10¢",cents:10,coin:true},
-      {key:"qtr",label:"25¢",cents:25,coin:true},
-      {key:"hlf",label:"50¢",cents:50,coin:true},
+      {key:"pny",label:"1¢",cents:1},
+      {key:"nck",label:"5¢",cents:5},
+      {key:"dme",label:"10¢",cents:10},
+      {key:"qtr",label:"25¢",cents:25},
+      {key:"hlf",label:"50¢",cents:50},
       {key:"one",label:"$1.00",cents:100},
       {key:"fiv",label:"$5.00",cents:500},
       {key:"ten",label:"$10.00",cents:1000},
@@ -265,9 +302,58 @@
     const summaryChecks=document.getElementById("summaryChecks");
     const summaryBoth=document.getElementById("summaryBoth");
 
+    // Build cash rows WITH +/- buttons
     DENOMS.forEach(d=>{
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td><input type="number" min="0" step="1" id="${d.key}"></td><td style="text-align:right">${d.label}</td><td style="text-align:right"><input id="${d.key}Tot" readonly tabindex="-1"></td>`;
+
+      const tdCount=document.createElement("td");
+      tdCount.style.textAlign="center";
+
+      const wrap=document.createElement("div");
+      wrap.className="numwrap";
+
+      const minus=document.createElement("button");
+      minus.type="button";
+      minus.className="stepbtn";
+      minus.textContent="−";
+      minus.setAttribute("aria-label",`Decrease ${d.label}`);
+
+      const input=document.createElement("input");
+      input.type="number";
+      input.min="0";
+      input.step="1";
+      input.inputMode="numeric";
+      input.id=d.key;
+
+      const plus=document.createElement("button");
+      plus.type="button";
+      plus.className="stepbtn";
+      plus.textContent="+";
+      plus.setAttribute("aria-label",`Increase ${d.label}`);
+
+      minus.addEventListener("click",()=>{
+        const v=parseInt(input.value||"0",10);
+        if(v>0) input.value=String(v-1);
+        input.dispatchEvent(new Event("input",{bubbles:true}));
+      });
+      plus.addEventListener("click",()=>{
+        const v=parseInt(input.value||"0",10);
+        input.value=String(v+1);
+        input.dispatchEvent(new Event("input",{bubbles:true}));
+      });
+
+      wrap.append(minus,input,plus);
+      tdCount.appendChild(wrap);
+
+      const tdDen=document.createElement("td");
+      tdDen.style.textAlign="right";
+      tdDen.textContent=d.label;
+
+      const tdTot=document.createElement("td");
+      tdTot.style.textAlign="right";
+      tdTot.innerHTML=`<input id="${d.key}Tot" readonly tabindex="-1">`;
+
+      tr.append(tdCount,tdDen,tdTot);
       cashTbody.appendChild(tr);
     });
 
@@ -275,7 +361,9 @@
     function addCheckRow(){
       checkCount++;
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${checkCount}</td><td><input type="number" step="0.01" inputmode="decimal" id="chk_${checkCount}" placeholder="0.00"></td><td style="text-align:right"><input id="chk_${checkCount}_fmt" readonly tabindex="-1"></td>`;
+      tr.innerHTML=`<td>${checkCount}</td>
+        <td><input type="number" step="0.01" inputmode="decimal" id="chk_${checkCount}" placeholder="0.00"></td>
+        <td style="text-align:right"><input id="chk_${checkCount}_fmt" readonly tabindex="-1"></td>`;
       checkTbody.appendChild(tr);
     }
 
@@ -287,8 +375,8 @@
     function calcCash(){
       let c=0;
       DENOMS.forEach(d=>{
-        const v=parseInt(document.getElementById(d.key).value||0);
-        const s=v*d.cents;c+=s;
+        const v=parseInt(document.getElementById(d.key).value||0,10);
+        const s=v*d.cents; c+=s;
         document.getElementById(`${d.key}Tot`).value=s?toUsd(s):"";
       });
       cashTotalEl.value=toUsd(c);
@@ -299,7 +387,7 @@
       let c=0;
       const inputs=checkTbody.querySelectorAll('input[type="number"]');
       inputs.forEach(inp=>{
-        const v=inp.value.trim();const cents=parseMoneyToCents(v);
+        const cents=parseMoneyToCents(inp.value.trim());
         c+=cents;
         document.getElementById(`${inp.id}_fmt`).value=cents?toUsd(cents):"";
       });
@@ -315,7 +403,7 @@
     }
 
     document.getElementById("moneyForm").addEventListener("input",e=>{
-      if(e.target.matches('#cash-rows input'))calcAll();
+      if(e.target.matches('#cash-rows input')) calcAll();
       if(e.target.matches('#check-rows input')){
         ensureExtraCheckRow();
         calcAll();
@@ -324,12 +412,12 @@
 
     document.getElementById("moneyForm").addEventListener("reset",()=>{
       setTimeout(()=>{
-        cashTbody.querySelectorAll('input').forEach(i=>i.value="");
-        checkTbody.innerHTML="";checkCount=0;addCheckRow();calcAll();
+        cashTbody.querySelectorAll('input[type="number"]').forEach(i=>i.value="");
+        checkTbody.innerHTML=""; checkCount=0; addCheckRow(); calcAll();
       },0);
     });
 
-    window.addEventListener("DOMContentLoaded",()=>{addCheckRow();calcAll();});
+    window.addEventListener("DOMContentLoaded",()=>{ addCheckRow(); calcAll(); });
   </script>
 </body>
 </html>
