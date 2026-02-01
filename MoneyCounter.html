@@ -206,7 +206,7 @@
 @media print{
   @page{
     size: auto;
-    margin: 50mm;
+    margin: 12mm;
   }
 
   body{
@@ -218,7 +218,7 @@
   /* Fit-to-one-page nudge */
   .card{
     transform: scale(0.94);
-    transform-origin: top left;
+    transform-origin: bottom right;
 
     /* width compensation (must be in same rule so it doesn't get overwritten) */
     width: calc(100% / 0.94) !important;
