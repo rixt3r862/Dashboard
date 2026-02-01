@@ -143,6 +143,15 @@
       font-size: clamp(1rem, 4vw, 1.1rem);
       -webkit-text-size-adjust: 100%;
     }
+    /* Hide native number steppers (Safari/Chrome) so dark mode doesn't make them disappear) */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button{
+       -webkit-appearance: none;
+        margin: 0;
+    }
+    input[type="number"]{
+      -moz-appearance: textfield; /* Firefox */
+    }
 
     .summary{
       display:grid; gap:.4rem;
