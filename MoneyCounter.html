@@ -204,7 +204,6 @@
     .btn.ghost{ background:transparent; color:var(--text); border:1px solid var(--line) }
 
 @media print{
-  /* Tell the browser to use normal page sizing */
   @page{
     size: auto;
     margin: 12mm;
@@ -215,20 +214,16 @@
     padding:0 !important;
     display:block !important;
   }
-  /* Fit-to-one-page nudge (Safari/Chrome) */
+
+  /* Fit-to-one-page nudge */
   .card{
     transform: scale(0.95);
     transform-origin: top left;
-  }
 
-  /* Compensate so scaled content still uses full width */
-  .card{
+    /* width compensation (must be in same rule so it doesn't get overwritten) */
     width: calc(100% / 0.95) !important;
-  }
-  /* Remove the "card" constraints that can cause clipping */
-  .card{
-    width: 100% !important;
     max-width: none !important;
+
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
@@ -237,15 +232,13 @@
 
   .content{
     padding: 0 !important;
-    gap: 10mm !important;
+    gap: 6mm !important;
   }
-
-  /* IMPORTANT: stack panels for print so right side isn't cut off */
   .panel-grid{
     grid-template-columns: 1fr !important;
+    gap: 6mm !important;
   }
 
-  /* Give panels a little breathing room, no fancy background */
   .panel{
     padding: 0 !important;
     border: none !important;
@@ -255,15 +248,14 @@
   table{
     width: 100% !important;
     max-width: 100% !important;
-    border: 1px solid #000 !important; /* crisp print */
+    margin-bottom: 0 !important;
+    border: 1px solid #000 !important;
   }
 
-  /* Hide things you don't want on paper */
   .header, .actions, .stepbtn{
     display:none !important;
   }
 
-  /* Inputs print as plain text */
   input{
     border: none !important;
     box-shadow: none !important;
@@ -276,16 +268,11 @@
     font-weight: 700 !important;
   }
 
-  /* Ensure totals row/summary doesn't get awkwardly split */
   .summary{
     break-inside: avoid;
     page-break-inside: avoid;
     border: 1px solid #000 !important;
   }
-/* Remove height offenders */
-  .content{ gap: 6mm !important; }
-  .panel-grid{ gap: 6mm !important; }
-  table{ margin-bottom: 0 !important; }
 }
   </style>
 </head>
