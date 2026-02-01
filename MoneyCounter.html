@@ -215,10 +215,19 @@
     padding:0 !important;
     display:block !important;
   }
+  /* Fit-to-one-page nudge (Safari/Chrome) */
+  .card{
+    transform: scale(0.95);
+    transform-origin: top left;
+  }
 
+  /* Compensate so scaled content still uses full width */
+  .card{
+    width: calc(100% / 0.95) !important;
+  }
   /* Remove the "card" constraints that can cause clipping */
   .card{
-    width: 95% !important;
+    width: 100% !important;
     max-width: none !important;
     border: none !important;
     border-radius: 0 !important;
@@ -244,8 +253,8 @@
   }
 
   table{
-    width: 95% !important;
-    max-width: 95% !important;
+    width: 100% !important;
+    max-width: 100% !important;
     border: 1px solid #000 !important; /* crisp print */
   }
 
@@ -273,6 +282,10 @@
     page-break-inside: avoid;
     border: 1px solid #000 !important;
   }
+/* Remove height offenders */
+  .content{ gap: 6mm !important; }
+  .panel-grid{ gap: 6mm !important; }
+  table{ margin-bottom: 0 !important; }
 }
   </style>
 </head>
