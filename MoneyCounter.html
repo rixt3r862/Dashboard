@@ -203,14 +203,77 @@
     .btn.primary{ background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; }
     .btn.ghost{ background:transparent; color:var(--text); border:1px solid var(--line) }
 
-    @media print{
-      body{ background:#fff; padding:0 }
-      .card{ box-shadow:none; border:none }
-      .header, .actions{ display:none }
-      .content{ padding:0 }
-      .stepbtn{ display:none; }  /* don't print buttons */
-      .numwrap{ gap:0; }
-    }
+@media print{
+  /* Tell the browser to use normal page sizing */
+  @page{
+    size: auto;
+    margin: 12mm;
+  }
+
+  body{
+    background:#fff !important;
+    padding:0 !important;
+    display:block !important;
+  }
+
+  /* Remove the "card" constraints that can cause clipping */
+  .card{
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .content{
+    padding: 0 !important;
+    gap: 10mm !important;
+  }
+
+  /* IMPORTANT: stack panels for print so right side isn't cut off */
+  .panel-grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Give panels a little breathing room, no fancy background */
+  .panel{
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+  }
+
+  table{
+    width: 100% !important;
+    max-width: 100% !important;
+    border: 1px solid #000 !important; /* crisp print */
+  }
+
+  /* Hide things you don't want on paper */
+  .header, .actions, .stepbtn{
+    display:none !important;
+  }
+
+  /* Inputs print as plain text */
+  input{
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    padding: 0 !important;
+  }
+
+  input[readonly]{
+    font-weight: 700 !important;
+  }
+
+  /* Ensure totals row/summary doesn't get awkwardly split */
+  .summary{
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #000 !important;
+  }
+}
   </style>
 </head>
 <body>
