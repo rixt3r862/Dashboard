@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>24h → 12h Time Converter</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 2rem;
+      max-width: 400px;
+    }
+    input {
+      font-size: 1.2rem;
+      padding: 0.5rem;
+      width: 100%;
+    }
+    .output {
+      margin-top: 1rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Time Converter</h2>
+
+  <input
+    type="text"
+    placeholder="17.17 or 2100"
+    oninput="convertTime(this.value)"
+  />
+
+  <div class="output" id="output"></div>
+
+  <script>
+    function convertTime(input) {
+      const output = document.getElementById('output');
+      input = input.trim();
+
+      let hour, minutes;
+
+      // Format: HH.MM
+      if (input.includes('.')) {
+        const parts = input.split('.');
+        if (parts.length !== 2) {
+          output.textContent = 'Invalid time';
+          return;
+        }
+
+        hour = parseInt(parts[0], 10);
+        minutes = parseInt(parts[1], 10);
+
+      // Format: HHMM (4-digit)
+      } else if (/^\d{4}$/.test(input)) {
+        hour = parseInt(input.slice(0, 2), 10);
+        minutes = parseInt(input.slice(2), 10);
+
+      } else {
+        output.textContent = '';
+        return;
+      }
+
+      // Validation
+      if (
+        isNaN(hour) || isNaN(minutes) ||
+        hour < 0 || hour > 23 ||
+        minutes < 0 || minutes > 59
+      ) {
+        output.textContent = 'Invalid time';
+        return;
+      }
+
+      const period = hour >= 12 ? 'PM' : 'AM';
+      hour = hour % 12 || 12;
+
+      output.textContent = `${hour}:${String(minutes).padStart(2, '0')} ${period}`;
+    }
+  </script>
+
+</body>
+</html>
