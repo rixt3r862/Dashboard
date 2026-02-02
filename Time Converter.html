@@ -3,69 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <title>24h → 12h Time Converter</title>
+
   <style>
+    :root {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --accent: #3b82f6;
+      --text: #0f172a;
+      --muted: #64748b;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--card);
       padding: 2rem;
-      max-width: 400px;
+      width: 360px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
     }
+
+    h2 {
+      margin: 0 0 1.2rem;
+      font-size: 1.4rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
     input {
-      font-size: 1.2rem;
-      padding: 0.5rem;
       width: 100%;
+      padding: 0.75rem 0.9rem;
+      font-size: 1.1rem;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      outline: none;
+      transition: border 0.2s, box-shadow 0.2s;
     }
+
+    input::placeholder {
+      color: #9ca3af;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
     .output {
-      margin-top: 1rem;
-      font-size: 1.5rem;
-      font-weight: bold;
+      margin-top: 1.4rem;
+      padding: 0.9rem;
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      border-radius: 12px;
+      background: #f1f5f9;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .output:empty {
+      display: none;
+    }
+
+    .output:hover {
+      background: #e2e8f0;
+    }
+
+    .output:active {
+      transform: scale(0.98);
+    }
+
+    .hint {
+      margin-top: 0.6rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
-  <h2>Time Converter</h2>
+  <div class="card">
+    <h2>Time Converter</h2>
 
-  <input
-    type="text"
-    placeholder="17.17 or 2100"
-    oninput="convertTime(this.value)"
-  />
+    <input
+      type="text"
+      placeholder="17.17 · 17:17 · 1717"
+      oninput="convertTime(this.value)"
+      onkeydown="handleEnter(event)"
+      aria-label="24 hour time input"
+    />
 
-  <div class="output" id="output"></div>
+    <div class="output" id="output" onclick="copyOutput()"></div>
+    <div class="hint">Click the time to copy</div>
+  </div>
 
   <script>
     function convertTime(input) {
       const output = document.getElementById('output');
       input = input.trim();
 
-      let hour, minutes;
+      if (!input) {
+        output.textContent = '';
+        return;
+      }
 
-      // Format: HH.MM
-      if (input.includes('.')) {
+      let hour, minutes, seconds = null;
+
+      if (input.includes(':')) {
+        const parts = input.split(':');
+        if (parts.length < 2 || parts.length > 3) return;
+
+        hour = parseInt(parts[0], 10);
+        minutes = parseInt(parts[1], 10);
+        if (parts[2]) seconds = parseInt(parts[2], 10);
+
+      } else if (input.includes('.')) {
         const parts = input.split('.');
-        if (parts.length !== 2) {
-          output.textContent = 'Invalid time';
-          return;
-        }
+        if (parts.length !== 2) return;
 
         hour = parseInt(parts[0], 10);
         minutes = parseInt(parts[1], 10);
 
-      // Format: HHMM (4-digit)
       } else if (/^\d{4}$/.test(input)) {
         hour = parseInt(input.slice(0, 2), 10);
         minutes = parseInt(input.slice(2), 10);
 
       } else {
-        output.textContent = '';
         return;
       }
 
-      // Validation
       if (
         isNaN(hour) || isNaN(minutes) ||
         hour < 0 || hour > 23 ||
-        minutes < 0 || minutes > 59
+        minutes < 0 || minutes > 59 ||
+        (seconds !== null && (seconds < 0 || seconds > 59))
       ) {
         output.textContent = 'Invalid time';
         return;
@@ -74,7 +161,22 @@
       const period = hour >= 12 ? 'PM' : 'AM';
       hour = hour % 12 || 12;
 
-      output.textContent = `${hour}:${String(minutes).padStart(2, '0')} ${period}`;
+      const mm = String(minutes).padStart(2, '0');
+      const ss = seconds !== null ? `:${String(seconds).padStart(2, '0')}` : '';
+
+      output.textContent = `${hour}:${mm}${ss} ${period}`;
+    }
+
+    function handleEnter(event) {
+      if (event.key === 'Enter') {
+        event.target.blur();
+      }
+    }
+
+    function copyOutput() {
+      const text = document.getElementById('output').textContent;
+      if (!text) return;
+      navigator.clipboard.writeText(text);
     }
   </script>
 
