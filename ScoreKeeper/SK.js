@@ -8,7 +8,7 @@
     phase10: { label: "Phase 10", target: 10, winMode: "high", teams: false, notes: "Tracking phases completed (not points)." },
     skyjo: { label: "SkyJo", target: 100, winMode: "low", teams: false, notes: "Lowest score wins. Negative scores possible." },
     hearts: { label: "Hearts", target: 100, winMode: "low", teams: false, notes: "Lowest score wins. Shooting the moon applies." },
-    spades: { label: "Spades", target: 500, winMode: "high", teams: true, notes: "Partnership game. Scores are tracked per-player and summed by team." }
+    spades: { label: "Spades", target: 500, winMode: "high", teams: true, notes: "Partnership game. Scores are tracked per-player and summed by team." },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -41,6 +41,9 @@
 
     teamPreview: $("teamPreview"),
     teamChips: $("teamChips"),
+    spadesPartner: $("spadesPartner"),
+    // Optional: if your HTML includes this row wrapper, we’ll use it.
+    teamPickerRow: $("teamPickerRow"),
 
     targetPill: $("targetPill"),
     roundPill: $("roundPill"),
@@ -63,56 +66,66 @@
     ariaLive: $("ariaLive"),
   };
 
-  // Basic guard: if the script loads before DOM or IDs don’t match, fail silently (but clearly in console)
-  const required = Object.entries(els).filter(([k, v]) => !v).map(([k]) => k);
+  // Guard (ignore optional teamPickerRow)
+  const required = Object.entries(els)
+    .filter(([k, v]) => k !== "teamPickerRow" && !v)
+    .map(([k]) => k);
   if (required.length) {
     console.error("Scorekeeper: missing required element IDs:", required);
     return;
   }
 
   const state = {
-    mode: "setup",           // setup | playing | finished
+    mode: "setup", // setup | playing | finished
     presetKey: "custom",
     target: 100,
-    winMode: "high",         // high | low
-    players: [],             // { id, name }
-    teams: null,             // null | [{ id, name, members:[playerId]}]
-    rounds: [],              // { n, scores: { [playerId]: number }, ts }
-    lastRoundScores: {},     // for display only
-    winnerId: null,          // playerId or teamId (depending on mode)
+    winMode: "high", // high | low
+    players: [], // { id, name }
+    teams: null, // null | [{ id, name, members:[playerId]}]
+    rounds: [], // { n, scores: { [playerId]: number }, ts }
+    lastRoundScores: {}, // for display only
+    winnerId: null, // playerId or teamId (depending on mode)
     sortByTotal: false,
     savedExists: false,
     bannerDismissed: false,
+
+    // Preset notes: keep visible during setup
+    presetNote: "",
+
+    // Spades partner picker: partner for Player 1 is Player 2|3|4 (default: 2)
+    spadesPartnerIndex: 2,
   };
 
   const uid = () => Math.random().toString(36).slice(2, 10);
 
-  function setLive(text){ els.ariaLive.textContent = text; }
+  function setLive(text) {
+    els.ariaLive.textContent = text;
+  }
 
-  function clampInt(val, min, max){
+  function clampInt(val, min, max) {
     const n = Number.parseInt(val, 10);
     if (Number.isNaN(n)) return min;
     return Math.min(max, Math.max(min, n));
   }
 
-  function showMsg(el, text){
+  function showMsg(el, text) {
     el.textContent = text;
     el.classList.toggle("show", !!text);
   }
 
-  function detectSaved(){
-    try{
+  function detectSaved() {
+    try {
       const raw = localStorage.getItem(STORAGE_KEY);
       state.savedExists = !!raw;
-    }catch{
+    } catch {
       state.savedExists = false;
     }
     els.btnLoadSaved.style.display = state.savedExists ? "inline-flex" : "none";
     els.pillSaved.style.display = state.savedExists ? "inline-flex" : "none";
   }
 
-  function save(){
-    try{
+  function save() {
+    try {
       const payload = {
         mode: state.mode,
         presetKey: state.presetKey,
@@ -123,42 +136,51 @@
         rounds: state.rounds,
         winnerId: state.winnerId,
         sortByTotal: state.sortByTotal,
+        spadesPartnerIndex: state.spadesPartnerIndex,
+        presetNote: state.presetNote,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       detectSaved();
-    }catch{}
+    } catch {}
   }
 
-  function clearSaved(){
-    try{ localStorage.removeItem(STORAGE_KEY); }catch{}
+  function clearSaved() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
     detectSaved();
   }
 
-  function loadSaved(){
-    try{
+  function loadSaved() {
+    try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) return false;
+      if (!raw) return false;
       const payload = JSON.parse(raw);
-      if(!payload || !Array.isArray(payload.players) || !Array.isArray(payload.rounds)) return false;
+      if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.rounds)) return false;
 
-      state.mode = (payload.mode === "playing" || payload.mode === "finished") ? payload.mode : "setup";
+      state.mode = payload.mode === "playing" || payload.mode === "finished" ? payload.mode : "setup";
       state.presetKey = PRESETS[payload.presetKey] ? payload.presetKey : "custom";
       state.target = Number.isFinite(payload.target) ? payload.target : 100;
-      state.winMode = (payload.winMode === "low") ? "low" : "high";
+      state.winMode = payload.winMode === "low" ? "low" : "high";
 
-      state.players = payload.players.map(p => ({ id: String(p.id), name: String(p.name) }));
-      state.teams = Array.isArray(payload.teams) ? payload.teams.map(t => ({
-        id: String(t.id),
-        name: String(t.name),
-        members: Array.isArray(t.members) ? t.members.map(String) : []
-      })) : null;
+      state.players = payload.players.map((p) => ({ id: String(p.id), name: String(p.name) }));
+      state.teams = Array.isArray(payload.teams)
+        ? payload.teams.map((t) => ({
+            id: String(t.id),
+            name: String(t.name),
+            members: Array.isArray(t.members) ? t.members.map(String) : [],
+          }))
+        : null;
 
-      state.rounds = payload.rounds.map(r => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
+      state.rounds = payload.rounds.map((r) => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
       state.winnerId = payload.winnerId || null;
       state.sortByTotal = !!payload.sortByTotal;
 
-      state.lastRoundScores = state.rounds.length ? (state.rounds[state.rounds.length - 1].scores || {}) : {};
+      state.lastRoundScores = state.rounds.length ? state.rounds[state.rounds.length - 1].scores || {} : {};
       state.bannerDismissed = false;
+
+      state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex) ? payload.spadesPartnerIndex : 2;
+      state.presetNote = typeof payload.presetNote === "string" ? payload.presetNote : (PRESETS[state.presetKey]?.notes || "");
 
       els.presetSelect.value = state.presetKey;
       updateWinModeText();
@@ -167,12 +189,12 @@
       renderAll();
       setLive("Saved game loaded.");
       return true;
-    }catch{
+    } catch {
       return false;
     }
   }
 
-  function newGame(){
+  function newGame() {
     state.mode = "setup";
     state.presetKey = "custom";
     state.target = 100;
@@ -184,6 +206,8 @@
     state.winnerId = null;
     state.sortByTotal = false;
     state.bannerDismissed = false;
+    state.presetNote = "";
+    state.spadesPartnerIndex = 2;
 
     els.presetSelect.value = "custom";
     els.playerCount.value = 4;
@@ -200,48 +224,50 @@
     setLive("New game started.");
   }
 
-  function normalizeName(name){ return String(name || "").trim(); }
+  function normalizeName(name) {
+    return String(name || "").trim();
+  }
 
-  function validateSetup(names, target){
-    if(names.length < 2) return "At least 2 players are required.";
-    if(!Number.isInteger(target) || target < 1) return "Target must be a positive whole number.";
-    if(names.some(n => !n)) return "All player names are required.";
-    const lowered = names.map(n => n.toLowerCase());
-    if(new Set(lowered).size !== lowered.length) return "Player names must be unique (case-insensitive).";
+  function validateSetup(names, target) {
+    if (names.length < 2) return "At least 2 players are required.";
+    if (!Number.isInteger(target) || target < 1) return "Target must be a positive whole number.";
+    if (names.some((n) => !n)) return "All player names are required.";
+    const lowered = names.map((n) => n.toLowerCase());
+    if (new Set(lowered).size !== lowered.length) return "Player names must be unique (case-insensitive).";
     return "";
   }
 
-  function currentNameInputs(){
-    return Array.from(document.querySelectorAll("[data-player-name]")).map(inp => normalizeName(inp.value));
+  function currentNameInputs() {
+    return Array.from(document.querySelectorAll("[data-player-name]")).map((inp) => normalizeName(inp.value));
   }
 
-  function updateWinModeText(){
+  function updateWinModeText() {
     els.winModeText.textContent = state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
   }
 
-  function applyPreset(key){
+  function applyPreset(key) {
     const preset = PRESETS[key] || PRESETS.custom;
-    state.presetKey = (key in PRESETS) ? key : "custom";
+    state.presetKey = key in PRESETS ? key : "custom";
 
-    if(Number.isInteger(preset.target)){
+    if (Number.isInteger(preset.target)) {
       els.targetPoints.value = preset.target;
     }
 
     state.winMode = preset.winMode === "low" ? "low" : "high";
     updateWinModeText();
 
-    // Show preset note, but don’t let it “stick” forever if you start typing names
-    showMsg(els.setupMsg, preset.notes || "");
+    state.presetNote = preset.notes || "";
+    showMsg(els.setupMsg, state.presetNote);
 
     maybeRenderTeamPreview();
     updateStartButtonState();
   }
 
-  function renderSetupInputs(){
+  function renderSetupInputs() {
     const raw = String(els.playerCount.value ?? "").trim();
 
     // Allow empty mid-edit without snapping. Keep existing fields; just disable Start.
-    if(raw === ""){
+    if (raw === "") {
       els.btnStart.disabled = true;
       return;
     }
@@ -254,14 +280,14 @@
     const wrap = els.playerNamesWrap;
 
     wrap.innerHTML = "";
-    for(let i=0;i<count;i++){
+    for (let i = 0; i < count; i++) {
       const field = document.createElement("div");
       field.className = "field";
       field.style.minWidth = "180px";
 
       const label = document.createElement("label");
       label.setAttribute("for", `pname_${i}`);
-      label.textContent = `Player ${i+1} name`;
+      label.textContent = `Player ${i + 1} name`;
 
       const input = document.createElement("input");
       input.type = "text";
@@ -273,8 +299,8 @@
 
       input.addEventListener("input", () => {
         updateStartButtonState();
-        // Only clear setup message if it’s not the preset note for the current preset
-        showMsg(els.setupMsg, "");
+        // Keep preset note visible unless validation wants to override
+        showMsg(els.setupMsg, state.presetNote);
       });
 
       field.appendChild(label);
@@ -286,69 +312,117 @@
     maybeRenderTeamPreview();
   }
 
-  function updateStartButtonState(){
+  function updateStartButtonState() {
     const target = clampInt(els.targetPoints.value, 1, 1000000);
     const names = currentNameInputs();
     const msg = validateSetup(names, target);
 
-    // Don’t override real validation messages
-    if(msg){
+    if (msg) {
       els.btnStart.disabled = true;
+      showMsg(els.setupMsg, msg);
       return;
     }
 
     // Spades: show guidance, but do not disable
-    if(state.presetKey === "spades" && names.length !== 4){
-      showMsg(els.setupMsg, "Spades is usually 4 players. You can still start, but teams are only auto-made for 4.");
+    if (state.presetKey === "spades" && names.length !== 4) {
+      showMsg(
+        els.setupMsg,
+        `${state.presetNote ? state.presetNote + " " : ""}Spades is usually 4 players. You can still start, but teams are only auto-made for 4.`,
+      );
+    } else {
+      showMsg(els.setupMsg, state.presetNote);
     }
 
     els.btnStart.disabled = false;
   }
 
-  function buildTeamsIfNeeded(players){
+  function buildTeamsIfNeeded(players) {
     const preset = PRESETS[state.presetKey] || PRESETS.custom;
-    if(!preset.teams) return null;
+    if (!preset.teams) return null;
 
-    // Minimal: auto-build 2 teams for exactly 4 players: 1&3 vs 2&4
-    if(players.length !== 4) return null;
+    // Only build teams for exactly 4 players
+    if (players.length !== 4) return null;
+
+    // Convert partner (2|3|4) -> index (1|2|3)
+    const partnerIdx = Math.min(3, Math.max(1, (state.spadesPartnerIndex ?? 2) - 1));
+
+    const p0 = players[0];
+    const partner = players[partnerIdx];
+
+    // Remaining two players become Team B
+    const remaining = players
+      .map((p, i) => ({ p, i }))
+      .filter((x) => x.i !== 0 && x.i !== partnerIdx)
+      .map((x) => x.p);
 
     return [
-      { id: "teamA", name: "Team A", members: [players[0].id, players[2].id] },
-      { id: "teamB", name: "Team B", members: [players[1].id, players[3].id] },
+      { id: "teamA", name: "Team A", members: [p0.id, partner.id] },
+      { id: "teamB", name: "Team B", members: [remaining[0].id, remaining[1].id] },
     ];
   }
 
-  function maybeRenderTeamPreview(){
+  function maybeRenderTeamPreview() {
     const preset = PRESETS[state.presetKey] || PRESETS.custom;
-    if(!preset.teams){
+
+    if (!preset.teams) {
       els.teamPreview.style.display = "none";
       els.teamChips.innerHTML = "";
+      if (els.teamPickerRow) els.teamPickerRow.style.display = "none";
       return;
     }
 
-    const names = currentNameInputs();
     els.teamPreview.style.display = "block";
 
-    if(names.length !== 4){
-      els.teamChips.innerHTML = `<div class="chip"><strong>Spades:</strong> enter 4 players to auto-build teams</div>`;
+    const names = currentNameInputs();
+
+    // Need 4 players to build teams
+    if (names.length !== 4) {
+      els.teamChips.innerHTML = `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
+      els.spadesPartner.innerHTML = "";
+      els.spadesPartner.disabled = true;
+      if (els.teamPickerRow) els.teamPickerRow.style.display = "none";
       return;
     }
 
-    const a = `${names[0] || "Player 1"} + ${names[2] || "Player 3"}`;
-    const b = `${names[1] || "Player 2"} + ${names[3] || "Player 4"}`;
+    if (els.teamPickerRow) els.teamPickerRow.style.display = "flex";
+    els.spadesPartner.disabled = false;
+
+    // Partner options for Player 1
+    const options = [
+      { val: 2, label: `Player 2 (${names[1] || "Player 2"})` },
+      { val: 3, label: `Player 3 (${names[2] || "Player 3"})` },
+      { val: 4, label: `Player 4 (${names[3] || "Player 4"})` },
+    ];
+
+    const current = [2, 3, 4].includes(state.spadesPartnerIndex) ? state.spadesPartnerIndex : 2;
+
+    els.spadesPartner.innerHTML = options
+      .map((o) => `<option value="${o.val}" ${o.val === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`)
+      .join("");
+
+    // Ensure state matches actual select value (in case DOM coerces)
+    const partnerVal = Number(els.spadesPartner.value) || current;
+    state.spadesPartnerIndex = [2, 3, 4].includes(partnerVal) ? partnerVal : 2;
+
+    const p1 = names[0] || "Player 1";
+    const partnerIdx = state.spadesPartnerIndex - 1;
+
+    const teamA = `${p1} + ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
+    const remaining = [1, 2, 3].filter((i) => i !== partnerIdx);
+    const teamB = `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
 
     els.teamChips.innerHTML = `
-      <div class="chip"><strong>Team A:</strong> ${escapeHtml(a)}</div>
-      <div class="chip"><strong>Team B:</strong> ${escapeHtml(b)}</div>
+      <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
+      <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
     `;
   }
 
-  function startGame(){
+  function startGame() {
     const target = clampInt(els.targetPoints.value, 1, 1000000);
     const names = currentNameInputs();
 
     const msg = validateSetup(names, target);
-    if(msg){
+    if (msg) {
       showMsg(els.setupMsg, msg);
       return;
     }
@@ -356,7 +430,7 @@
     state.mode = "playing";
     state.target = target;
 
-    state.players = names.map(name => ({ id: uid(), name }));
+    state.players = names.map((name) => ({ id: uid(), name }));
     state.teams = buildTeamsIfNeeded(state.players);
 
     state.rounds = [];
@@ -364,7 +438,6 @@
     state.winnerId = null;
     state.bannerDismissed = false;
 
-    // Clean up setup messages when entering play
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
@@ -373,10 +446,10 @@
     setLive("Game started.");
   }
 
-  function totalsByPlayerId(){
-    const totals = Object.fromEntries(state.players.map(p => [p.id, 0]));
-    for(const r of state.rounds){
-      for(const p of state.players){
+  function totalsByPlayerId() {
+    const totals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    for (const r of state.rounds) {
+      for (const p of state.players) {
         const v = Number(r.scores?.[p.id] ?? 0);
         totals[p.id] += Number.isFinite(v) ? v : 0;
       }
@@ -384,57 +457,59 @@
     return totals;
   }
 
-  function totalsByTeamId(playerTotals){
+  function totalsByTeamId(playerTotals) {
     const totals = {};
-    if(!state.teams) return totals;
-    for(const t of state.teams){
+    if (!state.teams) return totals;
+    for (const t of state.teams) {
       totals[t.id] = t.members.reduce((sum, pid) => sum + (playerTotals[pid] ?? 0), 0);
     }
     return totals;
   }
 
-  function leaderIdFromTotals(entries){
+  function leaderIdFromTotals(entries) {
     let best = null;
-    for(const e of entries){
+    for (const e of entries) {
       const t = e.total ?? 0;
-      if(best === null){
+      if (best === null) {
         best = e.id;
         continue;
       }
-      const bestTotal = entries.find(x => x.id === best)?.total ?? 0;
+      const bestTotal = entries.find((x) => x.id === best)?.total ?? 0;
 
-      if(state.winMode === "low"){
-        if(t < bestTotal) best = e.id;
-      }else{
-        if(t > bestTotal) best = e.id;
+      if (state.winMode === "low") {
+        if (t < bestTotal) best = e.id;
+      } else {
+        if (t > bestTotal) best = e.id;
       }
     }
     return best;
   }
 
-  function determineWinnerFromTotals(entries){
-    if(state.winMode === "low"){
-      // For low-score games: declare winner when someone is at or below target
-      const eligible = entries.filter(x => (x.total ?? 0) <= state.target);
-      if(!eligible.length) return null;
-      eligible.sort((a,b) => (a.total ?? 0) - (b.total ?? 0));
-      return eligible[0].id;
-    }else{
-      const eligible = entries.filter(x => (x.total ?? 0) >= state.target);
-      if(!eligible.length) return null;
-      eligible.sort((a,b) => (b.total ?? 0) - (a.total ?? 0));
+  // ✅ FIXED low-score logic:
+  // Low-score games (SkyJo/Hearts): game ends when someone reaches/exceeds target; lowest total wins.
+  // High-score games (Uno/Spades/etc.): game ends when someone reaches/exceeds target; highest total wins.
+  function determineWinnerFromTotals(entries) {
+    if (state.winMode === "low") {
+      const gameOver = entries.some((x) => (x.total ?? 0) >= state.target);
+      if (!gameOver) return null;
+      const sorted = [...entries].sort((a, b) => (a.total ?? 0) - (b.total ?? 0));
+      return sorted[0]?.id ?? null;
+    } else {
+      const eligible = entries.filter((x) => (x.total ?? 0) >= state.target);
+      if (!eligible.length) return null;
+      eligible.sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
       return eligible[0].id;
     }
   }
 
-  function entityName(id){
-    if(state.teams){
-      return state.teams.find(t => t.id === id)?.name ?? "Unknown Team";
+  function entityName(id) {
+    if (state.teams) {
+      return state.teams.find((t) => t.id === id)?.name ?? "Unknown Team";
     }
-    return state.players.find(p => p.id === id)?.name ?? "Unknown";
+    return state.players.find((p) => p.id === id)?.name ?? "Unknown";
   }
 
-  function renderRoundInputs(){
+  function renderRoundInputs() {
     els.roundInputs.innerHTML = "";
 
     for (const p of state.players) {
@@ -454,7 +529,6 @@
       input.step = "1";
       input.value = "0";
 
-      // Select the entire value when tapped/clicked/focused (mobile friendly)
       const selectAll = () => setTimeout(() => input.select(), 0);
       input.addEventListener("focus", selectAll);
       input.addEventListener("click", selectAll);
@@ -464,7 +538,7 @@
 
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
-          const ids = state.players.map(x => x.id);
+          const ids = state.players.map((x) => x.id);
           const lastId = ids[ids.length - 1];
           if (p.id === lastId) {
             e.preventDefault();
@@ -479,12 +553,12 @@
     }
   }
 
-  function readRoundScores(){
+  function readRoundScores() {
     const scores = {};
-    document.querySelectorAll("[data-round-score]").forEach(inp => {
+    document.querySelectorAll("[data-round-score]").forEach((inp) => {
       const id = inp.getAttribute("data-round-score");
       const raw = String(inp.value ?? "").trim();
-      if(raw === ""){
+      if (raw === "") {
         scores[id] = 0;
         return;
       }
@@ -494,20 +568,20 @@
     return scores;
   }
 
-  function clearRoundInputs(){
+  function clearRoundInputs() {
     const inputs = document.querySelectorAll("[data-round-score]");
-    inputs.forEach(inp => inp.value = "0");
+    inputs.forEach((inp) => (inp.value = "0"));
     const first = inputs[0];
-    if(first) first.focus();
+    if (first) first.focus();
   }
 
-  function addRound(){
-    if(state.mode !== "playing") return;
+  function addRound() {
+    if (state.mode !== "playing") return;
 
     const scores = readRoundScores();
-    for(const p of state.players){
+    for (const p of state.players) {
       const v = scores[p.id];
-      if(!Number.isInteger(v)){
+      if (!Number.isInteger(v)) {
         showMsg(els.roundMsg, "Scores must be whole numbers.");
         return;
       }
@@ -521,35 +595,35 @@
     const playerTotals = totalsByPlayerId();
     let entries = [];
 
-    if(state.teams){
+    if (state.teams) {
       const teamTotals = totalsByTeamId(playerTotals);
-      entries = state.teams.map(t => ({ id: t.id, total: teamTotals[t.id] ?? 0 }));
-    }else{
-      entries = state.players.map(p => ({ id: p.id, total: playerTotals[p.id] ?? 0 }));
+      entries = state.teams.map((t) => ({ id: t.id, total: teamTotals[t.id] ?? 0 }));
+    } else {
+      entries = state.players.map((p) => ({ id: p.id, total: playerTotals[p.id] ?? 0 }));
     }
 
     const w = determineWinnerFromTotals(entries);
-    if(w){
+    if (w) {
       state.winnerId = w;
       state.mode = "finished";
       state.bannerDismissed = false;
       setLive(`Winner declared: ${entityName(w)}.`);
-    }else{
+    } else {
       setLive(`Round ${nextN} added.`);
     }
 
     save();
     renderAll();
 
-    if(state.mode === "playing"){
+    if (state.mode === "playing") {
       clearRoundInputs();
     }
   }
 
-  function undoLastRound(){
-    if(state.rounds.length === 0) return;
+  function undoLastRound() {
+    if (state.rounds.length === 0) return;
     state.rounds.pop();
-    state.lastRoundScores = state.rounds.length ? (state.rounds[state.rounds.length - 1].scores || {}) : {};
+    state.lastRoundScores = state.rounds.length ? state.rounds[state.rounds.length - 1].scores || {} : {};
     state.winnerId = null;
     state.mode = state.players.length ? "playing" : "setup";
     state.bannerDismissed = true;
@@ -559,9 +633,8 @@
     setLive("Last round undone.");
   }
 
-  function renderHistoryTable(){
-    // Keep history per-player even in team mode (round entry is per-player)
-    const cols = state.players.map(p => p.id);
+  function renderHistoryTable() {
+    const cols = state.players.map((p) => p.id);
     const tbl = els.historyTable;
     tbl.innerHTML = "";
 
@@ -571,22 +644,22 @@
     th0.textContent = "Round";
     trh.appendChild(th0);
 
-    for(const pid of cols){
+    for (const pid of cols) {
       const th = document.createElement("th");
-      th.textContent = state.players.find(p => p.id === pid)?.name ?? "Player";
+      th.textContent = state.players.find((p) => p.id === pid)?.name ?? "Player";
       trh.appendChild(th);
     }
     thead.appendChild(trh);
     tbl.appendChild(thead);
 
     const tbody = document.createElement("tbody");
-    for(const r of state.rounds){
+    for (const r of state.rounds) {
       const tr = document.createElement("tr");
       const td0 = document.createElement("td");
       td0.textContent = String(r.n);
       tr.appendChild(td0);
 
-      for(const pid of cols){
+      for (const pid of cols) {
         const td = document.createElement("td");
         const v = Number(r.scores?.[pid] ?? 0);
         td.textContent = String(Number.isFinite(v) ? v : 0);
@@ -596,47 +669,45 @@
     }
     tbl.appendChild(tbody);
 
-    els.historySummaryText.textContent = state.rounds.length
-      ? `Round History (${state.rounds.length})`
-      : "Round History (0)";
+    els.historySummaryText.textContent = state.rounds.length ? `Round History (${state.rounds.length})` : "Round History (0)";
   }
 
-  function renderScoreboard(){
+  function renderScoreboard() {
     const playerTotals = totalsByPlayerId();
 
     let entries = [];
     const thisRoundById = {};
 
-    if(state.teams){
+    if (state.teams) {
       const teamTotals = totalsByTeamId(playerTotals);
-      entries = state.teams.map(t => ({ id: t.id, name: t.name, total: teamTotals[t.id] ?? 0 }));
+      entries = state.teams.map((t) => ({ id: t.id, name: t.name, total: teamTotals[t.id] ?? 0 }));
 
-      for(const t of state.teams){
-        thisRoundById[t.id] = t.members.reduce((sum, pid) => sum + (Number(state.lastRoundScores?.[pid] ?? 0)), 0);
+      for (const t of state.teams) {
+        thisRoundById[t.id] = t.members.reduce((sum, pid) => sum + Number(state.lastRoundScores?.[pid] ?? 0), 0);
       }
 
       els.colHeadEntity.textContent = "Team";
-    }else{
-      entries = state.players.map(p => ({ id: p.id, name: p.name, total: playerTotals[p.id] ?? 0 }));
-      for(const p of state.players){
+    } else {
+      entries = state.players.map((p) => ({ id: p.id, name: p.name, total: playerTotals[p.id] ?? 0 }));
+      for (const p of state.players) {
         thisRoundById[p.id] = Number(state.lastRoundScores?.[p.id] ?? 0);
       }
       els.colHeadEntity.textContent = "Player";
     }
 
-    const leader = leaderIdFromTotals(entries.map(e => ({ id: e.id, total: e.total })));
+    const leader = leaderIdFromTotals(entries.map((e) => ({ id: e.id, total: e.total })));
     const winner = state.winnerId;
 
     let entriesToShow = [...entries];
-    if(state.sortByTotal){
-      entriesToShow.sort((a,b) => state.winMode === "low" ? (a.total - b.total) : (b.total - a.total));
+    if (state.sortByTotal) {
+      entriesToShow.sort((a, b) => (state.winMode === "low" ? a.total - b.total : b.total - a.total));
     }
 
     els.scoreboardBody.innerHTML = "";
-    for(const e of entriesToShow){
+    for (const e of entriesToShow) {
       const tr = document.createElement("tr");
-      if(e.id === winner) tr.classList.add("winner");
-      else if(e.id === leader) tr.classList.add("leader");
+      if (e.id === winner) tr.classList.add("winner");
+      else if (e.id === leader) tr.classList.add("leader");
 
       const tdName = document.createElement("td");
       tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div>`;
@@ -656,31 +727,35 @@
     renderHistoryTable();
   }
 
-  function renderWinnerBanner(){
+  function renderWinnerBanner() {
     const playerTotals = totalsByPlayerId();
     let winnerTotal = 0;
 
-    if(state.winnerId){
-      if(state.teams){
+    if (state.winnerId) {
+      if (state.teams) {
         const teamTotals = totalsByTeamId(playerTotals);
         winnerTotal = teamTotals[state.winnerId] ?? 0;
-      }else{
+      } else {
         winnerTotal = playerTotals[state.winnerId] ?? 0;
       }
     }
 
-    if(state.mode === "finished" && state.winnerId && !state.bannerDismissed){
+    if (state.mode === "finished" && state.winnerId && !state.bannerDismissed) {
       const name = entityName(state.winnerId);
       els.winnerText.textContent = `Winner: ${name} (${winnerTotal})`;
+
       els.winnerSub.textContent =
-        `Target was ${state.target}. (${state.winMode === "low" ? "At or below target wins" : "At or above target wins"})`;
+        state.winMode === "low"
+          ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
+          : `Target was ${state.target}. First to reach the target wins.`;
+
       els.winnerBanner.classList.add("show");
-    }else{
+    } else {
       els.winnerBanner.classList.remove("show");
     }
   }
 
-  function renderMode(){
+  function renderMode() {
     const playing = state.mode === "playing" || state.mode === "finished";
 
     els.setupPanel.style.display = playing ? "none" : "block";
@@ -698,49 +773,38 @@
     els.targetPill.textContent = String(state.target);
     els.roundPill.textContent = String(state.rounds.length + 1);
 
-    const statusText = state.mode === "setup" ? "Setup" : (state.mode === "playing" ? "Playing" : "Finished");
+    const statusText = state.mode === "setup" ? "Setup" : state.mode === "playing" ? "Playing" : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
-    if(playing && els.roundInputs.childElementCount === 0){
+    if (playing && els.roundInputs.childElementCount === 0) {
       renderRoundInputs();
     }
 
     renderWinnerBanner();
   }
 
-  function renderAll(){
+  function renderAll() {
     renderMode();
-    if(state.players.length){
+    if (state.players.length) {
       renderScoreboard();
     }
-    if(state.mode === "setup"){
+    if (state.mode === "setup") {
       updateStartButtonState();
     }
   }
 
-  function escapeHtml(str){
-    return String(str).replace(/[&<>"']/g, s => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
-    }[s]));
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (s) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
   }
 
   // Events
   els.presetSelect.addEventListener("change", (e) => applyPreset(e.target.value));
 
-  // Only normalize the playerCount after commit (change/blur), not mid-typing
-  els.playerCount.addEventListener("change", () => {
-    renderSetupInputs();
-    showMsg(els.setupMsg, "");
-  });
-  els.playerCount.addEventListener("blur", () => {
-    renderSetupInputs();
-    showMsg(els.setupMsg, "");
-  });
+  // Normalize playerCount only after commit (change/blur), not mid-typing
+  els.playerCount.addEventListener("change", () => renderSetupInputs());
+  els.playerCount.addEventListener("blur", () => renderSetupInputs());
 
-  els.targetPoints.addEventListener("input", () => {
-    updateStartButtonState();
-    showMsg(els.setupMsg, "");
-  });
+  els.targetPoints.addEventListener("input", () => updateStartButtonState());
 
   els.btnStart.addEventListener("click", startGame);
   els.btnAddRound.addEventListener("click", addRound);
@@ -777,10 +841,16 @@
 
   els.btnLoadSaved.addEventListener("click", () => {
     const ok = loadSaved();
-    if(!ok){
+    if (!ok) {
       showMsg(els.setupMsg, "No valid saved game found.");
       clearSaved();
     }
+  });
+
+  els.spadesPartner.addEventListener("change", () => {
+    state.spadesPartnerIndex = Number(els.spadesPartner.value) || 2;
+    maybeRenderTeamPreview();
+    save();
   });
 
   // Boot
@@ -790,19 +860,19 @@
   maybeRenderTeamPreview();
 
   // Auto-load if saved game is playing/finished
-  try{
+  try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
+    if (raw) {
       const payload = JSON.parse(raw);
-      if(payload && (payload.mode === "playing" || payload.mode === "finished")){
+      if (payload && (payload.mode === "playing" || payload.mode === "finished")) {
         loadSaved();
-      }else{
+      } else {
         renderAll();
       }
-    }else{
+    } else {
       renderAll();
     }
-  }catch{
+  } catch {
     renderAll();
   }
 })();

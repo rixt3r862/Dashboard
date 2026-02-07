@@ -1,156 +1,239 @@
 <!-- ScoreKeeper.html -->
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Card Game Score Keeper</title>
-  <link rel="stylesheet" href="./SK.css" />
-  <script src="./SK.js" defer></script>
-</head>
-<body>
-  <div class="wrap">
-    <header>
-      <div class="title">
-        <h1>Score Keeper</h1>
-        <div class="sub">One page. Fast setup. Round-by-round scoring with an automatic winner.</div>
-      </div>
-      <div class="top-actions">
-        <button class="btn danger" id="btnNewGame" type="button" title="Start over">New Game</button>
-        <span class="pill" id="pillStatus"><strong>Status:</strong> Setup</span>
-        <span class="pill" id="pillSaved" style="display:none;"><strong>Saved:</strong> Yes</span>
-      </div>
-    </header>
-
-    <div class="banner" id="winnerBanner" role="status" aria-live="polite">
-      <div class="big" id="winnerText">Winner: </div>
-      <div class="small" id="winnerSub">Target reached.</div>
-      <div class="actions">
-        <button class="btn primary" id="btnNewGame2" type="button">New Game</button>
-        <button class="btn" id="btnKeepGoing" type="button">Keep tracking</button>
-      </div>
-    </div>
-
-    <div class="grid">
-      <section class="card" id="leftCard">
-        <h2 id="leftTitle">Game Setup</h2>
-
-        <div id="setupPanel">
-          <div class="row">
-            <div class="field" style="max-width: 260px;">
-              <label for="presetSelect">Game preset</label>
-              <select id="presetSelect">
-                <option value="custom">Custom</option>
-                <option value="uno">Uno</option>
-                <option value="phase10">Phase 10</option>
-                <option value="skyjo">SkyJo</option>
-                <option value="hearts">Hearts</option>
-                <option value="spades">Spades</option>
-              </select>
-            </div>
-
-            <div class="field" style="max-width: 200px;">
-              <label for="playerCount">Number of players</label>
-              <input id="playerCount" type="number" inputmode="numeric" min="2" max="12" value="4" />
-            </div>
-
-            <div class="field" style="max-width: 220px;">
-              <label for="targetPoints">Target</label>
-              <input id="targetPoints" type="number" inputmode="numeric" min="1" value="100" />
-            </div>
-          </div>
-
-          <div class="muted" style="margin-top:8px;">
-            Win mode: <strong id="winModeText">Highest score wins</strong>
-          </div>
-
-          <div class="hr"></div>
-
-          <div id="playerNamesWrap" class="row" aria-label="Player names"></div>
-
-          <div class="hr"></div>
-
-          <!-- Team preview (Spades only) -->
-          <div id="teamPreview" style="display:none;">
-            <div class="muted">Teams (Spades):</div>
-            <div class="chips" id="teamChips"></div>
-            <div class="muted" style="margin-top:6px;">
-              Currently pairs 1&3 vs 2&4. (We can add a picker later.)
-            </div>
-            <div class="hr"></div>
-          </div>
-
-          <div class="row">
-            <button class="btn primary" id="btnStart" type="button" disabled>Start Game</button>
-            <button class="btn" id="btnLoadSaved" type="button" style="display:none;">Load Saved Game</button>
-          </div>
-
-          <div class="msg" id="setupMsg"></div>
-          <div class="muted" style="margin-top:10px;">
-            Notes: Names must be unique. Scores default to 0 if left blank. Negative scores are allowed.
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>Card Game Score Keeper</title>
+    <link rel="stylesheet" href="./SK.css" />
+    <script src="./SK.js" defer></script>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="title">
+          <h1>Score Keeper</h1>
+          <div class="sub">
+            One page. Fast setup. Round-by-round scoring with an automatic
+            winner.
           </div>
         </div>
-
-        <div id="roundPanel" style="display:none;">
-          <div class="row" style="justify-content:space-between;">
-            <div class="pill"><strong>Target:</strong> <span id="targetPill">0</span></div>
-            <div class="pill"><strong>Round:</strong> <span id="roundPill">1</span></div>
-          </div>
-
-          <div class="hr"></div>
-
-          <div id="roundInputs" class="row" aria-label="Round scores"></div>
-
-          <div class="hr"></div>
-
-          <div class="row">
-            <button class="btn primary" id="btnAddRound" type="button">Add Round</button>
-            <button class="btn" id="btnUndo" type="button" disabled>Undo Last Round</button>
-          </div>
-
-          <div class="msg" id="roundMsg"></div>
+        <div class="top-actions">
+          <button
+            class="btn danger"
+            id="btnNewGame"
+            type="button"
+            title="Start over"
+          >
+            New Game
+          </button>
+          <span class="pill" id="pillStatus"
+            ><strong>Status:</strong> Setup</span
+          >
+          <span class="pill" id="pillSaved" style="display: none"
+            ><strong>Saved:</strong> Yes</span
+          >
         </div>
-      </section>
+      </header>
 
-      <section class="card">
-        <div class="scoreboard-head">
-          <h2 style="margin:0;">Scoreboard</h2>
-          <div class="row" style="justify-content:flex-end;">
-            <button class="btn" id="btnToggleSort" type="button" disabled title="Toggle sorting by score">Sort: Off</button>
-          </div>
+      <div class="banner" id="winnerBanner" role="status" aria-live="polite">
+        <div class="big" id="winnerText">Winner:</div>
+        <div class="small" id="winnerSub">Target reached.</div>
+        <div class="actions">
+          <button class="btn primary" id="btnNewGame2" type="button">
+            New Game
+          </button>
+          <button class="btn" id="btnKeepGoing" type="button">
+            Keep tracking
+          </button>
         </div>
+      </div>
 
-        <div id="scoreboardEmpty" class="muted">Set up a game to see the scoreboard.</div>
+      <div class="grid">
+        <section class="card" id="leftCard">
+          <h2 id="leftTitle">Game Setup</h2>
 
-        <div id="scoreboardArea" style="display:none;">
-          <table aria-label="Running totals">
-            <thead>
-              <tr>
-                <th style="width:48%;" id="colHeadEntity">Player</th>
-                <th style="width:26%;">Total</th>
-                <th style="width:26%;">This round</th>
-              </tr>
-            </thead>
-            <tbody id="scoreboardBody"></tbody>
-          </table>
-
-          <div style="margin-top: 12px;">
-            <details id="historyDetails">
-              <summary><span id="historySummaryText">Round History</span></summary>
-              <div class="history-wrap" style="margin-top:10px;">
-                <table class="history-table" aria-label="Round history" id="historyTable"></table>
+          <div id="setupPanel">
+            <div class="row">
+              <div class="field" style="max-width: 260px">
+                <label for="presetSelect">Game preset</label>
+                <select id="presetSelect">
+                  <option value="custom">Custom</option>
+                  <option value="uno">Uno</option>
+                  <option value="phase10">Phase 10</option>
+                  <option value="skyjo">SkyJo</option>
+                  <option value="hearts">Hearts</option>
+                  <option value="spades">Spades</option>
+                </select>
               </div>
-            </details>
+
+              <div class="field" style="max-width: 200px">
+                <label for="playerCount">Number of players</label>
+                <input
+                  id="playerCount"
+                  type="number"
+                  inputmode="numeric"
+                  min="2"
+                  max="12"
+                  value="4"
+                />
+              </div>
+
+              <div class="field" style="max-width: 220px">
+                <label for="targetPoints">Target</label>
+                <input
+                  id="targetPoints"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  value="100"
+                />
+              </div>
+            </div>
+
+            <div class="muted" style="margin-top: 8px">
+              Win mode: <strong id="winModeText">Highest score wins</strong>
+            </div>
+
+            <div class="hr"></div>
+
+            <div
+              id="playerNamesWrap"
+              class="row"
+              aria-label="Player names"
+            ></div>
+
+            <div class="hr"></div>
+
+            <!-- Team preview (Spades only) -->
+            <div id="teamPreview" style="display: none">
+              <div class="muted">Teams (Spades):</div>
+
+              <!-- Team picker -->
+              <div class="row" style="margin-top: 8px" id="teamPickerRow">
+                <div class="field" style="max-width: 320px">
+                  <label for="spadesPartner">Player 1 partner</label>
+                  <select id="spadesPartner"></select>
+                </div>
+              </div>
+
+              <div class="chips" id="teamChips"></div>
+
+              <div class="muted" style="margin-top: 6px">
+                Tip: Pick Player 1’s partner, and we’ll auto-form the other
+                team.
+              </div>
+              <div class="hr"></div>
+            </div>
+
+            <div class="row">
+              <button class="btn primary" id="btnStart" type="button" disabled>
+                Start Game
+              </button>
+              <button
+                class="btn"
+                id="btnLoadSaved"
+                type="button"
+                style="display: none"
+              >
+                Load Saved Game
+              </button>
+            </div>
+
+            <div class="msg" id="setupMsg"></div>
+            <div class="muted" style="margin-top: 10px">
+              Notes: Names must be unique. Scores default to 0 if left blank.
+              Negative scores are allowed.
+            </div>
           </div>
 
-          <div class="muted" style="margin-top:10px;">
-            Tip: Press Enter in the last score field to add the round.
+          <div id="roundPanel" style="display: none">
+            <div class="row" style="justify-content: space-between">
+              <div class="pill">
+                <strong>Target:</strong> <span id="targetPill">0</span>
+              </div>
+              <div class="pill">
+                <strong>Round:</strong> <span id="roundPill">1</span>
+              </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <div id="roundInputs" class="row" aria-label="Round scores"></div>
+
+            <div class="hr"></div>
+
+            <div class="row">
+              <button class="btn primary" id="btnAddRound" type="button">
+                Add Round
+              </button>
+              <button class="btn" id="btnUndo" type="button" disabled>
+                Undo Last Round
+              </button>
+            </div>
+
+            <div class="msg" id="roundMsg"></div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section class="card">
+          <div class="scoreboard-head">
+            <h2 style="margin: 0">Scoreboard</h2>
+            <div class="row" style="justify-content: flex-end">
+              <button
+                class="btn"
+                id="btnToggleSort"
+                type="button"
+                disabled
+                title="Toggle sorting by score"
+              >
+                Sort: Off
+              </button>
+            </div>
+          </div>
+
+          <div id="scoreboardEmpty" class="muted">
+            Set up a game to see the scoreboard.
+          </div>
+
+          <div id="scoreboardArea" style="display: none">
+            <table aria-label="Running totals">
+              <thead>
+                <tr>
+                  <th style="width: 48%" id="colHeadEntity">Player</th>
+                  <th style="width: 26%">Total</th>
+                  <th style="width: 26%">This round</th>
+                </tr>
+              </thead>
+              <tbody id="scoreboardBody"></tbody>
+            </table>
+
+            <div style="margin-top: 12px">
+              <details id="historyDetails">
+                <summary>
+                  <span id="historySummaryText">Round History</span>
+                </summary>
+                <div class="history-wrap" style="margin-top: 10px">
+                  <table
+                    class="history-table"
+                    aria-label="Round history"
+                    id="historyTable"
+                  ></table>
+                </div>
+              </details>
+            </div>
+
+            <div class="muted" style="margin-top: 10px">
+              Tip: Press Enter in the last score field to add the round.
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <p class="sr-only" id="ariaLive" aria-live="polite"></p>
     </div>
-
-    <p class="sr-only" id="ariaLive" aria-live="polite"></p>
-  </div>
-</body>
+  </body>
 </html>
