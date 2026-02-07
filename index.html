@@ -7,25 +7,74 @@
     <!-- Tailwind via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="color-scheme" content="dark light" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧰</text></svg>">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧰</text></svg>"
+    />
     <style>
       /* smooth hover + focus */
-      .card { transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
-      .card:focus-visible { outline: 3px solid rgba(59,130,246,.6); outline-offset: 3px; }
-      .glass { backdrop-filter: blur(8px); background: color-mix(in oklab, var(--tw-bg-opacity,1) currentColor 0%, transparent 100%); }
+      .card {
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.15s ease,
+          background-color 0.15s ease;
+      }
+      .card:focus-visible {
+        outline: 3px solid rgba(59, 130, 246, 0.6);
+        outline-offset: 3px;
+      }
+      .glass {
+        backdrop-filter: blur(8px);
+        background: color-mix(
+          in oklab,
+          var(--tw-bg-opacity, 1) currentColor 0%,
+          transparent 100%
+        );
+      }
     </style>
   </head>
-  <body class="min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 selection:bg-indigo-200/60 dark:selection:bg-indigo-400/30">
+  <body
+    class="min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 selection:bg-indigo-200/60 dark:selection:bg-indigo-400/30"
+  >
     <script>
       /* ---------- EDITABLE BOOKMARKS ----------
        * Add/edit your default links here.
        * Tip: If your apps live next to this file, use relative paths like "./money.html".
        */
       const LINKS = [
-        { name: "Money Counter", url: "./MoneyCounter.html", icon: "💵", desc: "Cash counter utility" },
-        { name: "Clock",         url: "./clock.html", icon: "⏰", desc: "Time & display clock" },
-        { name: "Timer",         url: "./Timer.html", icon: "⏳", desc: "Countdown timer" },
+        {
+          name: "Money Counter",
+          url: "./MoneyCounter.html",
+          icon: "💵",
+          desc: "Cash counter utility",
+        },
+        {
+          name: "Clock",
+          url: "./clock.html",
+          icon: "⏰",
+          desc: "Time & display clock",
+        },
+        {
+          name: "Timer",
+          url: "./Timer.html",
+          icon: "⏳",
+          desc: "Countdown timer",
+        },
+
+        {
+          name: "Time Converter",
+          url: "./Time Converter.html",
+          icon: "🕒",
+          desc: "24h ↔ 12h time converter",
+        },
+        {
+          name: "ScoreKeeper",
+          url: "./ScoreKeeper/app.html",
+          icon: "📊",
+          desc: "Game score tracking utility",
+        },
       ];
+
       /* Anything added via the “Add Link” button is stored in localStorage
          and merged with the array above so you can add stuff without editing code. */
     </script>
@@ -33,16 +82,27 @@
     <!-- Header -->
     <header class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
       <div class="flex items-center gap-4 justify-between">
-        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight flex items-center gap-3">
-          <span class="rounded-2xl p-2 text-xl sm:text-2xl bg-indigo-100 dark:bg-indigo-900/40">🧰</span>
+        <h1
+          class="text-2xl sm:text-3xl font-semibold tracking-tight flex items-center gap-3"
+        >
+          <span
+            class="rounded-2xl p-2 text-xl sm:text-2xl bg-indigo-100 dark:bg-indigo-900/40"
+            >🧰</span
+          >
           Rick’s Utility Dashboard
         </h1>
         <div class="flex items-center gap-2">
-          <button id="themeToggle" class="rounded-xl border border-zinc-300/70 dark:border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  title="Toggle dark mode (⌘/Ctrl + J)">
+          <button
+            id="themeToggle"
+            class="rounded-xl border border-zinc-300/70 dark:border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            title="Toggle dark mode (⌘/Ctrl + J)"
+          >
             Toggle Theme
           </button>
-          <button id="addLinkBtn" class="rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-500">
+          <button
+            id="addLinkBtn"
+            class="rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-500"
+          >
             + Add Link
           </button>
         </div>
@@ -51,32 +111,59 @@
       <!-- Search -->
       <div class="mt-4">
         <label class="sr-only" for="search">Search links</label>
-        <input id="search" type="search" placeholder="Search…"
-               class="w-full rounded-2xl border border-zinc-300/70 dark:border-zinc-700 bg-white/70 dark:bg-zinc-900/60 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
-               autocomplete="off" />
+        <input
+          id="search"
+          type="search"
+          placeholder="Search…"
+          class="w-full rounded-2xl border border-zinc-300/70 dark:border-zinc-700 bg-white/70 dark:bg-zinc-900/60 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          autocomplete="off"
+        />
       </div>
     </header>
 
     <!-- Grid -->
     <main class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-      <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
-      <p id="emptyState" class="hidden mt-8 text-center text-zinc-500">No links match your search.</p>
+      <div
+        id="grid"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
+      ></div>
+      <p id="emptyState" class="hidden mt-8 text-center text-zinc-500">
+        No links match your search.
+      </p>
     </main>
 
     <template id="cardTemplate">
-      <a class="card group block rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 hover:-translate-y-0.5 hover:shadow-lg p-4 sm:p-5 focus-visible:ring-0"
-         target="_self" rel="noopener">
+      <a
+        class="card group block rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 hover:-translate-y-0.5 hover:shadow-lg p-4 sm:p-5 focus-visible:ring-0"
+        target="_self"
+        rel="noopener"
+      >
         <div class="flex items-start gap-4">
           <div class="text-3xl shrink-0 leading-none">🔗</div>
           <div class="min-w-0">
             <div class="flex items-center gap-2">
               <h2 class="truncate font-medium text-lg"></h2>
-              <svg class="size-4 opacity-60 group-hover:opacity-100" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M10 6h8m0 0v8m0-8L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg
+                class="size-4 opacity-60 group-hover:opacity-100"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M10 6h8m0 0v8m0-8L6 18"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </div>
-            <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2"></p>
-            <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 break-all"></p>
+            <p
+              class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2"
+            ></p>
+            <p
+              class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 break-all"
+            ></p>
           </div>
         </div>
       </a>
@@ -87,11 +174,19 @@
       (function initTheme() {
         const key = "dash.theme";
         const userPref = localStorage.getItem(key);
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        if (userPref ? userPref === "dark" : prefersDark) document.documentElement.classList.add("dark");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        if (userPref ? userPref === "dark" : prefersDark)
+          document.documentElement.classList.add("dark");
         document.getElementById("themeToggle").addEventListener("click", () => {
           document.documentElement.classList.toggle("dark");
-          localStorage.setItem(key, document.documentElement.classList.contains("dark") ? "dark" : "light");
+          localStorage.setItem(
+            key,
+            document.documentElement.classList.contains("dark")
+              ? "dark"
+              : "light",
+          );
         });
         // Ctrl/Cmd + J to toggle theme
         window.addEventListener("keydown", (e) => {
@@ -105,8 +200,11 @@
       // ---- Data: merge defaults + user-added
       const STORAGE_KEY = "dash.userLinks";
       function getUserLinks() {
-        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-        catch { return []; }
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        } catch {
+          return [];
+        }
       }
       function saveUserLinks(arr) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
@@ -122,8 +220,12 @@
         const tpl = document.getElementById("cardTemplate");
         grid.innerHTML = "";
         const f = filter.trim().toLowerCase();
-        const list = allLinks().filter(l =>
-          !f || l.name.toLowerCase().includes(f) || l.url.toLowerCase().includes(f) || (l.desc||"").toLowerCase().includes(f)
+        const list = allLinks().filter(
+          (l) =>
+            !f ||
+            l.name.toLowerCase().includes(f) ||
+            l.url.toLowerCase().includes(f) ||
+            (l.desc || "").toLowerCase().includes(f),
         );
         if (list.length === 0) {
           empty.classList.remove("hidden");
@@ -147,31 +249,52 @@
       search.addEventListener("input", () => render(search.value));
 
       // ---- Add Link (stores to localStorage)
-      document.getElementById("addLinkBtn").addEventListener("click", async () => {
-        const name = prompt("Link name (e.g., 'Router Admin'):"); if (!name) return;
-        const url = prompt("URL or path (e.g., 'http://192.168.1.1' or './router.html'):"); if (!url) return;
-        const icon = prompt("Icon (emoji optional, e.g., '🛠️'). Leave blank for default:") || "🔗";
-        const desc = prompt("Short description (optional):") || "";
-        const current = getUserLinks();
-        current.push({ name, url, icon, desc });
-        saveUserLinks(current);
-        render(search.value);
-      });
+      document
+        .getElementById("addLinkBtn")
+        .addEventListener("click", async () => {
+          const name = prompt("Link name (e.g., 'Router Admin'):");
+          if (!name) return;
+          const url = prompt(
+            "URL or path (e.g., 'http://192.168.1.1' or './router.html'):",
+          );
+          if (!url) return;
+          const icon =
+            prompt(
+              "Icon (emoji optional, e.g., '🛠️'). Leave blank for default:",
+            ) || "🔗";
+          const desc = prompt("Short description (optional):") || "";
+          const current = getUserLinks();
+          current.push({ name, url, icon, desc });
+          saveUserLinks(current);
+          render(search.value);
+        });
 
       // Optional: open with Enter when search has an exact match
       search.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           const f = search.value.trim().toLowerCase();
           if (!f) return;
-          const list = allLinks().filter(l => l.name.toLowerCase() === f);
+          const list = allLinks().filter((l) => l.name.toLowerCase() === f);
           if (list[0]) window.location.assign(list[0].url);
         }
       });
     </script>
 
     <!-- Footer -->
-    <footer class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-8 text-center text-xs text-zinc-500">
-      Press <kbd class="px-1.5 py-0.5 rounded border border-zinc-300/70 dark:border-zinc-700">⌘/Ctrl</kbd> + <kbd class="px-1.5 py-0.5 rounded border border-zinc-300/70 dark:border-zinc-700">J</kbd> to toggle theme · Use the “+ Add Link” button to grow your hub
+    <footer
+      class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-8 text-center text-xs text-zinc-500"
+    >
+      Press
+      <kbd
+        class="px-1.5 py-0.5 rounded border border-zinc-300/70 dark:border-zinc-700"
+        >⌘/Ctrl</kbd
+      >
+      +
+      <kbd
+        class="px-1.5 py-0.5 rounded border border-zinc-300/70 dark:border-zinc-700"
+        >J</kbd
+      >
+      to toggle theme · Use the “+ Add Link” button to grow your hub
     </footer>
   </body>
 </html>
