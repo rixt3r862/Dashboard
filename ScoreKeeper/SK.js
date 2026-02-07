@@ -42,10 +42,8 @@
     teamPreview: $("teamPreview"),
     teamChips: $("teamChips"),
     spadesPartner: $("spadesPartner"),
-    // Optional: if your HTML includes this row wrapper, we’ll use it.
-    teamPickerRow: $("teamPickerRow"),
-    spadesPartnerLabel: $("spadesPartnerLabel"),
-
+    teamPickerRow: $("teamPickerRow"),          // optional
+    spadesPartnerLabel: $("spadesPartnerLabel"),// label in your HTML
 
     targetPill: $("targetPill"),
     roundPill: $("roundPill"),
@@ -70,7 +68,7 @@
 
   // Guard (ignore optional teamPickerRow)
   const required = Object.entries(els)
-    .filter(([k, v]) => !["teamPickerRow", "spadesPartnerLabel"].includes(k) && !v)
+    .filter(([k, v]) => k !== "teamPickerRow" && !v)
     .map(([k]) => k);
   if (required.length) {
     console.error("Scorekeeper: missing required element IDs:", required);
@@ -91,11 +89,8 @@
     savedExists: false,
     bannerDismissed: false,
 
-    // Preset notes: keep visible during setup
     presetNote: "",
-
-    // Spades partner picker: partner for Player 1 is Player 2|3|4 (default: 2)
-    spadesPartnerIndex: 2,
+    spadesPartnerIndex: 2, // partner for Player 1 = 2|3|4
   };
 
   const uid = () => Math.random().toString(36).slice(2, 10);
@@ -143,13 +138,13 @@
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       detectSaved();
-    } catch { }
+    } catch {}
   }
 
   function clearSaved() {
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch { }
+    } catch {}
     detectSaved();
   }
 
@@ -168,10 +163,10 @@
       state.players = payload.players.map((p) => ({ id: String(p.id), name: String(p.name) }));
       state.teams = Array.isArray(payload.teams)
         ? payload.teams.map((t) => ({
-          id: String(t.id),
-          name: String(t.name),
-          members: Array.isArray(t.members) ? t.members.map(String) : [],
-        }))
+            id: String(t.id),
+            name: String(t.name),
+            members: Array.isArray(t.members) ? t.members.map(String) : [],
+          }))
         : null;
 
       state.rounds = payload.rounds.map((r) => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
@@ -183,6 +178,9 @@
 
       state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex) ? payload.spadesPartnerIndex : 2;
       state.presetNote = typeof payload.presetNote === "string" ? payload.presetNote : (PRESETS[state.presetKey]?.notes || "");
+
+      // IMPORTANT: force round inputs to rebuild for the loaded player IDs
+      els.roundInputs.innerHTML = "";
 
       els.presetSelect.value = state.presetKey;
       updateWinModeText();
@@ -210,6 +208,9 @@
     state.bannerDismissed = false;
     state.presetNote = "";
     state.spadesPartnerIndex = 2;
+
+    // IMPORTANT: clear old round inputs so they never “stick”
+    els.roundInputs.innerHTML = "";
 
     els.presetSelect.value = "custom";
     els.playerCount.value = 4;
@@ -268,7 +269,6 @@
   function renderSetupInputs() {
     const raw = String(els.playerCount.value ?? "").trim();
 
-    // Allow empty mid-edit without snapping. Keep existing fields; just disable Start.
     if (raw === "") {
       els.btnStart.disabled = true;
       return;
@@ -301,10 +301,10 @@
 
       input.addEventListener("input", () => {
         updateStartButtonState();
-        maybeRenderTeamPreview(); // ✅ update partner label/options live
         showMsg(els.setupMsg, state.presetNote);
+        // live-update spades label/options as you type names
+        maybeRenderTeamPreview();
       });
-
 
       field.appendChild(label);
       field.appendChild(input);
@@ -326,7 +326,6 @@
       return;
     }
 
-    // Spades: show guidance, but do not disable
     if (state.presetKey === "spades" && names.length !== 4) {
       showMsg(
         els.setupMsg,
@@ -342,17 +341,12 @@
   function buildTeamsIfNeeded(players) {
     const preset = PRESETS[state.presetKey] || PRESETS.custom;
     if (!preset.teams) return null;
-
-    // Only build teams for exactly 4 players
     if (players.length !== 4) return null;
 
-    // Convert partner (2|3|4) -> index (1|2|3)
     const partnerIdx = Math.min(3, Math.max(1, (state.spadesPartnerIndex ?? 2) - 1));
-
     const p0 = players[0];
     const partner = players[partnerIdx];
 
-    // Remaining two players become Team B
     const remaining = players
       .map((p, i) => ({ p, i }))
       .filter((x) => x.i !== 0 && x.i !== partnerIdx)
@@ -367,7 +361,6 @@
   function maybeRenderTeamPreview() {
     const preset = PRESETS[state.presetKey] || PRESETS.custom;
 
-    // Not a teams preset: hide everything and reset spades UI bits
     if (!preset.teams) {
       els.teamPreview.style.display = "none";
       els.teamChips.innerHTML = "";
@@ -378,19 +371,14 @@
       return;
     }
 
-    // Teams preset (Spades): show the block
     els.teamPreview.style.display = "block";
 
-    const names = currentNameInputs(); // live input values
-
-    // Update the label live based on Player 1's name (if available)
+    const names = currentNameInputs();
     const p1Name = names[0] || "Player 1";
     if (els.spadesPartnerLabel) els.spadesPartnerLabel.textContent = `Partner for ${p1Name}`;
 
-    // Need exactly 4 players for partner picking + teams
     if (names.length !== 4) {
-      els.teamChips.innerHTML =
-        `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
+      els.teamChips.innerHTML = `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
       els.spadesPartner.innerHTML = "";
       els.spadesPartner.disabled = true;
       if (els.teamPickerRow) els.teamPickerRow.style.display = "none";
@@ -400,9 +388,7 @@
     if (els.teamPickerRow) els.teamPickerRow.style.display = "flex";
     els.spadesPartner.disabled = false;
 
-    // Preserve selection if still valid
     const current = [2, 3, 4].includes(state.spadesPartnerIndex) ? state.spadesPartnerIndex : 2;
-
     const optName = (i) => (names[i] ? names[i] : `Player ${i + 1}`);
     const options = [
       { val: 2, label: `Player 2 (${optName(1)})` },
@@ -414,22 +400,18 @@
       .map((o) => `<option value="${o.val}" ${o.val === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`)
       .join("");
 
-    // Sync state with the actual select value
     const partnerVal = Number(els.spadesPartner.value) || current;
     state.spadesPartnerIndex = [2, 3, 4].includes(partnerVal) ? partnerVal : 2;
 
-    // Compute teams based on selection
     const partnerIdx = state.spadesPartnerIndex - 1;
-
     const teamA = `${p1Name} + ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
     const remaining = [1, 2, 3].filter((i) => i !== partnerIdx);
-    const teamB =
-      `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
+    const teamB = `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
 
     els.teamChips.innerHTML = `
-    <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
-    <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
-  `;
+      <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
+      <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
+    `;
   }
 
   function startGame() {
@@ -455,6 +437,9 @@
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
+
+    // IMPORTANT: force fresh inputs for fresh player IDs
+    els.roundInputs.innerHTML = "";
 
     save();
     renderAll();
@@ -500,9 +485,8 @@
     return best;
   }
 
-  // ✅ FIXED low-score logic:
   // Low-score games (SkyJo/Hearts): game ends when someone reaches/exceeds target; lowest total wins.
-  // High-score games (Uno/Spades/etc.): game ends when someone reaches/exceeds target; highest total wins.
+  // High-score games: winner when someone reaches/exceeds target; highest total wins.
   function determineWinnerFromTotals(entries) {
     if (state.winMode === "low") {
       const gameOver = entries.some((x) => (x.total ?? 0) >= state.target);
@@ -770,6 +754,20 @@
     }
   }
 
+  // NEW: ensure the DOM round inputs match current players (prevents “stale IDs” bug)
+  function roundInputsMatchPlayers() {
+    const inputs = Array.from(document.querySelectorAll("[data-round-score]"));
+    if (inputs.length !== state.players.length) return false;
+
+    const domIds = inputs.map((el) => el.getAttribute("data-round-score"));
+    const stateIds = state.players.map((p) => p.id);
+
+    for (let i = 0; i < stateIds.length; i++) {
+      if (domIds[i] !== stateIds[i]) return false;
+    }
+    return true;
+  }
+
   function renderMode() {
     const playing = state.mode === "playing" || state.mode === "finished";
 
@@ -791,8 +789,11 @@
     const statusText = state.mode === "setup" ? "Setup" : state.mode === "playing" ? "Playing" : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
-    if (playing && els.roundInputs.childElementCount === 0) {
-      renderRoundInputs();
+    if (playing && state.players.length) {
+      // IMPORTANT: rebuild if empty OR stale
+      if (els.roundInputs.childElementCount === 0 || !roundInputsMatchPlayers()) {
+        renderRoundInputs();
+      }
     }
 
     renderWinnerBanner();
@@ -815,7 +816,6 @@
   // Events
   els.presetSelect.addEventListener("change", (e) => applyPreset(e.target.value));
 
-  // Normalize playerCount only after commit (change/blur), not mid-typing
   els.playerCount.addEventListener("change", () => renderSetupInputs());
   els.playerCount.addEventListener("blur", () => renderSetupInputs());
 
@@ -874,7 +874,6 @@
   renderSetupInputs();
   maybeRenderTeamPreview();
 
-  // Auto-load if saved game is playing/finished
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
