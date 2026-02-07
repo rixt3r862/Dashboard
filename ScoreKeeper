@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Card Game Score Keeper</title>
+  <style>
+    :root{
+      --bg:#f6f8fb;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --line:#e5e7eb;
+      --accent:#2563eb;
+      --accent2:#60a5fa;
+      --good:#16a34a;
+      --warn:#b45309;
+      --bad:#dc2626;
+      --shadow:0 10px 30px rgba(2,6,23,.08);
+      --radius:16px;
+
+      --w: clamp(320px, 96vw, 980px);
+      --pad: clamp(14px, 1.8vw, 20px);
+      --fs: clamp(15px, 0.7vw + 14px, 16px);
+      --fs-sm: clamp(13px, 0.6vw + 12px, 14px);
+      --fs-lg: clamp(18px, 1vw + 16px, 22px);
+      --fs-xl: clamp(22px, 2vw + 18px, 32px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: var(--fs);
+      background: radial-gradient(900px 500px at 15% 0%, rgba(37,99,235,.10), transparent 60%),
+                  radial-gradient(800px 480px at 95% 10%, rgba(96,165,250,.12), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      line-height:1.35;
+    }
+
+    .wrap{
+      width: var(--w);
+      margin: 0 auto;
+      padding: calc(var(--pad) + env(safe-area-inset-top)) var(--pad) calc(var(--pad) + env(safe-area-inset-bottom));
+    }
+
+    header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 12px;
+      margin: 8px 0 16px;
+    }
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    h1{
+      margin:0;
+      font-size: var(--fs-xl);
+      letter-spacing:-.02em;
+    }
+    .sub{
+      color: var(--muted);
+      font-size: var(--fs-sm);
+    }
+
+    .top-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    @media (min-width: 860px){
+      .grid{
+        grid-template-columns: 360px 1fr;
+        align-items:start;
+      }
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--pad);
+    }
+
+    .card h2{
+      margin:0 0 10px;
+      font-size: var(--fs-lg);
+      letter-spacing:-.01em;
+    }
+
+    .row{
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 160px;
+      flex: 1 1 160px;
+    }
+
+    label{
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+
+    input[type="text"], input[type="number"]{
+      width:100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      background: #fff;
+      color: var(--text);
+      font-size: var(--fs);
+    }
+    input[type="text"]:focus, input[type="number"]:focus{
+      border-color: rgba(37,99,235,.5);
+      box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+    }
+
+    .btn{
+      appearance:none;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: var(--fs-sm);
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      user-select:none;
+      transition: transform .03s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .btn:hover{
+      border-color: rgba(37,99,235,.35);
+      box-shadow: 0 6px 18px rgba(2,6,23,.06);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn:disabled{
+      opacity: .5;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
+    .btn.primary{
+      background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(37,99,235,.88));
+      border-color: rgba(37,99,235,.9);
+      color: #fff;
+    }
+    .btn.danger{
+      border-color: rgba(220,38,38,.35);
+      color: var(--bad);
+      background:#fff;
+    }
+    .btn.good{
+      border-color: rgba(22,163,74,.35);
+      color: var(--good);
+      background:#fff;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      font-size: var(--fs-sm);
+      white-space:nowrap;
+    }
+    .pill strong{
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .hr{
+      height:1px;
+      background: var(--line);
+      margin: 12px 0;
+    }
+
+    .muted{ color: var(--muted); font-size: var(--fs-sm); }
+
+    /* Scoreboard */
+    .scoreboard-head{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom: 10px;
+    }
+
+    table{
+      width:100%;
+      border-collapse: collapse;
+      overflow:hidden;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background:#fff;
+    }
+    th, td{
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align:left;
+      vertical-align:middle;
+      font-size: var(--fs-sm);
+    }
+    th{
+      background: #f8fafc;
+      color: var(--muted);
+      font-weight: 650;
+    }
+    tr:last-child td{ border-bottom:none; }
+
+    .name{
+      font-weight:700;
+      font-size: var(--fs);
+    }
+    .total{
+      font-weight:800;
+      font-size: var(--fs-lg);
+      letter-spacing:-.01em;
+    }
+    .leader{
+      outline: 3px solid rgba(37,99,235,.14);
+      outline-offset: -3px;
+      background: rgba(37,99,235,.04);
+    }
+    .winner{
+      outline: 3px solid rgba(22,163,74,.18);
+      outline-offset: -3px;
+      background: rgba(22,163,74,.06);
+    }
+
+    /* Winner banner */
+    .banner{
+      display:none;
+      position: sticky;
+      top: 10px;
+      z-index: 5;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(22,163,74,.35);
+      background: linear-gradient(180deg, rgba(22,163,74,.10), rgba(22,163,74,.05));
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+    }
+    .banner.show{ display:block; }
+    .banner .big{
+      font-size: var(--fs-lg);
+      font-weight: 850;
+    }
+    .banner .small{
+      color: var(--muted);
+      font-size: var(--fs-sm);
+      margin-top: 2px;
+    }
+    .banner .actions{
+      margin-top: 10px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    /* Round history */
+    details{
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background:#fff;
+    }
+    summary{
+      cursor:pointer;
+      font-weight:700;
+      color: var(--text);
+      list-style:none;
+    }
+    summary::-webkit-details-marker{ display:none; }
+    .history-wrap{
+      margin-top: 10px;
+      overflow:auto;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+    }
+    .history-table{
+      min-width: 560px;
+      border: none;
+      border-radius: 0;
+    }
+    .history-table th, .history-table td{
+      border-bottom: 1px solid var(--line);
+      padding: 10px 10px;
+      font-size: var(--fs-sm);
+      white-space:nowrap;
+    }
+    .history-table tr:last-child td{ border-bottom:none; }
+
+    .msg{
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(180,83,9,.25);
+      background: rgba(180,83,9,.08);
+      color: #7c2d12;
+      font-size: var(--fs-sm);
+      display:none;
+    }
+    .msg.show{ display:block; }
+
+    .sr-only{
+      position:absolute;
+      width:1px; height:1px;
+      padding:0; margin:-1px;
+      overflow:hidden;
+      clip: rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Score Keeper</h1>
+        <div class="sub">One page. Fast setup. Round-by-round scoring with an automatic winner.</div>
+      </div>
+      <div class="top-actions">
+        <button class="btn danger" id="btnNewGame" type="button" title="Start over">New Game</button>
+        <span class="pill" id="pillStatus"><strong>Status:</strong> Setup</span>
+        <span class="pill" id="pillSaved" style="display:none;"><strong>Saved:</strong> Yes</span>
+      </div>
+    </header>
+
+    <div class="banner" id="winnerBanner" role="status" aria-live="polite">
+      <div class="big" id="winnerText">Winner: </div>
+      <div class="small" id="winnerSub">Target reached.</div>
+      <div class="actions">
+        <button class="btn primary" id="btnNewGame2" type="button">New Game</button>
+        <button class="btn" id="btnKeepGoing" type="button">Keep tracking</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Setup / Round entry -->
+      <section class="card" id="leftCard">
+        <h2 id="leftTitle">Game Setup</h2>
+
+        <!-- Setup panel -->
+        <div id="setupPanel">
+          <div class="row">
+            <div class="field" style="max-width: 200px;">
+              <label for="playerCount">Number of players</label>
+              <input id="playerCount" type="number" inputmode="numeric" min="2" max="12" value="4" />
+            </div>
+            <div class="field" style="max-width: 220px;">
+              <label for="targetPoints">Points to win</label>
+              <input id="targetPoints" type="number" inputmode="numeric" min="1" value="100" />
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div id="playerNamesWrap" class="row" aria-label="Player names"></div>
+
+          <div class="hr"></div>
+
+          <div class="row">
+            <button class="btn primary" id="btnStart" type="button" disabled>Start Game</button>
+            <button class="btn" id="btnLoadSaved" type="button" style="display:none;">Load Saved Game</button>
+          </div>
+
+          <div class="msg" id="setupMsg"></div>
+          <div class="muted" style="margin-top:10px;">
+            Notes: Names must be unique. Scores default to 0 if left blank. Negative scores are allowed.
+          </div>
+        </div>
+
+        <!-- Round entry panel -->
+        <div id="roundPanel" style="display:none;">
+          <div class="row" style="justify-content:space-between;">
+            <div class="pill"><strong>Target:</strong> <span id="targetPill">0</span></div>
+            <div class="pill"><strong>Round:</strong> <span id="roundPill">1</span></div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div id="roundInputs" class="row" aria-label="Round scores"></div>
+
+          <div class="hr"></div>
+
+          <div class="row">
+            <button class="btn primary" id="btnAddRound" type="button">Add Round</button>
+            <button class="btn" id="btnUndo" type="button" disabled>Undo Last Round</button>
+          </div>
+
+          <div class="msg" id="roundMsg"></div>
+        </div>
+      </section>
+
+      <!-- Right: Scoreboard + history -->
+      <section class="card">
+        <div class="scoreboard-head">
+          <h2 style="margin:0;">Scoreboard</h2>
+          <div class="row" style="justify-content:flex-end;">
+            <button class="btn" id="btnToggleSort" type="button" disabled title="Toggle sorting by score">Sort: Off</button>
+          </div>
+        </div>
+
+        <div id="scoreboardEmpty" class="muted">Set up a game to see the scoreboard.</div>
+
+        <div id="scoreboardArea" style="display:none;">
+          <table aria-label="Running totals">
+            <thead>
+              <tr>
+                <th style="width:48%;">Player</th>
+                <th style="width:26%;">Total</th>
+                <th style="width:26%;">This round</th>
+              </tr>
+            </thead>
+            <tbody id="scoreboardBody"></tbody>
+          </table>
+
+          <div style="margin-top: 12px;">
+            <details id="historyDetails">
+              <summary><span id="historySummaryText">Round History</span></summary>
+              <div class="history-wrap" style="margin-top:10px;">
+                <table class="history-table" aria-label="Round history" id="historyTable"></table>
+              </div>
+            </details>
+          </div>
+
+          <div class="muted" style="margin-top:10px;">
+            Tip: Press Enter in the last score field to add the round.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <p class="sr-only" id="ariaLive" aria-live="polite"></p>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = "scorekeeper.v1";
+
+      const $ = (id) => document.getElementById(id);
+
+      const els = {
+        btnNewGame: $("btnNewGame"),
+        btnNewGame2: $("btnNewGame2"),
+        btnKeepGoing: $("btnKeepGoing"),
+        btnStart: $("btnStart"),
+        btnAddRound: $("btnAddRound"),
+        btnUndo: $("btnUndo"),
+        btnToggleSort: $("btnToggleSort"),
+        btnLoadSaved: $("btnLoadSaved"),
+
+        pillStatus: $("pillStatus"),
+        pillSaved: $("pillSaved"),
+
+        leftTitle: $("leftTitle"),
+        setupPanel: $("setupPanel"),
+        roundPanel: $("roundPanel"),
+        setupMsg: $("setupMsg"),
+        roundMsg: $("roundMsg"),
+
+        playerCount: $("playerCount"),
+        targetPoints: $("targetPoints"),
+        playerNamesWrap: $("playerNamesWrap"),
+
+        targetPill: $("targetPill"),
+        roundPill: $("roundPill"),
+        roundInputs: $("roundInputs"),
+
+        winnerBanner: $("winnerBanner"),
+        winnerText: $("winnerText"),
+        winnerSub: $("winnerSub"),
+
+        scoreboardEmpty: $("scoreboardEmpty"),
+        scoreboardArea: $("scoreboardArea"),
+        scoreboardBody: $("scoreboardBody"),
+
+        historyDetails: $("historyDetails"),
+        historySummaryText: $("historySummaryText"),
+        historyTable: $("historyTable"),
+
+        ariaLive: $("ariaLive"),
+      };
+
+      const state = {
+        mode: "setup", // setup | playing | finished
+        target: 100,
+        players: [], // { id, name }
+        rounds: [],  // { n, scores: { [id]: number }, ts }
+        lastRoundScores: {}, // for display only
+        winnerId: null,
+        sortByTotal: false,
+        savedExists: false,
+        bannerDismissed: false,
+      };
+
+      const uid = () => Math.random().toString(36).slice(2, 10);
+
+      function setLive(text){
+        els.ariaLive.textContent = text;
+      }
+
+      function clampInt(val, min, max){
+        const n = Number.parseInt(val, 10);
+        if (Number.isNaN(n)) return min;
+        return Math.min(max, Math.max(min, n));
+      }
+
+      function showMsg(el, text){
+        el.textContent = text;
+        el.classList.toggle("show", !!text);
+      }
+
+      function detectSaved(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          state.savedExists = !!raw;
+        }catch{
+          state.savedExists = false;
+        }
+        els.btnLoadSaved.style.display = state.savedExists ? "inline-flex" : "none";
+        els.pillSaved.style.display = state.savedExists ? "inline-flex" : "none";
+      }
+
+      function save(){
+        try{
+          const payload = {
+            mode: state.mode,
+            target: state.target,
+            players: state.players,
+            rounds: state.rounds,
+            winnerId: state.winnerId,
+            sortByTotal: state.sortByTotal,
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          detectSaved();
+        }catch{
+          // ignore storage errors
+        }
+      }
+
+      function clearSaved(){
+        try{ localStorage.removeItem(STORAGE_KEY); }catch{}
+        detectSaved();
+      }
+
+      function loadSaved(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if(!raw) return false;
+          const payload = JSON.parse(raw);
+
+          // Basic sanity checks
+          if(!payload || !Array.isArray(payload.players) || !Array.isArray(payload.rounds)) return false;
+
+          state.mode = payload.mode === "playing" || payload.mode === "finished" ? payload.mode : "setup";
+          state.target = Number.isFinite(payload.target) ? payload.target : 100;
+          state.players = payload.players.map(p => ({ id: String(p.id), name: String(p.name) }));
+          state.rounds = payload.rounds.map(r => ({
+            n: Number(r.n),
+            scores: r.scores || {},
+            ts: r.ts || Date.now(),
+          }));
+          state.winnerId = payload.winnerId || null;
+          state.sortByTotal = !!payload.sortByTotal;
+
+          // derive lastRoundScores
+          state.lastRoundScores = state.rounds.length ? (state.rounds[state.rounds.length - 1].scores || {}) : {};
+          state.bannerDismissed = false;
+
+          renderAll();
+          setLive("Saved game loaded.");
+          return true;
+        }catch{
+          return false;
+        }
+      }
+
+      function newGame(){
+        state.mode = "setup";
+        state.target = 100;
+        state.players = [];
+        state.rounds = [];
+        state.lastRoundScores = {};
+        state.winnerId = null;
+        state.sortByTotal = false;
+        state.bannerDismissed = false;
+
+        els.playerCount.value = 4;
+        els.targetPoints.value = 100;
+
+        renderSetupInputs();
+        renderAll();
+        showMsg(els.setupMsg, "");
+        showMsg(els.roundMsg, "");
+        setLive("New game started.");
+      }
+
+      function normalizeName(name){
+        return String(name || "").trim();
+      }
+
+      function validateSetup(players, target){
+        if(players.length < 2) return "At least 2 players are required.";
+        if(!Number.isInteger(target) || target < 1) return "Points to win must be a positive whole number.";
+
+        const names = players.map(p => normalizeName(p.name));
+        if(names.some(n => !n)) return "All player names are required.";
+
+        const lowered = names.map(n => n.toLowerCase());
+        const set = new Set(lowered);
+        if(set.size !== lowered.length) return "Player names must be unique (case-insensitive).";
+
+        return "";
+      }
+
+      function renderSetupInputs(){
+        const count = clampInt(els.playerCount.value, 2, 12);
+        els.playerCount.value = count;
+
+        const wrap = els.playerNamesWrap;
+        wrap.innerHTML = "";
+
+        // Use current inputs if any
+        const existing = [];
+        const currentInputs = document.querySelectorAll("[data-player-name]");
+        currentInputs.forEach(inp => existing.push(inp.value));
+
+        for(let i=0;i<count;i++){
+          const field = document.createElement("div");
+          field.className = "field";
+          field.style.minWidth = "180px";
+
+          const label = document.createElement("label");
+          label.setAttribute("for", `pname_${i}`);
+          label.textContent = `Player ${i+1} name`;
+
+          const input = document.createElement("input");
+          input.type = "text";
+          input.id = `pname_${i}`;
+          input.setAttribute("data-player-name", "1");
+          input.autocomplete = "off";
+          input.spellcheck = false;
+          input.value = existing[i] ?? (i === 0 ? "Rick" : (i === 1 ? "Roque" : (i === 2 ? "Rob" : (i === 3 ? "Carl" : ""))));
+
+          input.addEventListener("input", () => {
+            updateStartButtonState();
+            showMsg(els.setupMsg, "");
+          });
+
+          field.appendChild(label);
+          field.appendChild(input);
+          wrap.appendChild(field);
+        }
+
+        updateStartButtonState();
+      }
+
+      function getSetupPlayers(){
+        const inputs = document.querySelectorAll("[data-player-name]");
+        const players = Array.from(inputs).map(inp => ({
+          id: uid(),
+          name: normalizeName(inp.value),
+        }));
+        return players;
+      }
+
+      function updateStartButtonState(){
+        const target = clampInt(els.targetPoints.value, 1, 1000000);
+        const players = getSetupPlayers();
+        const msg = validateSetup(players, target);
+        els.btnStart.disabled = !!msg;
+      }
+
+      function startGame(){
+        const target = clampInt(els.targetPoints.value, 1, 1000000);
+        const players = getSetupPlayers();
+
+        const msg = validateSetup(players, target);
+        if(msg){
+          showMsg(els.setupMsg, msg);
+          return;
+        }
+
+        state.mode = "playing";
+        state.target = target;
+        state.players = players;
+        state.rounds = [];
+        state.lastRoundScores = {};
+        state.winnerId = null;
+        state.bannerDismissed = false;
+
+        save();
+        renderAll();
+        setLive("Game started.");
+      }
+
+      function totalsById(){
+        const totals = Object.fromEntries(state.players.map(p => [p.id, 0]));
+        for(const r of state.rounds){
+          for(const p of state.players){
+            const v = Number(r.scores?.[p.id] ?? 0);
+            totals[p.id] += Number.isFinite(v) ? v : 0;
+          }
+        }
+        return totals;
+      }
+
+      function leaderId(totals){
+        let best = null;
+        for(const p of state.players){
+          const t = totals[p.id] ?? 0;
+          if(best === null || t > (totals[best] ?? -Infinity)) best = p.id;
+        }
+        return best;
+      }
+
+      function determineWinner(totals){
+        const eligible = state.players
+          .map(p => ({ id: p.id, total: totals[p.id] ?? 0 }))
+          .filter(x => x.total >= state.target);
+
+        if(!eligible.length) return null;
+
+        // If multiple hit in the same round, pick highest total.
+        eligible.sort((a,b) => b.total - a.total);
+        return eligible[0].id;
+      }
+
+      function renderRoundInputs(){
+        els.roundInputs.innerHTML = "";
+        for(const p of state.players){
+          const field = document.createElement("div");
+          field.className = "field";
+          field.style.minWidth = "180px";
+
+          const label = document.createElement("label");
+          label.setAttribute("for", `score_${p.id}`);
+          label.textContent = `${p.name} (this round)`;
+
+          const input = document.createElement("input");
+          input.type = "number";
+          input.inputMode = "numeric";
+          input.id = `score_${p.id}`;
+          input.setAttribute("data-round-score", p.id);
+          input.placeholder = "0";
+          input.step = "1";
+
+          input.addEventListener("input", () => showMsg(els.roundMsg, ""));
+          input.addEventListener("keydown", (e) => {
+            if(e.key === "Enter"){
+              const ids = state.players.map(x => x.id);
+              const lastId = ids[ids.length - 1];
+              if(p.id === lastId){
+                e.preventDefault();
+                addRound();
+              }
+            }
+          });
+
+          field.appendChild(label);
+          field.appendChild(input);
+          els.roundInputs.appendChild(field);
+        }
+      }
+
+      function readRoundScores(){
+        const scores = {};
+        const inputs = document.querySelectorAll("[data-round-score]");
+        inputs.forEach(inp => {
+          const id = inp.getAttribute("data-round-score");
+          const raw = String(inp.value ?? "").trim();
+          // Blank defaults to 0
+          if(raw === ""){
+            scores[id] = 0;
+            return;
+          }
+          const n = Number.parseInt(raw, 10);
+          scores[id] = Number.isNaN(n) ? 0 : n;
+        });
+        return scores;
+      }
+
+      function clearRoundInputs(){
+        const inputs = document.querySelectorAll("[data-round-score]");
+        inputs.forEach(inp => inp.value = "");
+        const first = inputs[0];
+        if(first) first.focus();
+      }
+
+      function addRound(){
+        if(state.mode !== "playing") return;
+
+        const scores = readRoundScores();
+        // Validate: all integers (we treat NaN as 0, but still catch truly non-integer typed values)
+        for(const p of state.players){
+          const v = scores[p.id];
+          if(!Number.isInteger(v)){
+            showMsg(els.roundMsg, "Scores must be whole numbers.");
+            return;
+          }
+        }
+
+        const nextN = state.rounds.length + 1;
+        const round = { n: nextN, scores, ts: Date.now() };
+        state.rounds.push(round);
+        state.lastRoundScores = scores;
+
+        const totals = totalsById();
+        const w = determineWinner(totals);
+        if(w){
+          state.winnerId = w;
+          state.mode = "finished";
+          state.bannerDismissed = false;
+          setLive(`Winner declared: ${playerName(w)}.`);
+        }else{
+          setLive(`Round ${nextN} added.`);
+        }
+
+        save();
+        renderAll();
+
+        if(state.mode === "playing"){
+          clearRoundInputs();
+        }
+      }
+
+      function undoLastRound(){
+        if(state.rounds.length === 0) return;
+        state.rounds.pop();
+        state.lastRoundScores = state.rounds.length ? (state.rounds[state.rounds.length - 1].scores || {}) : {};
+        state.winnerId = null;
+        state.mode = state.players.length ? "playing" : "setup";
+        state.bannerDismissed = true;
+
+        save();
+        renderAll();
+        setLive("Last round undone.");
+      }
+
+      function playerName(id){
+        return state.players.find(p => p.id === id)?.name ?? "Unknown";
+      }
+
+      function renderScoreboard(){
+        const totals = totalsById();
+        const leader = leaderId(totals);
+        const winner = state.winnerId;
+
+        let playersToShow = [...state.players];
+        if(state.sortByTotal){
+          playersToShow.sort((a,b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0));
+        }
+
+        els.scoreboardBody.innerHTML = "";
+        for(const p of playersToShow){
+          const tr = document.createElement("tr");
+          if(p.id === winner) tr.classList.add("winner");
+          else if(p.id === leader) tr.classList.add("leader");
+
+          const tdName = document.createElement("td");
+          tdName.innerHTML = `<div class="name">${escapeHtml(p.name)}</div>`;
+
+          const tdTotal = document.createElement("td");
+          tdTotal.innerHTML = `<div class="total">${totals[p.id] ?? 0}</div>`;
+
+          const tdThis = document.createElement("td");
+          const thisRound = Number(state.lastRoundScores?.[p.id] ?? 0);
+          tdThis.textContent = thisRound;
+
+          tr.appendChild(tdName);
+          tr.appendChild(tdTotal);
+          tr.appendChild(tdThis);
+          els.scoreboardBody.appendChild(tr);
+        }
+
+        // History
+        renderHistoryTable(playersToShow);
+
+        els.historySummaryText.textContent = state.rounds.length ? `Round History (${state.rounds.length})` : "Round History (0)";
+      }
+
+      function renderHistoryTable(playersToShow){
+        const playersOriginal = state.players; // keep original order for history columns
+        const cols = playersOriginal.map(p => p.id);
+
+        const tbl = els.historyTable;
+        tbl.innerHTML = "";
+
+        const thead = document.createElement("thead");
+        const trh = document.createElement("tr");
+
+        const th0 = document.createElement("th");
+        th0.textContent = "Round";
+        trh.appendChild(th0);
+
+        for(const pid of cols){
+          const th = document.createElement("th");
+          th.textContent = playerName(pid);
+          trh.appendChild(th);
+        }
+
+        thead.appendChild(trh);
+        tbl.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        for(const r of state.rounds){
+          const tr = document.createElement("tr");
+          const td0 = document.createElement("td");
+          td0.textContent = String(r.n);
+          tr.appendChild(td0);
+
+          for(const pid of cols){
+            const td = document.createElement("td");
+            const v = Number(r.scores?.[pid] ?? 0);
+            td.textContent = String(Number.isFinite(v) ? v : 0);
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+      }
+
+      function renderWinnerBanner(){
+        const totals = totalsById();
+        const winner = state.winnerId;
+
+        if(state.mode === "finished" && winner && !state.bannerDismissed){
+          const name = playerName(winner);
+          const total = totals[winner] ?? 0;
+          els.winnerText.textContent = `Winner: ${name} (${total})`;
+          els.winnerSub.textContent = `Target was ${state.target}.`;
+          els.winnerBanner.classList.add("show");
+        }else{
+          els.winnerBanner.classList.remove("show");
+        }
+      }
+
+      function renderMode(){
+        const playing = state.mode === "playing" || state.mode === "finished";
+
+        els.setupPanel.style.display = playing ? "none" : "block";
+        els.roundPanel.style.display = playing ? "block" : "none";
+        els.leftTitle.textContent = playing ? "Round Entry" : "Game Setup";
+
+        els.scoreboardEmpty.style.display = state.players.length ? "none" : "block";
+        els.scoreboardArea.style.display = state.players.length ? "block" : "none";
+
+        els.btnToggleSort.disabled = !state.players.length;
+        els.btnToggleSort.textContent = state.sortByTotal ? "Sort: Totals" : "Sort: Off";
+
+        els.btnUndo.disabled = !(state.rounds.length > 0);
+
+        els.targetPill.textContent = String(state.target);
+        els.roundPill.textContent = String(state.rounds.length + 1);
+
+        const statusText = state.mode === "setup" ? "Setup" : (state.mode === "playing" ? "Playing" : "Finished");
+        els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
+
+        if(playing && els.roundInputs.childElementCount === 0){
+          renderRoundInputs();
+        }
+
+        renderWinnerBanner();
+      }
+
+      function renderAll(){
+        renderMode();
+        if(state.players.length){
+          renderScoreboard();
+        }
+        if(state.mode === "setup"){
+          updateStartButtonState();
+        }
+      }
+
+      function escapeHtml(str){
+        return String(str).replace(/[&<>"']/g, s => ({
+          "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+        }[s]));
+      }
+
+      // Events
+      els.playerCount.addEventListener("input", () => {
+        renderSetupInputs();
+        showMsg(els.setupMsg, "");
+      });
+
+      els.targetPoints.addEventListener("input", () => {
+        updateStartButtonState();
+        showMsg(els.setupMsg, "");
+      });
+
+      els.btnStart.addEventListener("click", startGame);
+
+      els.btnAddRound.addEventListener("click", addRound);
+
+      els.btnUndo.addEventListener("click", () => {
+        showMsg(els.roundMsg, "");
+        undoLastRound();
+      });
+
+      els.btnNewGame.addEventListener("click", () => {
+        clearSaved();
+        newGame();
+      });
+
+      els.btnNewGame2.addEventListener("click", () => {
+        clearSaved();
+        newGame();
+      });
+
+      els.btnKeepGoing.addEventListener("click", () => {
+        state.bannerDismissed = true;
+        state.mode = "playing";
+        state.winnerId = null; // keep tracking without "finished" state
+        save();
+        renderAll();
+        setLive("Continuing score tracking.");
+      });
+
+      els.btnToggleSort.addEventListener("click", () => {
+        state.sortByTotal = !state.sortByTotal;
+        save();
+        renderAll();
+      });
+
+      els.btnLoadSaved.addEventListener("click", () => {
+        const ok = loadSaved();
+        if(!ok){
+          showMsg(els.setupMsg, "No valid saved game found.");
+          clearSaved();
+        }
+      });
+
+      // Boot
+      detectSaved();
+      renderSetupInputs();
+
+      // Auto-load if it looks like there's a saved in-progress game
+      // but keep it gentle: user can also load manually.
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(raw){
+          const payload = JSON.parse(raw);
+          if(payload && (payload.mode === "playing" || payload.mode === "finished")){
+            loadSaved();
+          }else{
+            renderAll();
+          }
+        }else{
+          renderAll();
+        }
+      }catch{
+        renderAll();
+      }
+    })();
+  </script>
+</body>
+</html>
