@@ -123,7 +123,7 @@
       color: var(--muted);
     }
 
-    input[type="text"], input[type="number"]{
+    input[type="text"], input[type="number"], select{
       width:100%;
       padding: 11px 12px;
       border: 1px solid var(--line);
@@ -133,26 +133,11 @@
       color: var(--text);
       font-size: var(--fs);
     }
-    input[type="text"]:focus, input[type="number"]:focus{
-      border-color: rgba(37,99,235,.5);
-      box-shadow: 0 0 0 4px rgba(37,99,235,.12);
-    }
-    select{
-      width:100%;
-      padding: 11px 12px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background:#fff;
-      color: var(--text);
-      font-size: var(--fs);
-    }
-
-    select:focus{
+    input[type="text"]:focus, input[type="number"]:focus, select:focus{
       border-color: rgba(37,99,235,.5);
       box-shadow: 0 0 0 4px rgba(37,99,235,.12);
       outline:none;
     }
-
 
     .btn{
       appearance:none;
@@ -350,6 +335,26 @@
       white-space:nowrap;
       border:0;
     }
+
+    /* Tiny helper for team list */
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top: 8px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background:#fff;
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+    .chip strong{ color: var(--text); }
   </style>
 </head>
 <body>
@@ -357,7 +362,7 @@
     <header>
       <div class="title">
         <h1>Score Keeper</h1>
-        <div class="sub">Enter Number of Players, Target Points to win, Player Names, then Tap/Click "Start Game".</div>
+        <div class="sub">One page. Fast setup. Round-by-round scoring with an automatic winner.</div>
       </div>
       <div class="top-actions">
         <button class="btn danger" id="btnNewGame" type="button" title="Start over">New Game</button>
@@ -381,8 +386,7 @@
 
         <div id="setupPanel">
           <div class="row">
-            <div class="field" style="max-width: 200px;">
-             <div class="field" style="max-width: 260px;">
+            <div class="field" style="max-width: 260px;">
               <label for="presetSelect">Game preset</label>
               <select id="presetSelect">
                 <option value="custom">Custom</option>
@@ -393,14 +397,20 @@
                 <option value="spades">Spades</option>
               </select>
             </div>
- 
+
+            <div class="field" style="max-width: 200px;">
               <label for="playerCount">Number of players</label>
               <input id="playerCount" type="number" inputmode="numeric" min="2" max="12" value="4" />
             </div>
+
             <div class="field" style="max-width: 220px;">
-              <label for="targetPoints">Points to win</label>
+              <label for="targetPoints">Target</label>
               <input id="targetPoints" type="number" inputmode="numeric" min="1" value="100" />
             </div>
+          </div>
+
+          <div class="muted" style="margin-top:8px;">
+            Win mode: <strong id="winModeText">Highest score wins</strong>
           </div>
 
           <div class="hr"></div>
@@ -408,6 +418,16 @@
           <div id="playerNamesWrap" class="row" aria-label="Player names"></div>
 
           <div class="hr"></div>
+
+          <!-- Team preview (Spades only) -->
+          <div id="teamPreview" style="display:none;">
+            <div class="muted">Teams (Spades):</div>
+            <div class="chips" id="teamChips"></div>
+            <div class="muted" style="margin-top:6px;">
+              Currently pairs 1&3 vs 2&4. (We can add a picker later.)
+            </div>
+            <div class="hr"></div>
+          </div>
 
           <div class="row">
             <button class="btn primary" id="btnStart" type="button" disabled>Start Game</button>
@@ -455,7 +475,7 @@
           <table aria-label="Running totals">
             <thead>
               <tr>
-                <th style="width:48%;">Player</th>
+                <th style="width:48%;" id="colHeadEntity">Player</th>
                 <th style="width:26%;">Total</th>
                 <th style="width:26%;">This round</th>
               </tr>
@@ -484,44 +504,52 @@
 
   <script>
     (() => {
-      const STORAGE_KEY = "scorekeeper.v1";
+      const STORAGE_KEY = "scorekeeper.v2";
+
       const PRESETS = {
-  custom: {
-    label: "Custom",
-    target: null,
-    notes: ""
-  },
-
-  uno: {
-    label: "Uno",
-    target: 500,
-    notes: "First player to 500 points wins."
-  },
-
-  phase10: {
-    label: "Phase 10",
-    target: 10,
-    notes: "Tracking phases completed, not cumulative points."
-  },
-
-  skyjo: {
-    label: "SkyJo",
-    target: 100,
-    notes: "Lowest score wins. Negative scores possible."
-  },
-
-  hearts: {
-    label: "Hearts",
-    target: 100,
-    notes: "Lowest score wins. Shooting the moon applies."
-  },
-
-  spades: {
-    label: "Spades",
-    target: 500,
-    notes: "Partnership game. Bags and nils may apply."
-  }
-};
+        custom: {
+          label: "Custom",
+          target: null,
+          winMode: "high", // high | low
+          teams: false,
+          notes: ""
+        },
+        uno: {
+          label: "Uno",
+          target: 500,
+          winMode: "high",
+          teams: false,
+          notes: "First player to 500 points wins."
+        },
+        phase10: {
+          label: "Phase 10",
+          target: 10,
+          winMode: "high",
+          teams: false,
+          notes: "Tracking phases completed (not points)."
+        },
+        skyjo: {
+          label: "SkyJo",
+          target: 100,
+          winMode: "low",
+          teams: false,
+          notes: "Lowest score wins. Negative scores possible."
+        },
+        hearts: {
+          label: "Hearts",
+          target: 100,
+          winMode: "low",
+          teams: false,
+          notes: "Lowest score wins. Shooting the moon applies."
+        },
+        spades: {
+          label: "Spades",
+          target: 500,
+          winMode: "high",
+          teams: true,
+          notes: "Partnership game. Scores are tracked per-player and summed by team."
+        }
+      };
 
       const $ = (id) => document.getElementById(id);
 
@@ -544,9 +572,15 @@
         setupMsg: $("setupMsg"),
         roundMsg: $("roundMsg"),
 
+        presetSelect: $("presetSelect"),
+        winModeText: $("winModeText"),
+
         playerCount: $("playerCount"),
         targetPoints: $("targetPoints"),
         playerNamesWrap: $("playerNamesWrap"),
+
+        teamPreview: $("teamPreview"),
+        teamChips: $("teamChips"),
 
         targetPill: $("targetPill"),
         roundPill: $("roundPill"),
@@ -560,6 +594,8 @@
         scoreboardArea: $("scoreboardArea"),
         scoreboardBody: $("scoreboardBody"),
 
+        colHeadEntity: $("colHeadEntity"),
+
         historyDetails: $("historyDetails"),
         historySummaryText: $("historySummaryText"),
         historyTable: $("historyTable"),
@@ -569,11 +605,18 @@
 
       const state = {
         mode: "setup", // setup | playing | finished
+        presetKey: "custom",
+
         target: 100,
+        winMode: "high", // high | low
+
         players: [], // { id, name }
-        rounds: [],  // { n, scores: { [id]: number }, ts }
+        teams: null, // null | [{ id, name, members:[playerId]}]
+
+        rounds: [],  // { n, scores: { [playerId]: number }, ts }
         lastRoundScores: {}, // for display only
-        winnerId: null,
+
+        winnerId: null, // playerId or teamId (depending on mode)
         sortByTotal: false,
         savedExists: false,
         bannerDismissed: false,
@@ -609,8 +652,11 @@
         try{
           const payload = {
             mode: state.mode,
+            presetKey: state.presetKey,
             target: state.target,
+            winMode: state.winMode,
             players: state.players,
+            teams: state.teams,
             rounds: state.rounds,
             winnerId: state.winnerId,
             sortByTotal: state.sortByTotal,
@@ -633,14 +679,28 @@
           if(!payload || !Array.isArray(payload.players) || !Array.isArray(payload.rounds)) return false;
 
           state.mode = (payload.mode === "playing" || payload.mode === "finished") ? payload.mode : "setup";
+          state.presetKey = PRESETS[payload.presetKey] ? payload.presetKey : "custom";
           state.target = Number.isFinite(payload.target) ? payload.target : 100;
+          state.winMode = (payload.winMode === "low") ? "low" : "high";
+
           state.players = payload.players.map(p => ({ id: String(p.id), name: String(p.name) }));
+          state.teams = Array.isArray(payload.teams) ? payload.teams.map(t => ({
+            id: String(t.id),
+            name: String(t.name),
+            members: Array.isArray(t.members) ? t.members.map(String) : []
+          })) : null;
+
           state.rounds = payload.rounds.map(r => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
           state.winnerId = payload.winnerId || null;
           state.sortByTotal = !!payload.sortByTotal;
 
           state.lastRoundScores = state.rounds.length ? (state.rounds[state.rounds.length - 1].scores || {}) : {};
           state.bannerDismissed = false;
+
+          // Reflect preset in UI
+          els.presetSelect.value = state.presetKey;
+          updateWinModeText();
+          maybeRenderTeamPreview();
 
           renderAll();
           setLive("Saved game loaded.");
@@ -652,16 +712,23 @@
 
       function newGame(){
         state.mode = "setup";
+        state.presetKey = "custom";
         state.target = 100;
+        state.winMode = "high";
         state.players = [];
+        state.teams = null;
         state.rounds = [];
         state.lastRoundScores = {};
         state.winnerId = null;
         state.sortByTotal = false;
         state.bannerDismissed = false;
 
+        els.presetSelect.value = "custom";
         els.playerCount.value = 4;
         els.targetPoints.value = 100;
+
+        updateWinModeText();
+        maybeRenderTeamPreview();
 
         renderSetupInputs();
         renderAll();
@@ -674,7 +741,7 @@
 
       function validateSetup(names, target){
         if(names.length < 2) return "At least 2 players are required.";
-        if(!Number.isInteger(target) || target < 1) return "Points to win must be a positive whole number.";
+        if(!Number.isInteger(target) || target < 1) return "Target must be a positive whole number.";
         if(names.some(n => !n)) return "All player names are required.";
         const lowered = names.map(n => n.toLowerCase());
         if(new Set(lowered).size !== lowered.length) return "Player names must be unique (case-insensitive).";
@@ -683,6 +750,30 @@
 
       function currentNameInputs(){
         return Array.from(document.querySelectorAll("[data-player-name]")).map(inp => normalizeName(inp.value));
+      }
+
+      function updateWinModeText(){
+        els.winModeText.textContent = state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
+      }
+
+      function applyPreset(key){
+        const preset = PRESETS[key] || PRESETS.custom;
+        state.presetKey = key in PRESETS ? key : "custom";
+
+        if(Number.isInteger(preset.target)){
+          els.targetPoints.value = preset.target;
+        }
+
+        state.winMode = preset.winMode === "low" ? "low" : "high";
+        updateWinModeText();
+
+        // Notes
+        showMsg(els.setupMsg, preset.notes || "");
+
+        // Team preview only (teams are built on Start)
+        maybeRenderTeamPreview();
+
+        updateStartButtonState();
       }
 
       function renderSetupInputs(){
@@ -732,13 +823,59 @@
         }
 
         updateStartButtonState();
+        maybeRenderTeamPreview();
       }
 
       function updateStartButtonState(){
         const target = clampInt(els.targetPoints.value, 1, 1000000);
         const names = currentNameInputs();
         const msg = validateSetup(names, target);
+
+        // If Spades preset, encourage 4 players (not mandatory)
+        if(!msg && state.presetKey === "spades" && names.length !== 4){
+          // still allow start, but show a gentle message
+          showMsg(els.setupMsg, "Spades is usually 4 players. You can still start, but teams are only auto-made for 4.");
+        }
+
         els.btnStart.disabled = !!msg;
+      }
+
+      function buildTeamsIfNeeded(players){
+        const preset = PRESETS[state.presetKey] || PRESETS.custom;
+        if(!preset.teams) return null;
+
+        // Minimal: auto-build 2 teams for exactly 4 players: 1&3 vs 2&4
+        if(players.length !== 4) return null;
+
+        return [
+          { id: "teamA", name: "Team A", members: [players[0].id, players[2].id] },
+          { id: "teamB", name: "Team B", members: [players[1].id, players[3].id] },
+        ];
+      }
+
+      function maybeRenderTeamPreview(){
+        const preset = PRESETS[state.presetKey] || PRESETS.custom;
+        if(!preset.teams){
+          els.teamPreview.style.display = "none";
+          els.teamChips.innerHTML = "";
+          return;
+        }
+
+        const names = currentNameInputs();
+        if(names.length !== 4){
+          els.teamPreview.style.display = "block";
+          els.teamChips.innerHTML = `<div class="chip"><strong>Spades:</strong> enter 4 players to auto-build teams</div>`;
+          return;
+        }
+
+        els.teamPreview.style.display = "block";
+        const a = `${names[0] || "Player 1"} + ${names[2] || "Player 3"}`;
+        const b = `${names[1] || "Player 2"} + ${names[3] || "Player 4"}`;
+
+        els.teamChips.innerHTML = `
+          <div class="chip"><strong>Team A:</strong> ${escapeHtml(a)}</div>
+          <div class="chip"><strong>Team B:</strong> ${escapeHtml(b)}</div>
+        `;
       }
 
       function startGame(){
@@ -753,7 +890,10 @@
 
         state.mode = "playing";
         state.target = target;
+
         state.players = names.map(name => ({ id: uid(), name }));
+        state.teams = buildTeamsIfNeeded(state.players);
+
         state.rounds = [];
         state.lastRoundScores = {};
         state.winnerId = null;
@@ -764,7 +904,7 @@
         setLive("Game started.");
       }
 
-      function totalsById(){
+      function totalsByPlayerId(){
         const totals = Object.fromEntries(state.players.map(p => [p.id, 0]));
         for(const r of state.rounds){
           for(const p of state.players){
@@ -775,26 +915,52 @@
         return totals;
       }
 
-      function leaderId(totals){
+      function totalsByTeamId(playerTotals){
+        const totals = {};
+        if(!state.teams) return totals;
+        for(const t of state.teams){
+          totals[t.id] = t.members.reduce((sum, pid) => sum + (playerTotals[pid] ?? 0), 0);
+        }
+        return totals;
+      }
+
+      function leaderIdFromTotals(entries){
         let best = null;
-        for(const p of state.players){
-          const t = totals[p.id] ?? 0;
-          if(best === null || t > (totals[best] ?? -Infinity)) best = p.id;
+        for(const e of entries){
+          const t = e.total ?? 0;
+          if(best === null){
+            best = e.id;
+            continue;
+          }
+          const bestTotal = entries.find(x => x.id === best)?.total ?? 0;
+
+          if(state.winMode === "low"){
+            if(t < bestTotal) best = e.id;
+          }else{
+            if(t > bestTotal) best = e.id;
+          }
         }
         return best;
       }
 
-      function determineWinner(totals){
-        const eligible = state.players
-          .map(p => ({ id: p.id, total: totals[p.id] ?? 0 }))
-          .filter(x => x.total >= state.target);
-
-        if(!eligible.length) return null;
-        eligible.sort((a,b) => b.total - a.total);
-        return eligible[0].id;
+      function determineWinnerFromTotals(entries){
+        if(state.winMode === "low"){
+          const eligible = entries.filter(x => (x.total ?? 0) <= state.target);
+          if(!eligible.length) return null;
+          eligible.sort((a,b) => (a.total ?? 0) - (b.total ?? 0));
+          return eligible[0].id;
+        }else{
+          const eligible = entries.filter(x => (x.total ?? 0) >= state.target);
+          if(!eligible.length) return null;
+          eligible.sort((a,b) => (b.total ?? 0) - (a.total ?? 0));
+          return eligible[0].id;
+        }
       }
 
-      function playerName(id){
+      function entityName(id){
+        if(state.teams){
+          return state.teams.find(t => t.id === id)?.name ?? "Unknown Team";
+        }
         return state.players.find(p => p.id === id)?.name ?? "Unknown";
       }
 
@@ -881,13 +1047,22 @@
         state.rounds.push(round);
         state.lastRoundScores = scores;
 
-        const totals = totalsById();
-        const w = determineWinner(totals);
+        const playerTotals = totalsByPlayerId();
+        let entries = [];
+
+        if(state.teams){
+          const teamTotals = totalsByTeamId(playerTotals);
+          entries = state.teams.map(t => ({ id: t.id, total: teamTotals[t.id] ?? 0 }));
+        }else{
+          entries = state.players.map(p => ({ id: p.id, total: playerTotals[p.id] ?? 0 }));
+        }
+
+        const w = determineWinnerFromTotals(entries);
         if(w){
           state.winnerId = w;
           state.mode = "finished";
           state.bannerDismissed = false;
-          setLive(`Winner declared: ${playerName(w)}.`);
+          setLive(`Winner declared: ${entityName(w)}.`);
         }else{
           setLive(`Round ${nextN} added.`);
         }
@@ -914,6 +1089,7 @@
       }
 
       function renderHistoryTable(){
+        // Keep history per-player (even in team mode) because rounds are entered per-player.
         const cols = state.players.map(p => p.id);
         const tbl = els.historyTable;
         tbl.innerHTML = "";
@@ -926,7 +1102,7 @@
 
         for(const pid of cols){
           const th = document.createElement("th");
-          th.textContent = playerName(pid);
+          th.textContent = state.players.find(p => p.id === pid)?.name ?? "Player";
           trh.appendChild(th);
         }
         thead.appendChild(trh);
@@ -953,47 +1129,60 @@
           ? `Round History (${state.rounds.length})`
           : "Round History (0)";
       }
-      function applyPreset(key){
-        const preset = PRESETS[key];
-        if(!preset) return;
-
-        if(Number.isInteger(preset.target)){
-          els.targetPoints.value = preset.target;
-        }
-
-        showMsg(
-          els.setupMsg,
-          preset.notes || ""
-        );
-
-        updateStartButtonState();
-      }
 
       function renderScoreboard(){
-        const totals = totalsById();
-        const leader = leaderId(totals);
+        const playerTotals = totalsByPlayerId();
+
+        // Decide whether scoreboard shows teams or players
+        let entries = [];
+        let thisRoundById = {};
+
+        if(state.teams){
+          const teamTotals = totalsByTeamId(playerTotals);
+          entries = state.teams.map(t => ({ id: t.id, name: t.name, total: teamTotals[t.id] ?? 0 }));
+
+          // This round by team = sum of member round scores
+          for(const t of state.teams){
+            thisRoundById[t.id] = t.members.reduce((sum, pid) => sum + (Number(state.lastRoundScores?.[pid] ?? 0)), 0);
+          }
+
+          els.colHeadEntity.textContent = "Team";
+        }else{
+          entries = state.players.map(p => ({ id: p.id, name: p.name, total: playerTotals[p.id] ?? 0 }));
+          for(const p of state.players){
+            thisRoundById[p.id] = Number(state.lastRoundScores?.[p.id] ?? 0);
+          }
+          els.colHeadEntity.textContent = "Player";
+        }
+
+        // Leader (based on winMode)
+        const leader = leaderIdFromTotals(entries.map(e => ({ id: e.id, total: e.total })));
         const winner = state.winnerId;
 
-        let playersToShow = [...state.players];
+        // Sorting (still works, but for low-score games, sort ascending)
+        let entriesToShow = [...entries];
         if(state.sortByTotal){
-          playersToShow.sort((a,b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0));
+          if(state.winMode === "low"){
+            entriesToShow.sort((a,b) => a.total - b.total);
+          }else{
+            entriesToShow.sort((a,b) => b.total - a.total);
+          }
         }
 
         els.scoreboardBody.innerHTML = "";
-        for(const p of playersToShow){
+        for(const e of entriesToShow){
           const tr = document.createElement("tr");
-          if(p.id === winner) tr.classList.add("winner");
-          else if(p.id === leader) tr.classList.add("leader");
+          if(e.id === winner) tr.classList.add("winner");
+          else if(e.id === leader) tr.classList.add("leader");
 
           const tdName = document.createElement("td");
-          tdName.innerHTML = `<div class="name">${escapeHtml(p.name)}</div>`;
+          tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div>`;
 
           const tdTotal = document.createElement("td");
-          tdTotal.innerHTML = `<div class="total">${totals[p.id] ?? 0}</div>`;
+          tdTotal.innerHTML = `<div class="total">${e.total}</div>`;
 
           const tdThis = document.createElement("td");
-          const thisRound = Number(state.lastRoundScores?.[p.id] ?? 0);
-          tdThis.textContent = thisRound;
+          tdThis.textContent = String(thisRoundById[e.id] ?? 0);
 
           tr.appendChild(tdName);
           tr.appendChild(tdTotal);
@@ -1005,14 +1194,22 @@
       }
 
       function renderWinnerBanner(){
-        const totals = totalsById();
-        const winner = state.winnerId;
+        const playerTotals = totalsByPlayerId();
+        let winnerTotal = 0;
 
-        if(state.mode === "finished" && winner && !state.bannerDismissed){
-          const name = playerName(winner);
-          const total = totals[winner] ?? 0;
-          els.winnerText.textContent = `Winner: ${name} (${total})`;
-          els.winnerSub.textContent = `Target was ${state.target}.`;
+        if(state.winnerId){
+          if(state.teams){
+            const teamTotals = totalsByTeamId(playerTotals);
+            winnerTotal = teamTotals[state.winnerId] ?? 0;
+          }else{
+            winnerTotal = playerTotals[state.winnerId] ?? 0;
+          }
+        }
+
+        if(state.mode === "finished" && state.winnerId && !state.bannerDismissed){
+          const name = entityName(state.winnerId);
+          els.winnerText.textContent = `Winner: ${name} (${winnerTotal})`;
+          els.winnerSub.textContent = `Target was ${state.target}. (${state.winMode === "low" ? "At or below target wins" : "At or above target wins"})`;
           els.winnerBanner.classList.add("show");
         }else{
           els.winnerBanner.classList.remove("show");
@@ -1026,8 +1223,8 @@
         els.roundPanel.style.display = playing ? "block" : "none";
         els.leftTitle.textContent = playing ? "Round Entry" : "Game Setup";
 
-        $("scoreboardEmpty").style.display = state.players.length ? "none" : "block";
-        $("scoreboardArea").style.display = state.players.length ? "block" : "none";
+        els.scoreboardEmpty.style.display = state.players.length ? "none" : "block";
+        els.scoreboardArea.style.display = state.players.length ? "block" : "none";
 
         els.btnToggleSort.disabled = !state.players.length;
         els.btnToggleSort.textContent = state.sortByTotal ? "Sort: Totals" : "Sort: Off";
@@ -1064,6 +1261,10 @@
       }
 
       // Events
+      els.presetSelect.addEventListener("change", (e) => {
+        applyPreset(e.target.value);
+      });
+
       els.playerCount.addEventListener("change", () => {
         renderSetupInputs();
         showMsg(els.setupMsg, "");
@@ -1079,7 +1280,6 @@
       });
 
       els.btnStart.addEventListener("click", startGame);
-
       els.btnAddRound.addEventListener("click", addRound);
 
       els.btnUndo.addEventListener("click", () => {
@@ -1120,15 +1320,13 @@
         }
       });
 
-      $("presetSelect").addEventListener("change", (e) => {
-        applyPreset(e.target.value);
-      });
-
-
       // Boot
       detectSaved();
+      updateWinModeText();
       renderSetupInputs();
+      maybeRenderTeamPreview();
 
+      // Auto-load if saved game is playing/finished
       try{
         const raw = localStorage.getItem(STORAGE_KEY);
         if(raw){
