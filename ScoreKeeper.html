@@ -174,11 +174,6 @@
       color: var(--bad);
       background:#fff;
     }
-    .btn.good{
-      border-color: rgba(22,163,74,.35);
-      color: var(--good);
-      background:#fff;
-    }
 
     .pill{
       display:inline-flex;
@@ -205,7 +200,6 @@
 
     .muted{ color: var(--muted); font-size: var(--fs-sm); }
 
-    /* Scoreboard */
     .scoreboard-head{
       display:flex;
       gap:10px;
@@ -257,7 +251,6 @@
       background: rgba(22,163,74,.06);
     }
 
-    /* Winner banner */
     .banner{
       display:none;
       position: sticky;
@@ -288,7 +281,6 @@
       align-items:center;
     }
 
-    /* Round history */
     details{
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -349,7 +341,7 @@
     <header>
       <div class="title">
         <h1>Score Keeper</h1>
-        <div class="sub">Enter number of players, target score, and tap Start Game</div>
+        <div class="sub">One page. Fast setup. Round-by-round scoring with an automatic winner.</div>
       </div>
       <div class="top-actions">
         <button class="btn danger" id="btnNewGame" type="button" title="Start over">New Game</button>
@@ -368,11 +360,9 @@
     </div>
 
     <div class="grid">
-      <!-- Left: Setup / Round entry -->
       <section class="card" id="leftCard">
         <h2 id="leftTitle">Game Setup</h2>
 
-        <!-- Setup panel -->
         <div id="setupPanel">
           <div class="row">
             <div class="field" style="max-width: 200px;">
@@ -402,7 +392,6 @@
           </div>
         </div>
 
-        <!-- Round entry panel -->
         <div id="roundPanel" style="display:none;">
           <div class="row" style="justify-content:space-between;">
             <div class="pill"><strong>Target:</strong> <span id="targetPill">0</span></div>
@@ -424,7 +413,6 @@
         </div>
       </section>
 
-      <!-- Right: Scoreboard + history -->
       <section class="card">
         <div class="scoreboard-head">
           <h2 style="margin:0;">Scoreboard</h2>
@@ -469,7 +457,6 @@
   <script>
     (() => {
       const STORAGE_KEY = "scorekeeper.v1";
-
       const $ = (id) => document.getElementById(id);
 
       const els = {
@@ -528,9 +515,7 @@
 
       const uid = () => Math.random().toString(36).slice(2, 10);
 
-      function setLive(text){
-        els.ariaLive.textContent = text;
-      }
+      function setLive(text){ els.ariaLive.textContent = text; }
 
       function clampInt(val, min, max){
         const n = Number.parseInt(val, 10);
@@ -566,9 +551,7 @@
           };
           localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
           detectSaved();
-        }catch{
-          // ignore storage errors
-        }
+        }catch{}
       }
 
       function clearSaved(){
@@ -581,22 +564,15 @@
           const raw = localStorage.getItem(STORAGE_KEY);
           if(!raw) return false;
           const payload = JSON.parse(raw);
-
-          // Basic sanity checks
           if(!payload || !Array.isArray(payload.players) || !Array.isArray(payload.rounds)) return false;
 
-          state.mode = payload.mode === "playing" || payload.mode === "finished" ? payload.mode : "setup";
+          state.mode = (payload.mode === "playing" || payload.mode === "finished") ? payload.mode : "setup";
           state.target = Number.isFinite(payload.target) ? payload.target : 100;
           state.players = payload.players.map(p => ({ id: String(p.id), name: String(p.name) }));
-          state.rounds = payload.rounds.map(r => ({
-            n: Number(r.n),
-            scores: r.scores || {},
-            ts: r.ts || Date.now(),
-          }));
+          state.rounds = payload.rounds.map(r => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
           state.winnerId = payload.winnerId || null;
           state.sortByTotal = !!payload.sortByTotal;
 
-          // derive lastRoundScores
           state.lastRoundScores = state.rounds.length ? (state.rounds[state.rounds.length - 1].scores || {}) : {};
           state.bannerDismissed = false;
 
@@ -628,96 +604,82 @@
         setLive("New game started.");
       }
 
-      function normalizeName(name){
-        return String(name || "").trim();
-      }
+      function normalizeName(name){ return String(name || "").trim(); }
 
-      function validateSetup(players, target){
-        if(players.length < 2) return "At least 2 players are required.";
+      function validateSetup(names, target){
+        if(names.length < 2) return "At least 2 players are required.";
         if(!Number.isInteger(target) || target < 1) return "Points to win must be a positive whole number.";
-
-        const names = players.map(p => normalizeName(p.name));
         if(names.some(n => !n)) return "All player names are required.";
-
         const lowered = names.map(n => n.toLowerCase());
-        const set = new Set(lowered);
-        if(set.size !== lowered.length) return "Player names must be unique (case-insensitive).";
-
+        if(new Set(lowered).size !== lowered.length) return "Player names must be unique (case-insensitive).";
         return "";
       }
-function renderSetupInputs(){
-  const raw = String(els.playerCount.value ?? "").trim();
 
-  // Let the user clear the field while typing without snapping to min/max
-  if(raw === ""){
-    els.btnStart.disabled = true;
-    return;
-  }
+      function currentNameInputs(){
+        return Array.from(document.querySelectorAll("[data-player-name]")).map(inp => normalizeName(inp.value));
+      }
 
-  const n = Number.parseInt(raw, 10);
-  const count = Number.isNaN(n) ? 2 : Math.min(12, Math.max(2, n));
+      function renderSetupInputs(){
+        const raw = String(els.playerCount.value ?? "").trim();
 
-  // Only normalize after commit (change/blur triggers this)
-  els.playerCount.value = count;
+        // Allow empty mid-edit without snapping. Keep existing fields; just disable Start.
+        if(raw === ""){
+          els.btnStart.disabled = true;
+          return;
+        }
 
-  const wrap = els.playerNamesWrap;
-  const existing = [];
-  document.querySelectorAll("[data-player-name]").forEach(inp => existing.push(inp.value));
+        const n = Number.parseInt(raw, 10);
+        const count = Number.isNaN(n) ? 2 : Math.min(12, Math.max(2, n));
+        els.playerCount.value = count;
 
-  wrap.innerHTML = "";
+        const wrap = els.playerNamesWrap;
 
-  for(let i=0;i<count;i++){
-    const field = document.createElement("div");
-    field.className = "field";
-    field.style.minWidth = "180px";
+        // Preserve any currently-typed names if we're rebuilding
+        const existing = currentNameInputs();
 
-    const label = document.createElement("label");
-    label.setAttribute("for", `pname_${i}`);
-    label.textContent = `Player ${i+1} name`;
+        wrap.innerHTML = "";
+        for(let i=0;i<count;i++){
+          const field = document.createElement("div");
+          field.className = "field";
+          field.style.minWidth = "180px";
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.id = `pname_${i}`;
-    input.setAttribute("data-player-name", "1");
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    input.value = existing[i] ?? "";
+          const label = document.createElement("label");
+          label.setAttribute("for", `pname_${i}`);
+          label.textContent = `Player ${i+1} name`;
 
-    input.addEventListener("input", () => {
-      updateStartButtonState();
-      showMsg(els.setupMsg, "");
-    });
+          const input = document.createElement("input");
+          input.type = "text";
+          input.id = `pname_${i}`;
+          input.setAttribute("data-player-name", "1");
+          input.autocomplete = "off";
+          input.spellcheck = false;
+          input.value = existing[i] ?? "";
 
-    field.appendChild(label);
-    field.appendChild(input);
-    wrap.appendChild(field);
-  }
+          input.addEventListener("input", () => {
+            updateStartButtonState();
+            showMsg(els.setupMsg, "");
+          });
 
-  updateStartButtonState();
-}
+          field.appendChild(label);
+          field.appendChild(input);
+          wrap.appendChild(field);
+        }
 
-
-      function getSetupPlayers(){
-        const inputs = document.querySelectorAll("[data-player-name]");
-        const players = Array.from(inputs).map(inp => ({
-          id: uid(),
-          name: normalizeName(inp.value),
-        }));
-        return players;
+        updateStartButtonState();
       }
 
       function updateStartButtonState(){
         const target = clampInt(els.targetPoints.value, 1, 1000000);
-        const players = getSetupPlayers();
-        const msg = validateSetup(players, target);
+        const names = currentNameInputs();
+        const msg = validateSetup(names, target);
         els.btnStart.disabled = !!msg;
       }
 
       function startGame(){
         const target = clampInt(els.targetPoints.value, 1, 1000000);
-        const players = getSetupPlayers();
+        const names = currentNameInputs();
 
-        const msg = validateSetup(players, target);
+        const msg = validateSetup(names, target);
         if(msg){
           showMsg(els.setupMsg, msg);
           return;
@@ -725,7 +687,7 @@ function renderSetupInputs(){
 
         state.mode = "playing";
         state.target = target;
-        state.players = players;
+        state.players = names.map(name => ({ id: uid(), name }));
         state.rounds = [];
         state.lastRoundScores = {};
         state.winnerId = null;
@@ -762,15 +724,18 @@ function renderSetupInputs(){
           .filter(x => x.total >= state.target);
 
         if(!eligible.length) return null;
-
-        // If multiple hit in the same round, pick highest total.
         eligible.sort((a,b) => b.total - a.total);
         return eligible[0].id;
       }
 
+      function playerName(id){
+        return state.players.find(p => p.id === id)?.name ?? "Unknown";
+      }
+
       function renderRoundInputs(){
         els.roundInputs.innerHTML = "";
-        for(const p of state.players){
+
+        for (const p of state.players) {
           const field = document.createElement("div");
           field.className = "field";
           field.style.minWidth = "180px";
@@ -784,15 +749,21 @@ function renderSetupInputs(){
           input.inputMode = "numeric";
           input.id = `score_${p.id}`;
           input.setAttribute("data-round-score", p.id);
-          input.placeholder = "0";
           input.step = "1";
+          input.value = "0";
+
+          const selectAll = () => setTimeout(() => input.select(), 0);
+          input.addEventListener("focus", selectAll);
+          input.addEventListener("click", selectAll);
+          input.addEventListener("touchstart", selectAll, { passive: true });
 
           input.addEventListener("input", () => showMsg(els.roundMsg, ""));
+
           input.addEventListener("keydown", (e) => {
-            if(e.key === "Enter"){
+            if (e.key === "Enter") {
               const ids = state.players.map(x => x.id);
               const lastId = ids[ids.length - 1];
-              if(p.id === lastId){
+              if (p.id === lastId) {
                 e.preventDefault();
                 addRound();
               }
@@ -807,11 +778,9 @@ function renderSetupInputs(){
 
       function readRoundScores(){
         const scores = {};
-        const inputs = document.querySelectorAll("[data-round-score]");
-        inputs.forEach(inp => {
+        document.querySelectorAll("[data-round-score]").forEach(inp => {
           const id = inp.getAttribute("data-round-score");
           const raw = String(inp.value ?? "").trim();
-          // Blank defaults to 0
           if(raw === ""){
             scores[id] = 0;
             return;
@@ -824,7 +793,7 @@ function renderSetupInputs(){
 
       function clearRoundInputs(){
         const inputs = document.querySelectorAll("[data-round-score]");
-        inputs.forEach(inp => inp.value = "");
+        inputs.forEach(inp => inp.value = "0");
         const first = inputs[0];
         if(first) first.focus();
       }
@@ -833,7 +802,6 @@ function renderSetupInputs(){
         if(state.mode !== "playing") return;
 
         const scores = readRoundScores();
-        // Validate: all integers (we treat NaN as 0, but still catch truly non-integer typed values)
         for(const p of state.players){
           const v = scores[p.id];
           if(!Number.isInteger(v)){
@@ -879,8 +847,45 @@ function renderSetupInputs(){
         setLive("Last round undone.");
       }
 
-      function playerName(id){
-        return state.players.find(p => p.id === id)?.name ?? "Unknown";
+      function renderHistoryTable(){
+        const cols = state.players.map(p => p.id);
+        const tbl = els.historyTable;
+        tbl.innerHTML = "";
+
+        const thead = document.createElement("thead");
+        const trh = document.createElement("tr");
+        const th0 = document.createElement("th");
+        th0.textContent = "Round";
+        trh.appendChild(th0);
+
+        for(const pid of cols){
+          const th = document.createElement("th");
+          th.textContent = playerName(pid);
+          trh.appendChild(th);
+        }
+        thead.appendChild(trh);
+        tbl.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        for(const r of state.rounds){
+          const tr = document.createElement("tr");
+          const td0 = document.createElement("td");
+          td0.textContent = String(r.n);
+          tr.appendChild(td0);
+
+          for(const pid of cols){
+            const td = document.createElement("td");
+            const v = Number(r.scores?.[pid] ?? 0);
+            td.textContent = String(Number.isFinite(v) ? v : 0);
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+
+        els.historySummaryText.textContent = state.rounds.length
+          ? `Round History (${state.rounds.length})`
+          : "Round History (0)";
       }
 
       function renderScoreboard(){
@@ -915,51 +920,7 @@ function renderSetupInputs(){
           els.scoreboardBody.appendChild(tr);
         }
 
-        // History
-        renderHistoryTable(playersToShow);
-
-        els.historySummaryText.textContent = state.rounds.length ? `Round History (${state.rounds.length})` : "Round History (0)";
-      }
-
-      function renderHistoryTable(playersToShow){
-        const playersOriginal = state.players; // keep original order for history columns
-        const cols = playersOriginal.map(p => p.id);
-
-        const tbl = els.historyTable;
-        tbl.innerHTML = "";
-
-        const thead = document.createElement("thead");
-        const trh = document.createElement("tr");
-
-        const th0 = document.createElement("th");
-        th0.textContent = "Round";
-        trh.appendChild(th0);
-
-        for(const pid of cols){
-          const th = document.createElement("th");
-          th.textContent = playerName(pid);
-          trh.appendChild(th);
-        }
-
-        thead.appendChild(trh);
-        tbl.appendChild(thead);
-
-        const tbody = document.createElement("tbody");
-        for(const r of state.rounds){
-          const tr = document.createElement("tr");
-          const td0 = document.createElement("td");
-          td0.textContent = String(r.n);
-          tr.appendChild(td0);
-
-          for(const pid of cols){
-            const td = document.createElement("td");
-            const v = Number(r.scores?.[pid] ?? 0);
-            td.textContent = String(Number.isFinite(v) ? v : 0);
-            tr.appendChild(td);
-          }
-          tbody.appendChild(tr);
-        }
-        tbl.appendChild(tbody);
+        renderHistoryTable();
       }
 
       function renderWinnerBanner(){
@@ -984,8 +945,8 @@ function renderSetupInputs(){
         els.roundPanel.style.display = playing ? "block" : "none";
         els.leftTitle.textContent = playing ? "Round Entry" : "Game Setup";
 
-        els.scoreboardEmpty.style.display = state.players.length ? "none" : "block";
-        els.scoreboardArea.style.display = state.players.length ? "block" : "none";
+        $("scoreboardEmpty").style.display = state.players.length ? "none" : "block";
+        $("scoreboardArea").style.display = state.players.length ? "block" : "none";
 
         els.btnToggleSort.disabled = !state.players.length;
         els.btnToggleSort.textContent = state.sortByTotal ? "Sort: Totals" : "Sort: Off";
@@ -1022,17 +983,14 @@ function renderSetupInputs(){
       }
 
       // Events
-// Only re-render when the value is committed (not mid-typing)
-els.playerCount.addEventListener("change", () => {
-  renderSetupInputs();
-  showMsg(els.setupMsg, "");
-});
-
-els.playerCount.addEventListener("blur", () => {
-  renderSetupInputs();
-  showMsg(els.setupMsg, "");
-});
-
+      els.playerCount.addEventListener("change", () => {
+        renderSetupInputs();
+        showMsg(els.setupMsg, "");
+      });
+      els.playerCount.addEventListener("blur", () => {
+        renderSetupInputs();
+        showMsg(els.setupMsg, "");
+      });
 
       els.targetPoints.addEventListener("input", () => {
         updateStartButtonState();
@@ -1061,7 +1019,7 @@ els.playerCount.addEventListener("blur", () => {
       els.btnKeepGoing.addEventListener("click", () => {
         state.bannerDismissed = true;
         state.mode = "playing";
-        state.winnerId = null; // keep tracking without "finished" state
+        state.winnerId = null;
         save();
         renderAll();
         setLive("Continuing score tracking.");
@@ -1085,8 +1043,6 @@ els.playerCount.addEventListener("blur", () => {
       detectSaved();
       renderSetupInputs();
 
-      // Auto-load if it looks like there's a saved in-progress game
-      // but keep it gentle: user can also load manually.
       try{
         const raw = localStorage.getItem(STORAGE_KEY);
         if(raw){
