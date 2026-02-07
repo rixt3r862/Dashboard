@@ -137,6 +137,22 @@
       border-color: rgba(37,99,235,.5);
       box-shadow: 0 0 0 4px rgba(37,99,235,.12);
     }
+    select{
+      width:100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background:#fff;
+      color: var(--text);
+      font-size: var(--fs);
+    }
+
+    select:focus{
+      border-color: rgba(37,99,235,.5);
+      box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+      outline:none;
+    }
+
 
     .btn{
       appearance:none;
@@ -366,6 +382,18 @@
         <div id="setupPanel">
           <div class="row">
             <div class="field" style="max-width: 200px;">
+             <div class="field" style="max-width: 260px;">
+              <label for="presetSelect">Game preset</label>
+              <select id="presetSelect">
+                <option value="custom">Custom</option>
+                <option value="uno">Uno</option>
+                <option value="phase10">Phase 10</option>
+                <option value="skyjo">SkyJo</option>
+                <option value="hearts">Hearts</option>
+                <option value="spades">Spades</option>
+              </select>
+            </div>
+ 
               <label for="playerCount">Number of players</label>
               <input id="playerCount" type="number" inputmode="numeric" min="2" max="12" value="4" />
             </div>
@@ -457,6 +485,44 @@
   <script>
     (() => {
       const STORAGE_KEY = "scorekeeper.v1";
+      const PRESETS = {
+  custom: {
+    label: "Custom",
+    target: null,
+    notes: ""
+  },
+
+  uno: {
+    label: "Uno",
+    target: 500,
+    notes: "First player to 500 points wins."
+  },
+
+  phase10: {
+    label: "Phase 10",
+    target: 10,
+    notes: "Tracking phases completed, not cumulative points."
+  },
+
+  skyjo: {
+    label: "SkyJo",
+    target: 100,
+    notes: "Lowest score wins. Negative scores possible."
+  },
+
+  hearts: {
+    label: "Hearts",
+    target: 100,
+    notes: "Lowest score wins. Shooting the moon applies."
+  },
+
+  spades: {
+    label: "Spades",
+    target: 500,
+    notes: "Partnership game. Bags and nils may apply."
+  }
+};
+
       const $ = (id) => document.getElementById(id);
 
       const els = {
@@ -887,6 +953,21 @@
           ? `Round History (${state.rounds.length})`
           : "Round History (0)";
       }
+      function applyPreset(key){
+        const preset = PRESETS[key];
+        if(!preset) return;
+
+        if(Number.isInteger(preset.target)){
+          els.targetPoints.value = preset.target;
+        }
+
+        showMsg(
+          els.setupMsg,
+          preset.notes || ""
+        );
+
+        updateStartButtonState();
+      }
 
       function renderScoreboard(){
         const totals = totalsById();
@@ -1038,6 +1119,11 @@
           clearSaved();
         }
       });
+
+      $("presetSelect").addEventListener("change", (e) => {
+        applyPreset(e.target.value);
+      });
+
 
       // Boot
       detectSaved();
