@@ -70,7 +70,7 @@
 
   // Guard (ignore optional teamPickerRow)
   const required = Object.entries(els)
-    .filter(([k, v]) => k !== "teamPickerRow" && !v)
+    .filter(([k, v]) => !["teamPickerRow", "spadesPartnerLabel"].includes(k) && !v)
     .map(([k]) => k);
   if (required.length) {
     console.error("Scorekeeper: missing required element IDs:", required);
@@ -143,13 +143,13 @@
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       detectSaved();
-    } catch {}
+    } catch { }
   }
 
   function clearSaved() {
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    } catch { }
     detectSaved();
   }
 
@@ -168,10 +168,10 @@
       state.players = payload.players.map((p) => ({ id: String(p.id), name: String(p.name) }));
       state.teams = Array.isArray(payload.teams)
         ? payload.teams.map((t) => ({
-            id: String(t.id),
-            name: String(t.name),
-            members: Array.isArray(t.members) ? t.members.map(String) : [],
-          }))
+          id: String(t.id),
+          name: String(t.name),
+          members: Array.isArray(t.members) ? t.members.map(String) : [],
+        }))
         : null;
 
       state.rounds = payload.rounds.map((r) => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
@@ -301,9 +301,10 @@
 
       input.addEventListener("input", () => {
         updateStartButtonState();
-        // Keep preset note visible unless validation wants to override
+        maybeRenderTeamPreview(); // ✅ update partner label/options live
         showMsg(els.setupMsg, state.presetNote);
       });
+
 
       field.appendChild(label);
       field.appendChild(input);
@@ -363,92 +364,33 @@
     ];
   }
 
-function maybeRenderTeamPreview() {
-  const preset = PRESETS[state.presetKey] || PRESETS.custom;
-
-  if (!preset.teams) {
-    els.teamPreview.style.display = "none";
-    els.teamChips.innerHTML = "";
-    els.spadesPartner.innerHTML = "";
-    els.spadesPartner.disabled = true;
-    els.spadesPartnerLabel.textContent = "Partner for Player 1";
-    return;
-  }
-
-  els.teamPreview.style.display = "block";
-
-  const names = currentNameInputs(); // ["Rick", "Rob", "Roque", "Carl"] etc.
-
-  // Update the label live based on Player 1 name
-  const p1Name = names[0] || "Player 1";
-  els.spadesPartnerLabel.textContent = `Partner for ${p1Name}`;
-
-  // Need exactly 4 players to build teams
-  if (names.length !== 4) {
-    els.teamChips.innerHTML =
-      `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
-    els.spadesPartner.innerHTML = "";
-    els.spadesPartner.disabled = true;
-    return;
-  }
-
-  // Enable partner picker
-  els.spadesPartner.disabled = false;
-
-  // Preserve selection if still valid
-  const current = [2, 3, 4].includes(state.spadesPartnerIndex)
-    ? state.spadesPartnerIndex
-    : 2;
-
-  // Build options using live names (no more "Player 2 (Player 2)" unless blank)
-  const optLabel = (idx) => names[idx] ? names[idx] : `Player ${idx + 1}`;
-  const options = [
-    { val: 2, label: `Player 2 (${optLabel(1)})` },
-    { val: 3, label: `Player 3 (${optLabel(2)})` },
-    { val: 4, label: `Player 4 (${optLabel(3)})` },
-  ];
-
-  els.spadesPartner.innerHTML = options
-    .map(o =>
-      `<option value="${o.val}" ${o.val === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`
-    )
-    .join("");
-
-  // Read partner selection (fallback to current)
-  const partnerVal = Number(els.spadesPartner.value) || current;
-  state.spadesPartnerIndex = [2, 3, 4].includes(partnerVal) ? partnerVal : 2;
-
-  // Compute teams based on selection (Player 1 + selected partner)
-  const partnerIdx = state.spadesPartnerIndex - 1;
-
-  const teamA = `${p1Name} + ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
-
-  const remaining = [1, 2, 3].filter(i => i !== partnerIdx);
-  const teamB =
-    `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ` +
-    `${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
-
-  els.teamChips.innerHTML = `
-    <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
-    <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
-  `;
-}
+  function maybeRenderTeamPreview() {
     const preset = PRESETS[state.presetKey] || PRESETS.custom;
 
+    // Not a teams preset: hide everything and reset spades UI bits
     if (!preset.teams) {
       els.teamPreview.style.display = "none";
       els.teamChips.innerHTML = "";
+      els.spadesPartner.innerHTML = "";
+      els.spadesPartner.disabled = true;
       if (els.teamPickerRow) els.teamPickerRow.style.display = "none";
+      if (els.spadesPartnerLabel) els.spadesPartnerLabel.textContent = "Partner for Player 1";
       return;
     }
 
+    // Teams preset (Spades): show the block
     els.teamPreview.style.display = "block";
 
-    const names = currentNameInputs();
+    const names = currentNameInputs(); // live input values
 
-    // Need 4 players to build teams
+    // Update the label live based on Player 1's name (if available)
+    const p1Name = names[0] || "Player 1";
+    if (els.spadesPartnerLabel) els.spadesPartnerLabel.textContent = `Partner for ${p1Name}`;
+
+    // Need exactly 4 players for partner picking + teams
     if (names.length !== 4) {
-      els.teamChips.innerHTML = `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
+      els.teamChips.innerHTML =
+        `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
       els.spadesPartner.innerHTML = "";
       els.spadesPartner.disabled = true;
       if (els.teamPickerRow) els.teamPickerRow.style.display = "none";
@@ -458,34 +400,36 @@ function maybeRenderTeamPreview() {
     if (els.teamPickerRow) els.teamPickerRow.style.display = "flex";
     els.spadesPartner.disabled = false;
 
-    // Partner options for Player 1
-    const options = [
-      { val: 2, label: `Player 2 (${names[1] || "Player 2"})` },
-      { val: 3, label: `Player 3 (${names[2] || "Player 3"})` },
-      { val: 4, label: `Player 4 (${names[3] || "Player 4"})` },
-    ];
-
+    // Preserve selection if still valid
     const current = [2, 3, 4].includes(state.spadesPartnerIndex) ? state.spadesPartnerIndex : 2;
+
+    const optName = (i) => (names[i] ? names[i] : `Player ${i + 1}`);
+    const options = [
+      { val: 2, label: `Player 2 (${optName(1)})` },
+      { val: 3, label: `Player 3 (${optName(2)})` },
+      { val: 4, label: `Player 4 (${optName(3)})` },
+    ];
 
     els.spadesPartner.innerHTML = options
       .map((o) => `<option value="${o.val}" ${o.val === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`)
       .join("");
 
-    // Ensure state matches actual select value (in case DOM coerces)
+    // Sync state with the actual select value
     const partnerVal = Number(els.spadesPartner.value) || current;
     state.spadesPartnerIndex = [2, 3, 4].includes(partnerVal) ? partnerVal : 2;
 
-    const p1 = names[0] || "Player 1";
+    // Compute teams based on selection
     const partnerIdx = state.spadesPartnerIndex - 1;
 
-    const teamA = `${p1} + ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
+    const teamA = `${p1Name} + ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
     const remaining = [1, 2, 3].filter((i) => i !== partnerIdx);
-    const teamB = `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
+    const teamB =
+      `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
 
     els.teamChips.innerHTML = `
-      <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
-      <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
-    `;
+    <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
+    <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
+  `;
   }
 
   function startGame() {
