@@ -645,48 +645,57 @@
 
         return "";
       }
+function renderSetupInputs(){
+  const raw = String(els.playerCount.value ?? "").trim();
 
-      function renderSetupInputs(){
-        const count = clampInt(els.playerCount.value, 2, 12);
-        els.playerCount.value = count;
+  // Let the user clear the field while typing without snapping to min/max
+  if(raw === ""){
+    els.btnStart.disabled = true;
+    return;
+  }
 
-        const wrap = els.playerNamesWrap;
-        wrap.innerHTML = "";
+  const n = Number.parseInt(raw, 10);
+  const count = Number.isNaN(n) ? 2 : Math.min(12, Math.max(2, n));
 
-        // Use current inputs if any
-        const existing = [];
-        const currentInputs = document.querySelectorAll("[data-player-name]");
-        currentInputs.forEach(inp => existing.push(inp.value));
+  // Only normalize after commit (change/blur triggers this)
+  els.playerCount.value = count;
 
-        for(let i=0;i<count;i++){
-          const field = document.createElement("div");
-          field.className = "field";
-          field.style.minWidth = "180px";
+  const wrap = els.playerNamesWrap;
+  const existing = [];
+  document.querySelectorAll("[data-player-name]").forEach(inp => existing.push(inp.value));
 
-          const label = document.createElement("label");
-          label.setAttribute("for", `pname_${i}`);
-          label.textContent = `Player ${i+1} name`;
+  wrap.innerHTML = "";
 
-          const input = document.createElement("input");
-          input.type = "text";
-          input.id = `pname_${i}`;
-          input.setAttribute("data-player-name", "1");
-          input.autocomplete = "off";
-          input.spellcheck = false;
-          input.value = existing[i] ?? (i === 0 ? "Rick" : (i === 1 ? "Roque" : (i === 2 ? "Rob" : (i === 3 ? "Carl" : ""))));
+  for(let i=0;i<count;i++){
+    const field = document.createElement("div");
+    field.className = "field";
+    field.style.minWidth = "180px";
 
-          input.addEventListener("input", () => {
-            updateStartButtonState();
-            showMsg(els.setupMsg, "");
-          });
+    const label = document.createElement("label");
+    label.setAttribute("for", `pname_${i}`);
+    label.textContent = `Player ${i+1} name`;
 
-          field.appendChild(label);
-          field.appendChild(input);
-          wrap.appendChild(field);
-        }
+    const input = document.createElement("input");
+    input.type = "text";
+    input.id = `pname_${i}`;
+    input.setAttribute("data-player-name", "1");
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.value = existing[i] ?? "";
 
-        updateStartButtonState();
-      }
+    input.addEventListener("input", () => {
+      updateStartButtonState();
+      showMsg(els.setupMsg, "");
+    });
+
+    field.appendChild(label);
+    field.appendChild(input);
+    wrap.appendChild(field);
+  }
+
+  updateStartButtonState();
+}
+
 
       function getSetupPlayers(){
         const inputs = document.querySelectorAll("[data-player-name]");
@@ -1013,10 +1022,17 @@
       }
 
       // Events
-      els.playerCount.addEventListener("input", () => {
-        renderSetupInputs();
-        showMsg(els.setupMsg, "");
-      });
+// Only re-render when the value is committed (not mid-typing)
+els.playerCount.addEventListener("change", () => {
+  renderSetupInputs();
+  showMsg(els.setupMsg, "");
+});
+
+els.playerCount.addEventListener("blur", () => {
+  renderSetupInputs();
+  showMsg(els.setupMsg, "");
+});
+
 
       els.targetPoints.addEventListener("input", () => {
         updateStartButtonState();
