@@ -400,9 +400,12 @@ function normalizeName(name) {
       .filter((x) => x.i !== 0 && x.i !== partnerIdx)
       .map((x) => x.p);
 
+    const teamAName = `${p0.name} + ${partner.name}`;
+    const teamBName = `${remaining[0].name} + ${remaining[1].name}`;
+
     return [
-      { id: "teamA", name: "Team A", members: [p0.id, partner.id] },
-      { id: "teamB", name: "Team B", members: [remaining[0].id, remaining[1].id] },
+      { id: "teamA", name: teamAName, members: [p0.id, partner.id] },
+      { id: "teamB", name: teamBName, members: [remaining[0].id, remaining[1].id] },
     ];
   }
 
