@@ -68,11 +68,16 @@
     historyTable: $("historyTable"),
 
     ariaLive: $("ariaLive"),
+
+    // Phase 10 reference (optional)
+    phase10Hints: $("phase10Hints"),
+    phase10Players: $("phase10Players"),
+    phase10List: $("phase10List"),
   };
 
   // Guard (ignore optional teamPickerRow)
   const required = Object.entries(els)
-    .filter(([k, v]) => !["teamPickerRow", "spadesPartnerLabel"].includes(k) && !v)
+    .filter(([k, v]) => !["teamPickerRow","spadesPartnerLabel","phase10Hints","phase10Players","phase10List"].includes(k) && !v)
     .map(([k]) => k);
   if (required.length) {
     console.error("Scorekeeper: missing required element IDs:", required);
@@ -299,6 +304,10 @@
     els.winModeText.textContent = state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
   }
 
+  function isPhase10() {
+    return state.presetKey === "phase10";
+  }
+
   function applyPreset(key) {
     const preset = PRESETS[key] || PRESETS.custom;
     state.presetKey = key in PRESETS ? key : "custom";
@@ -313,6 +322,8 @@
     state.presetNote = preset.notes || "";
     showMsg(els.setupMsg, state.presetNote);
 
+
+    renderPhase10Hints();
     maybeRenderTeamPreview();
     updateStartButtonState();
   }
@@ -607,7 +618,9 @@
 
       const label = document.createElement("label");
       label.setAttribute("for", `score_${p.id}`);
-      label.textContent = `${p.name} (this round)`;
+      label.textContent = isPhase10()
+        ? `${p.name} (phase completed: 0 or 1)`
+        : `${p.name} (this round)`;
 
       const input = document.createElement("input");
       input.type = "number";
@@ -617,7 +630,14 @@
       input.step = "1";
       input.value = "0";
 
-      const selectAll = () => setTimeout(() => input.select(), 0);
+      
+
+      if (isPhase10()) {
+        input.min = "0";
+        input.max = "1";
+        input.placeholder = "0 or 1";
+      }
+const selectAll = () => setTimeout(() => input.select(), 0);
       input.addEventListener("focus", selectAll);
       input.addEventListener("click", selectAll);
       input.addEventListener("touchstart", selectAll, { passive: true });
@@ -642,21 +662,29 @@
   }
 
   function readRoundScores() {
-    const scores = {};
-    document.querySelectorAll("[data-round-score]").forEach((inp) => {
-      const id = inp.getAttribute("data-round-score");
-      const raw = String(inp.value ?? "").trim();
-      if (raw === "") {
-        scores[id] = 0;
-        return;
-      }
-      const n = Number.parseInt(raw, 10);
-      scores[id] = Number.isNaN(n) ? 0 : n;
-    });
-    return scores;
-  }
+  const scores = {};
+  document.querySelectorAll("[data-round-score]").forEach((inp) => {
+    const id = inp.getAttribute("data-round-score");
+    const raw = String(inp.value ?? "").trim();
+    if (raw === "") {
+      scores[id] = 0;
+      return;
+    }
+    const n = Number.parseInt(raw, 10);
+    let val = Number.isNaN(n) ? 0 : n;
 
-  function clearRoundInputs() {
+    // Phase 10 tracks phases completed per round: 0 or 1
+    if (isPhase10()) {
+      val = val <= 0 ? 0 : 1;
+    }
+
+    scores[id] = val;
+  });
+  return scores;
+}
+
+function clearRoundInputs() {
+function clearRoundInputs() {
     const inputs = document.querySelectorAll("[data-round-score]");
     inputs.forEach((inp) => (inp.value = "0"));
     const first = inputs[0];
@@ -815,6 +843,41 @@
     renderHistoryTable();
   }
 
+
+function renderPhase10Hints() {
+  // If the HTML block is not present, do nothing.
+  if (!els.phase10Hints || !els.phase10Players) return;
+
+  if (!isPhase10() || !state.players.length) {
+    els.phase10Hints.style.display = "none";
+    return;
+  }
+
+  els.phase10Hints.style.display = "block";
+
+  const totals = totalsByPlayerId();
+  const target = Number(state.target ?? 10);
+
+  els.phase10Players.innerHTML = state.players
+    .map((p) => {
+      const done = Number(totals[p.id] ?? 0);
+      const current = done >= target ? "Done" : `Phase ${Math.min(target, done + 1)}`;
+      return `
+        <div class="phase-hints__pill">
+          <strong>${escapeHtml(p.name)}</strong>
+          <span class="muted">${escapeHtml(current)}</span>
+          <span class="muted">(${done}/${target})</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  // Remove any single-phase highlight since it varies per player
+  if (els.phase10List) {
+    els.phase10List.querySelectorAll("li.current").forEach((li) => li.classList.remove("current"));
+  }
+}
+
   function renderWinnerBanner() {
     const playerTotals = totalsByPlayerId();
     let winnerTotal = 0;
@@ -879,6 +942,7 @@
     if (state.players.length) {
       renderScoreboard();
     }
+      renderPhase10Hints();
     if (state.mode === "setup") {
       updateStartButtonState();
     }
