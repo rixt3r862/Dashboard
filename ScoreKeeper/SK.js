@@ -232,7 +232,9 @@
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
-    renderSetupInputs(false);
+    els.roundInputs.innerHTML = "";
+
+    renderSetupInputs(true);
     renderAll();
     setLive("New game started.");
   }
@@ -548,6 +550,20 @@ function normalizeName(name) {
     renderAll();
     setLive("Game started.");
   }
+
+  // Ensure the DOM round inputs match the current player IDs.
+  // Prevents a bug where inputs from a prior game remain and scores get recorded under old IDs.
+  function roundInputsMatchPlayers() {
+    const inputs = Array.from(document.querySelectorAll("[data-round-score]"));
+    if (inputs.length !== state.players.length) return false;
+    const domIds = inputs.map((el) => el.getAttribute("data-round-score"));
+    const stateIds = state.players.map((p) => p.id);
+    for (let i = 0; i < stateIds.length; i++) {
+      if (domIds[i] !== stateIds[i]) return false;
+    }
+    return true;
+  }
+
 
   function totalsByPlayerId() {
     const totals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
@@ -906,8 +922,10 @@ function normalizeName(name) {
     const statusText = state.mode === "setup" ? "Setup" : state.mode === "playing" ? "Playing" : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
-    if (playing && els.roundInputs.childElementCount === 0) {
-      renderRoundInputs();
+    if (playing && state.players.length) {
+      if (els.roundInputs.childElementCount === 0 || !roundInputsMatchPlayers()) {
+        renderRoundInputs();
+      }
     }
 
     updatePhase10RefVisibility();
