@@ -15,7 +15,9 @@
 
   const els = {
     btnNewGame: $("btnNewGame"),
+    btnNewSame: $("btnNewSame"),
     btnNewGame2: $("btnNewGame2"),
+    btnNewSame2: $("btnNewSame2"),
     btnKeepGoing: $("btnKeepGoing"),
     btnStart: $("btnStart"),
     btnAddRound: $("btnAddRound"),
@@ -181,10 +183,6 @@
       state.lastRoundScores = state.rounds.length ? state.rounds[state.rounds.length - 1].scores || {} : {};
       state.bannerDismissed = false;
 
-      // IMPORTANT: force round inputs to rebuild for the loaded player IDs
-      // (prevents "stale IDs" causing Add Round to fail)
-      els.roundInputs.innerHTML = "";
-
       state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex) ? payload.spadesPartnerIndex : 2;
       state.presetNote = typeof payload.presetNote === "string" ? payload.presetNote : (PRESETS[state.presetKey]?.notes || "");
 
@@ -212,9 +210,6 @@
     state.winnerId = null;
     state.sortByTotal = false;
     state.bannerDismissed = false;
-
-    // IMPORTANT: clear old round inputs so they never “stick” between games
-    els.roundInputs.innerHTML = "";
     state.presetNote = "";
     state.spadesPartnerIndex = 2;
 
@@ -228,12 +223,52 @@
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
-    renderSetupInputs();
+    renderSetupInputs(false);
     renderAll();
     setLive("New game started.");
   }
 
-  function normalizeName(name) {
+  
+  function newGameSamePlayers() {
+    // Prefer existing game players; if not started yet, use setup inputs.
+    const names = state.players.length
+      ? state.players.map((p) => p.name)
+      : currentNameInputs();
+
+    if (!names.length) {
+      state.mode = "setup";
+      renderAll();
+      return;
+    }
+
+    // Keep preset/target/winMode; just reset scoring
+    const target = state.target || clampInt(els.targetPoints.value, 1, 1000000);
+
+    state.mode = "playing";
+    state.target = target;
+
+    // Fresh IDs prevent “stale input bindings”
+    state.players = names.map((name) => ({ id: uid(), name }));
+    state.teams = buildTeamsIfNeeded(state.players);
+
+    // Reset score state
+    state.rounds = [];
+    state.lastRoundScores = {};
+    state.winnerId = null;
+    state.bannerDismissed = false;
+
+    showMsg(els.setupMsg, "");
+    showMsg(els.roundMsg, "");
+
+    // Force fresh round inputs for new IDs
+    els.roundInputs.innerHTML = "";
+
+    save();
+    renderAll();
+    setLive("New game started with same players.");
+  }
+
+function normalizeName(name) {
     return String(name || "").trim();
   }
 
@@ -272,7 +307,7 @@
     updateStartButtonState();
   }
 
-  function renderSetupInputs() {
+  function renderSetupInputs(keepExisting = true) {
     const raw = String(els.playerCount.value ?? "").trim();
 
     // Allow empty mid-edit without snapping. Keep existing fields; just disable Start.
@@ -285,7 +320,7 @@
     const count = Number.isNaN(n) ? 2 : Math.min(12, Math.max(2, n));
     els.playerCount.value = count;
 
-    const existing = currentNameInputs();
+    const existing = keepExisting ? currentNameInputs() : [];
     const wrap = els.playerNamesWrap;
 
     wrap.innerHTML = "";
@@ -365,13 +400,9 @@
       .filter((x) => x.i !== 0 && x.i !== partnerIdx)
       .map((x) => x.p);
 
-    // Use readable partnership names instead of generic Team A/Team B
-    const teamAName = `${p0.name} & ${partner.name}`;
-    const teamBName = `${remaining[0].name} & ${remaining[1].name}`;
-
     return [
-      { id: "teamA", name: teamAName, members: [p0.id, partner.id] },
-      { id: "teamB", name: teamBName, members: [remaining[0].id, remaining[1].id] },
+      { id: "teamA", name: "Team A", members: [p0.id, partner.id] },
+      { id: "teamB", name: "Team B", members: [remaining[0].id, remaining[1].id] },
     ];
   }
 
@@ -432,14 +463,14 @@
     // Compute teams based on selection
     const partnerIdx = state.spadesPartnerIndex - 1;
 
-    const teamA = `${p1Name} & ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
+    const teamA = `${p1Name} + ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
     const remaining = [1, 2, 3].filter((i) => i !== partnerIdx);
     const teamB =
-      `${names[remaining[0]] || `Player ${remaining[0] + 1}`} & ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
+      `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
 
     els.teamChips.innerHTML = `
-    <div class="chip"><strong>Team 1:</strong> ${escapeHtml(teamA)}</div>
-    <div class="chip"><strong>Team 2:</strong> ${escapeHtml(teamB)}</div>
+    <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
+    <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
   `;
   }
 
@@ -467,26 +498,9 @@
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
-    // IMPORTANT: force fresh round inputs for the new player IDs
-    // (prevents Add Round from reading inputs tied to old IDs)
-    els.roundInputs.innerHTML = "";
-
     save();
     renderAll();
     setLive("Game started.");
-  }
-
-  // Ensure the DOM round inputs match the current player IDs.
-  // This prevents a subtle bug where the UI still has inputs from a prior game.
-  function roundInputsMatchPlayers() {
-    const inputs = Array.from(document.querySelectorAll("[data-round-score]"));
-    if (inputs.length !== state.players.length) return false;
-    const domIds = inputs.map((el) => el.getAttribute("data-round-score"));
-    const stateIds = state.players.map((p) => p.id);
-    for (let i = 0; i < stateIds.length; i++) {
-      if (domIds[i] !== stateIds[i]) return false;
-    }
-    return true;
   }
 
   function totalsByPlayerId() {
@@ -597,17 +611,30 @@
   }
 
   function readRoundScores() {
-    const scores = {};
+
+    // Seed defaults so missing/stale DOM inputs can't produce undefined scores
+    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+
     document.querySelectorAll("[data-round-score]").forEach((inp) => {
       const id = inp.getAttribute("data-round-score");
+      if (!id) return;
+
       const raw = String(inp.value ?? "").trim();
       if (raw === "") {
         scores[id] = 0;
         return;
       }
+
       const n = Number.parseInt(raw, 10);
-      scores[id] = Number.isNaN(n) ? 0 : n;
+      let val = Number.isNaN(n) ? 0 : n;
+
+      if (isPhase10()) {
+        val = val <= 0 ? 0 : 1; // clamp to 0/1
+      }
+
+      scores[id] = val;
     });
+
     return scores;
   }
 
@@ -819,11 +846,8 @@
     const statusText = state.mode === "setup" ? "Setup" : state.mode === "playing" ? "Playing" : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
-    if (playing && state.players.length) {
-      // Rebuild if empty OR stale
-      if (els.roundInputs.childElementCount === 0 || !roundInputsMatchPlayers()) {
-        renderRoundInputs();
-      }
+    if (playing && els.roundInputs.childElementCount === 0) {
+      renderRoundInputs();
     }
 
     renderWinnerBanner();
@@ -868,6 +892,14 @@
   els.btnNewGame2.addEventListener("click", () => {
     clearSaved();
     newGame();
+  });
+
+  els.btnNewSame.addEventListener("click", () => {
+    newGameSamePlayers();
+  });
+
+  els.btnNewSame2.addEventListener("click", () => {
+    newGameSamePlayers();
   });
 
   els.btnKeepGoing.addEventListener("click", () => {

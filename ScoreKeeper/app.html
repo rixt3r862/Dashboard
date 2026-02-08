@@ -1,3 +1,4 @@
+<!-- ScoreKeeper.html -->
 <!doctype html>
 <html lang="en">
 
@@ -24,7 +25,7 @@
         <button class="btn danger" id="btnNewGame" type="button" title="Start over">
           New Game
         </button>
-        <button class="btn" id="btnNewSame" type="button" title="New game with same players">
+        <button class="btn" id="btnNewSame" type="button" title="Start a new game with the same players">
           New Game (same players)
         </button>
         <span class="pill" id="pillStatus"><strong>Status:</strong> Setup</span>
@@ -39,7 +40,7 @@
         <button class="btn primary" id="btnNewGame2" type="button">
           New Game
         </button>
-        <button class="btn" id="btnNewSame2" type="button">
+        <button class="btn" id="btnNewSame2" type="button" title="Start a new game with the same players">
           New Game (same players)
         </button>
         <button class="btn" id="btnKeepGoing" type="button">
@@ -72,7 +73,7 @@
             </div>
 
             <div class="field" style="max-width: 220px">
-              <label id="targetLabel" for="targetPoints">Target</label>
+              <label for="targetPoints">Target</label>
               <input id="targetPoints" type="number" inputmode="numeric" min="1" value="100" />
             </div>
           </div>
@@ -172,48 +173,12 @@
             <thead>
               <tr>
                 <th style="width: 48%" id="colHeadEntity">Player</th>
-                <th style="width: 26%" id="colHeadTotal">Total</th>
-                <th style="width: 26%" id="colHeadThis">This round</th>
+                <th style="width: 26%">Total</th>
+                <th style="width: 26%">This round</th>
               </tr>
             </thead>
             <tbody id="scoreboardBody"></tbody>
           </table>
-          <div id="phase10Hints" class="phase-hints" style="display: none">
-            <div class="phase-hints__head">
-              <div class="phase-hints__title">Phase 10 reference</div>
-              <div class="phase-hints__sub" id="phase10Current">
-                Current phase: —
-              </div>
-            </div>
-
-            <ol id="phase10List" class="phase-hints__list">
-              <li data-phase="1"><strong>Phase 1:</strong> 2 sets of 3</li>
-              <li data-phase="2">
-                <strong>Phase 2:</strong> 1 set of 3 + 1 run of 4
-              </li>
-              <li data-phase="3">
-                <strong>Phase 3:</strong> 1 set of 4 + 1 run of 4
-              </li>
-              <li data-phase="4"><strong>Phase 4:</strong> 1 run of 7</li>
-              <li data-phase="5"><strong>Phase 5:</strong> 1 run of 8</li>
-              <li data-phase="6"><strong>Phase 6:</strong> 1 run of 9</li>
-              <li data-phase="7"><strong>Phase 7:</strong> 2 sets of 4</li>
-              <li data-phase="8">
-                <strong>Phase 8:</strong> 7 cards of one color
-              </li>
-              <li data-phase="9">
-                <strong>Phase 9:</strong> 1 set of 5 + 1 set of 2
-              </li>
-              <li data-phase="10">
-                <strong>Phase 10:</strong> 1 set of 5 + 1 run of 3
-              </li>
-            </ol>
-
-            <div class="muted phase-hints__defs">
-              <strong>Set</strong> = cards of the same number.
-              <strong>Run</strong> = consecutive numbers.
-            </div>
-          </div>
 
           <div style="margin-top: 12px">
             <details id="historyDetails">
