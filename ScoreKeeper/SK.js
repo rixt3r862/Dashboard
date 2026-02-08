@@ -15,7 +15,9 @@
 
   const els = {
     btnNewGame: $("btnNewGame"),
+    btnNewSame: $("btnNewSame"),
     btnNewGame2: $("btnNewGame2"),
+    btnNewSame2: $("btnNewSame2"),
     btnKeepGoing: $("btnKeepGoing"),
     btnStart: $("btnStart"),
     btnAddRound: $("btnAddRound"),
@@ -233,6 +235,43 @@
     renderSetupInputs();
     renderAll();
     setLive("New game started.");
+  }
+
+  function newGameSamePlayers() {
+    // Carry forward names from an existing game; otherwise use current setup inputs
+    const names = state.players.length
+      ? state.players.map((p) => p.name)
+      : currentNameInputs();
+
+    const target = clampInt(els.targetPoints.value, 1, 1000000);
+    const msg = validateSetup(names, target);
+    if (msg) {
+      showMsg(els.setupMsg, msg);
+      return;
+    }
+
+    // Keep current preset + target; just restart rounds with same players
+    state.mode = "playing";
+    state.target = target;
+
+    // New IDs to avoid any stale DOM/input binding issues
+    state.players = names.map((name) => ({ id: uid(), name }));
+    state.teams = buildTeamsIfNeeded(state.players);
+
+    state.rounds = [];
+    state.lastRoundScores = {};
+    state.winnerId = null;
+    state.bannerDismissed = false;
+
+    showMsg(els.setupMsg, "");
+    showMsg(els.roundMsg, "");
+
+    // Force fresh round inputs for the new player IDs
+    els.roundInputs.innerHTML = "";
+
+    save();
+    renderAll();
+    setLive("New game started with same players.");
   }
 
   function normalizeName(name) {
@@ -907,6 +946,14 @@
   els.btnNewGame2.addEventListener("click", () => {
     clearSaved();
     newGame();
+  });
+
+  els.btnNewSame.addEventListener("click", () => {
+    newGameSamePlayers();
+  });
+
+  els.btnNewSame2.addEventListener("click", () => {
+    newGameSamePlayers();
   });
 
   els.btnKeepGoing.addEventListener("click", () => {
