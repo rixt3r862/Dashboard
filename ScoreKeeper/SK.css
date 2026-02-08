@@ -397,3 +397,32 @@ input[placeholder="0 or 1"]{
   margin-top: 10px;
   font-size: var(--font-sm);
 }
+
+/* Phase 10 helpers */
+td .sub{
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.phase10-ref{
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.phase10-ref h3{
+  margin: 0 0 8px;
+  font-size: var(--fs-lg);
+}
+.phase10-ref ol{
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+.phase10-ref li{
+  margin: 6px 0;
+  color: var(--text);
+}
+.phase10-ref strong{ color: var(--text); }

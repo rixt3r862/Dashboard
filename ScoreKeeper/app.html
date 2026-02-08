@@ -74,7 +74,7 @@
             </div>
 
             <div class="field" style="max-width: 220px">
-              <label for="targetPoints">Target</label>
+              <label id="targetLabel" for="targetPoints">Target</label>
               <input id="targetPoints" type="number" inputmode="numeric" min="1" value="100" />
             </div>
           </div>
@@ -174,12 +174,28 @@
             <thead>
               <tr>
                 <th style="width: 48%" id="colHeadEntity">Player</th>
-                <th style="width: 26%">Total</th>
-                <th style="width: 26%">This round</th>
+                <th id="colHeadTotal" style="width: 26%">Total</th>
+                <th id="colHeadThis" style="width: 26%">This round</th>
               </tr>
             </thead>
             <tbody id="scoreboardBody"></tbody>
           </table>
+
+          <section id="phase10Ref" class="phase10-ref" aria-label="Phase 10 reference" hidden>
+            <h3>Phase 10 Reference</h3>
+            <ol>
+              <li><strong>Phase 1:</strong> 2 sets of 3</li>
+              <li><strong>Phase 2:</strong> 1 set of 3 + 1 run of 4</li>
+              <li><strong>Phase 3:</strong> 1 set of 4 + 1 run of 4</li>
+              <li><strong>Phase 4:</strong> 1 run of 7</li>
+              <li><strong>Phase 5:</strong> 1 run of 8</li>
+              <li><strong>Phase 6:</strong> 1 run of 9</li>
+              <li><strong>Phase 7:</strong> 2 sets of 4</li>
+              <li><strong>Phase 8:</strong> 7 cards of one color</li>
+              <li><strong>Phase 9:</strong> 1 set of 5 + 1 set of 2</li>
+              <li><strong>Phase 10:</strong> 1 set of 5 + 1 run of 3</li>
+            </ol>
+          </section>
 
           <div style="margin-top: 12px">
             <details id="historyDetails">
