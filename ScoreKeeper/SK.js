@@ -67,12 +67,15 @@
     historyTable: $("historyTable"),
 
     ariaLive: $("ariaLive"),
+
+    phase10Hints: $("phase10Hints"),
+    phase10List: $("phase10List"),
+    phase10Current: $("phase10Current"),
   };
 
   // Guard (ignore optional teamPickerRow)
   const required = Object.entries(els)
-    .filter(([k, v]) => k !== "teamPickerRow" && !v)
-    .map(([k]) => k);
+    .filter(([k, v]) => !["teamPickerRow", "phase10Hints", "phase10List", "phase10Current"].includes(k) && !v).map(([k]) => k);
   if (required.length) {
     console.error("Scorekeeper: missing required element IDs:", required);
     return;
@@ -271,7 +274,29 @@
       els.colHeadThis.textContent = "This round";
     }
   }
+  function renderPhase10Hints(playerTotals) {
+    if (!els.phase10Hints || !els.phase10List || !els.phase10Current) return;
 
+    if (!isPhase10() || state.mode === "setup") {
+      els.phase10Hints.style.display = "none";
+      return;
+    }
+
+    els.phase10Hints.style.display = "block";
+
+    // Use the furthest-along player (highest completed phases) to pick “current phase”
+    const totals = state.players.map((p) => Number(playerTotals?.[p.id] ?? 0));
+    const best = totals.length ? Math.max(...totals) : 0;
+    const currentPhase = Math.min(10, Math.max(1, best + 1));
+
+    els.phase10Current.textContent = `Current phase: ${currentPhase}`;
+
+    const items = Array.from(els.phase10List.querySelectorAll("li[data-phase]"));
+    items.forEach((li) => {
+      const n = Number(li.getAttribute("data-phase"));
+      li.classList.toggle("current", n === currentPhase);
+    });
+  }
   function applyPreset(key) {
     const preset = PRESETS[key] || PRESETS.custom;
     state.presetKey = key in PRESETS ? key : "custom";
@@ -630,6 +655,7 @@
     state.lastRoundScores = scores;
 
     const playerTotals = totalsByPlayerId();
+
     let entries = [];
 
     if (state.teams) {
@@ -711,6 +737,7 @@
 
   function renderScoreboard() {
     const playerTotals = totalsByPlayerId();
+    renderPhase10Hints(playerTotals);
 
     let entries = [];
     const thisRoundById = {};
