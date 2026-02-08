@@ -58,7 +58,10 @@
     scoreboardBody: $("scoreboardBody"),
 
     colHeadEntity: $("colHeadEntity"),
+    colHeadTotal: $("colHeadTotal"),
+    colHeadThis: $("colHeadThis"),
 
+    targetLabel: $("targetLabel"),
     historyDetails: $("historyDetails"),
     historySummaryText: $("historySummaryText"),
     historyTable: $("historyTable"),
@@ -138,13 +141,13 @@
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       detectSaved();
-    } catch {}
+    } catch { }
   }
 
   function clearSaved() {
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    } catch { }
     detectSaved();
   }
 
@@ -163,10 +166,10 @@
       state.players = payload.players.map((p) => ({ id: String(p.id), name: String(p.name) }));
       state.teams = Array.isArray(payload.teams)
         ? payload.teams.map((t) => ({
-            id: String(t.id),
-            name: String(t.name),
-            members: Array.isArray(t.members) ? t.members.map(String) : [],
-          }))
+          id: String(t.id),
+          name: String(t.name),
+          members: Array.isArray(t.members) ? t.members.map(String) : [],
+        }))
         : null;
 
       state.rounds = payload.rounds.map((r) => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
@@ -185,6 +188,7 @@
       els.presetSelect.value = state.presetKey;
       updateWinModeText();
       maybeRenderTeamPreview();
+      applyPhase10UiText();
 
       renderAll();
       setLive("Saved game loaded.");
@@ -218,6 +222,7 @@
 
     updateWinModeText();
     maybeRenderTeamPreview();
+    applyPhase10UiText();
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
@@ -248,6 +253,25 @@
     els.winModeText.textContent = state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
   }
 
+  function isPhase10() {
+    return state.presetKey === "phase10";
+  }
+
+  function applyPhase10UiText() {
+    // Setup label
+    if (els.targetLabel) {
+      els.targetLabel.textContent = isPhase10() ? "Phases to win" : "Target";
+    }
+
+    // Scoreboard headers
+    if (els.colHeadTotal) {
+      els.colHeadTotal.textContent = isPhase10() ? "Phases" : "Total";
+    }
+    if (els.colHeadThis) {
+      els.colHeadThis.textContent = "This round";
+    }
+  }
+
   function applyPreset(key) {
     const preset = PRESETS[key] || PRESETS.custom;
     state.presetKey = key in PRESETS ? key : "custom";
@@ -261,6 +285,7 @@
 
     state.presetNote = preset.notes || "";
     showMsg(els.setupMsg, state.presetNote);
+    applyPhase10UiText();
 
     maybeRenderTeamPreview();
     updateStartButtonState();
@@ -518,7 +543,9 @@
 
       const label = document.createElement("label");
       label.setAttribute("for", `score_${p.id}`);
-      label.textContent = `${p.name} (this round)`;
+      label.textContent = isPhase10()
+        ? `${p.name} (phase completed: 0 or 1)`
+        : `${p.name} (this round)`;
 
       const input = document.createElement("input");
       input.type = "number";
@@ -527,6 +554,11 @@
       input.setAttribute("data-round-score", p.id);
       input.step = "1";
       input.value = "0";
+      if (isPhase10()) {
+        input.min = "0";
+        input.max = "1";
+        input.placeholder = "0 or 1";
+      }
 
       const selectAll = () => setTimeout(() => input.select(), 0);
       input.addEventListener("focus", selectAll);
@@ -562,7 +594,13 @@
         return;
       }
       const n = Number.parseInt(raw, 10);
-      scores[id] = Number.isNaN(n) ? 0 : n;
+      let val = Number.isNaN(n) ? 0 : n;
+
+      if (isPhase10()) {
+        val = val <= 0 ? 0 : 1; // clamp to 0/1
+      }
+
+      scores[id] = val;
     });
     return scores;
   }
@@ -686,12 +724,14 @@
       }
 
       els.colHeadEntity.textContent = "Team";
+      applyPhase10UiText();
     } else {
       entries = state.players.map((p) => ({ id: p.id, name: p.name, total: playerTotals[p.id] ?? 0 }));
       for (const p of state.players) {
         thisRoundById[p.id] = Number(state.lastRoundScores?.[p.id] ?? 0);
       }
       els.colHeadEntity.textContent = "Player";
+      applyPhase10UiText();
     }
 
     const leader = leaderIdFromTotals(entries.map((e) => ({ id: e.id, total: e.total })));
@@ -743,11 +783,14 @@
       const name = entityName(state.winnerId);
       els.winnerText.textContent = `Winner: ${name} (${winnerTotal})`;
 
-      els.winnerSub.textContent =
-        state.winMode === "low"
-          ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
-          : `Target was ${state.target}. First to reach the target wins.`;
-
+      if (isPhase10()) {
+        els.winnerSub.textContent = `Target was ${state.target} phases. First to complete ${state.target} phases wins.`;
+      } else {
+        els.winnerSub.textContent =
+          state.winMode === "low"
+            ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
+            : `Target was ${state.target}. First to reach the target wins.`;
+      }
       els.winnerBanner.classList.add("show");
     } else {
       els.winnerBanner.classList.remove("show");
@@ -873,6 +916,7 @@
   updateWinModeText();
   renderSetupInputs();
   maybeRenderTeamPreview();
+  applyPhase10UiText();
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

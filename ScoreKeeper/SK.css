@@ -349,3 +349,7 @@ summary::-webkit-details-marker{ display:none; }
   color: var(--muted);
 }
 .chip strong{ color: var(--text); }
+/* Phase 10: 0/1 entry fields stay readable */
+input[placeholder="0 or 1"]{
+  text-align: center;
+}
