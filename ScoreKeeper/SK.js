@@ -181,6 +181,10 @@
       state.lastRoundScores = state.rounds.length ? state.rounds[state.rounds.length - 1].scores || {} : {};
       state.bannerDismissed = false;
 
+      // IMPORTANT: force round inputs to rebuild for the loaded player IDs
+      // (prevents "stale IDs" causing Add Round to fail)
+      els.roundInputs.innerHTML = "";
+
       state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex) ? payload.spadesPartnerIndex : 2;
       state.presetNote = typeof payload.presetNote === "string" ? payload.presetNote : (PRESETS[state.presetKey]?.notes || "");
 
@@ -208,6 +212,9 @@
     state.winnerId = null;
     state.sortByTotal = false;
     state.bannerDismissed = false;
+
+    // IMPORTANT: clear old round inputs so they never “stick” between games
+    els.roundInputs.innerHTML = "";
     state.presetNote = "";
     state.spadesPartnerIndex = 2;
 
@@ -460,9 +467,26 @@
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
+    // IMPORTANT: force fresh round inputs for the new player IDs
+    // (prevents Add Round from reading inputs tied to old IDs)
+    els.roundInputs.innerHTML = "";
+
     save();
     renderAll();
     setLive("Game started.");
+  }
+
+  // Ensure the DOM round inputs match the current player IDs.
+  // This prevents a subtle bug where the UI still has inputs from a prior game.
+  function roundInputsMatchPlayers() {
+    const inputs = Array.from(document.querySelectorAll("[data-round-score]"));
+    if (inputs.length !== state.players.length) return false;
+    const domIds = inputs.map((el) => el.getAttribute("data-round-score"));
+    const stateIds = state.players.map((p) => p.id);
+    for (let i = 0; i < stateIds.length; i++) {
+      if (domIds[i] !== stateIds[i]) return false;
+    }
+    return true;
   }
 
   function totalsByPlayerId() {
@@ -795,8 +819,11 @@
     const statusText = state.mode === "setup" ? "Setup" : state.mode === "playing" ? "Playing" : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
-    if (playing && els.roundInputs.childElementCount === 0) {
-      renderRoundInputs();
+    if (playing && state.players.length) {
+      // Rebuild if empty OR stale
+      if (els.roundInputs.childElementCount === 0 || !roundInputsMatchPlayers()) {
+        renderRoundInputs();
+      }
     }
 
     renderWinnerBanner();
