@@ -238,26 +238,28 @@
   }
 
   function newGameSamePlayers() {
-    // Carry forward names from an existing game; otherwise use current setup inputs
+    // Prefer existing game players; if not started yet, use setup inputs.
     const names = state.players.length
       ? state.players.map((p) => p.name)
       : currentNameInputs();
 
-    const target = clampInt(els.targetPoints.value, 1, 1000000);
-    const msg = validateSetup(names, target);
-    if (msg) {
-      showMsg(els.setupMsg, msg);
+    if (!names.length) {
+      state.mode = "setup";
+      renderAll();
       return;
     }
 
-    // Keep current preset + target; just restart rounds with same players
+    // Keep preset/target/winMode; just reset scoring
+    const target = state.target || clampInt(els.targetPoints.value, 1, 1000000);
+
     state.mode = "playing";
     state.target = target;
 
-    // New IDs to avoid any stale DOM/input binding issues
+    // Fresh IDs prevent “stale input bindings”
     state.players = names.map((name) => ({ id: uid(), name }));
     state.teams = buildTeamsIfNeeded(state.players);
 
+    // Reset score state
     state.rounds = [];
     state.lastRoundScores = {};
     state.winnerId = null;
@@ -266,7 +268,7 @@
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
-    // Force fresh round inputs for the new player IDs
+    // Force fresh round inputs for new IDs
     els.roundInputs.innerHTML = "";
 
     save();
