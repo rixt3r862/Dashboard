@@ -195,7 +195,6 @@
       updateWinModeText();
       maybeRenderTeamPreview();
       applyPhase10UiText();
-    updatePhase10RefVisibility();
 
       renderAll();
       setLive("Saved game loaded.");
@@ -227,14 +226,11 @@
     updateWinModeText();
     maybeRenderTeamPreview();
     applyPhase10UiText();
-    updatePhase10RefVisibility();
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
-    els.roundInputs.innerHTML = "";
-
-    renderSetupInputs(true);
+    renderSetupInputs(false);
     renderAll();
     setLive("New game started.");
   }
@@ -276,7 +272,6 @@
 
     save();
     applyPhase10UiText();
-    updatePhase10RefVisibility();
     renderAll();
     setLive("New game started with same players.");
   }
@@ -318,12 +313,6 @@ function normalizeName(name) {
     }
   }
 
-  function updatePhase10RefVisibility() {
-    if (!els.phase10Ref) return;
-    const playing = state.mode === "playing" || state.mode === "finished";
-    els.phase10Ref.hidden = !(playing && isPhase10());
-  }
-
   function phase10CurrentPhase(totalCompleted) {
     const t = Number.isFinite(totalCompleted) ? totalCompleted : 0;
     // If you have completed 0 phases, you are on Phase 1.
@@ -344,7 +333,6 @@ function normalizeName(name) {
     state.presetNote = preset.notes || "";
     showMsg(els.setupMsg, state.presetNote);
     applyPhase10UiText();
-    updatePhase10RefVisibility();
 
     maybeRenderTeamPreview();
     updateStartButtonState();
@@ -546,24 +534,9 @@ function normalizeName(name) {
 
     save();
     applyPhase10UiText();
-    updatePhase10RefVisibility();
     renderAll();
     setLive("Game started.");
   }
-
-  // Ensure the DOM round inputs match the current player IDs.
-  // Prevents a bug where inputs from a prior game remain and scores get recorded under old IDs.
-  function roundInputsMatchPlayers() {
-    const inputs = Array.from(document.querySelectorAll("[data-round-score]"));
-    if (inputs.length !== state.players.length) return false;
-    const domIds = inputs.map((el) => el.getAttribute("data-round-score"));
-    const stateIds = state.players.map((p) => p.id);
-    for (let i = 0; i < stateIds.length; i++) {
-      if (domIds[i] !== stateIds[i]) return false;
-    }
-    return true;
-  }
-
 
   function totalsByPlayerId() {
     const totals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
@@ -751,7 +724,6 @@ function normalizeName(name) {
 
     save();
     applyPhase10UiText();
-    updatePhase10RefVisibility();
     renderAll();
 
     if (state.mode === "playing") {
@@ -769,7 +741,6 @@ function normalizeName(name) {
 
     save();
     applyPhase10UiText();
-    updatePhase10RefVisibility();
     renderAll();
     setLive("Last round undone.");
   }
@@ -922,13 +893,9 @@ function normalizeName(name) {
     const statusText = state.mode === "setup" ? "Setup" : state.mode === "playing" ? "Playing" : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
-    if (playing && state.players.length) {
-      if (els.roundInputs.childElementCount === 0 || !roundInputsMatchPlayers()) {
-        renderRoundInputs();
-      }
+    if (playing && els.roundInputs.childElementCount === 0) {
+      renderRoundInputs();
     }
-
-    updatePhase10RefVisibility();
 
     renderWinnerBanner();
   }
@@ -964,26 +931,34 @@ function normalizeName(name) {
     undoLastRound();
   });
 
-  els.btnNewGame.addEventListener("click", () => {
+  els.btnNewGame.addEventListener("click", (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
     clearSaved();
     newGame();
   });
 
-  els.btnNewGame2.addEventListener("click", () => {
+  els.btnNewGame2.addEventListener("click", (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
     clearSaved();
     newGame();
   });
 
   if (els.btnNewSame) {
-    els.btnNewSame.addEventListener("click", () => {
-      newGameSamePlayers();
-    });
+  els.btnNewSame.addEventListener("click", (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    newGameSamePlayers();
+  });
   }
 
   if (els.btnNewSame2) {
-    els.btnNewSame2.addEventListener("click", () => {
-      newGameSamePlayers();
-    });
+  els.btnNewSame2.addEventListener("click", (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    newGameSamePlayers();
+  });
   }
 
   els.btnKeepGoing.addEventListener("click", () => {
@@ -992,7 +967,6 @@ function normalizeName(name) {
     state.winnerId = null;
     save();
     applyPhase10UiText();
-    updatePhase10RefVisibility();
     renderAll();
     setLive("Continuing score tracking.");
   });
@@ -1001,7 +975,6 @@ function normalizeName(name) {
     state.sortByTotal = !state.sortByTotal;
     save();
     applyPhase10UiText();
-    updatePhase10RefVisibility();
     renderAll();
   });
 
@@ -1024,7 +997,6 @@ function normalizeName(name) {
   updateWinModeText();
   renderSetupInputs();
   maybeRenderTeamPreview();
-  updatePhase10RefVisibility();
   applyPhase10UiText();
 
   // Auto-load if saved game is playing/finished
