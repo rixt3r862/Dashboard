@@ -1,152 +1,300 @@
-<file name=ScoreKeeper/SK.js><!DOCTYPE html>
-<script>
-  // ... other code ...
-
-  const PRESETS = {
-    // ... other presets ...
-    phase10: {
-      label: "Phase 10",
-      target: 10,
-      winMode: "high",
-      teams: false,
-      notes: "Track phases completed. Enter 1 when a player completes a phase this round, otherwise 0. First to 10 phases wins.",
-    },
-    // ... possibly other presets ...
-  };
-
-  // ... other code ...
-
-  function currentNameInputs() {
-    // existing function code
-  }
-
-  function isPhase10() {
-    return state.presetKey === "phase10";
-  }
-
-  function isSpades() {
-    return state.presetKey === "spades";
-  }
-
-  function updateWinModeText() {
-    if (isPhase10()) {
-      els.winModeText.textContent = "Most phases wins";
-      return;
-    }
-    els.winModeText.textContent = state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
-  }
-
-  function updateScoreColumnLabels() {
-    // These IDs are added in app.html below
-    const totalTh = document.getElementById("colHeadTotal");
-    const thisTh = document.getElementById("colHeadThis");
-    if (!totalTh || !thisTh) return;
-
-    if (isPhase10()) {
-      totalTh.textContent = "Phases";
-      thisTh.textContent = "This round";
-    } else {
-      totalTh.textContent = "Total";
-      thisTh.textContent = "This round";
-    }
-  }
-
-  function applyPreset(key) {
-    state.presetKey = key;
-    const preset = PRESETS[key];
-    state.winMode = preset.winMode;
-    updateWinModeText();
-    updateScoreColumnLabels();
-    // ... other code ...
-  }
-
-  function newGame() {
-    // ... existing code ...
-    updateWinModeText();
-    updateScoreColumnLabels();
-    // ... other code ...
-  }
-
-  function loadSaved() {
-    // ... existing code ...
-    updateWinModeText();
-    updateScoreColumnLabels();
-    // ... other code ...
-  }
-
-  function startGame() {
-    // ... existing code ...
-    updateWinModeText();
-    updateScoreColumnLabels();
-    save();
-    // ... other code ...
-  }
-
-  function renderRoundInputs() {
-    // ... existing code ...
-    for (const p of state.players) {
-      const label = document.createElement("label");
-      label.textContent = isPhase10() ? `${p.name} (phase this round: 0 or 1)` : `${p.name} (this round)`;
-      // ... existing code ...
-      const input = document.createElement("input");
-      input.type = "number";
-      input.inputMode = "numeric";
-      // ... existing code ...
-      input.step = "1";
-      input.value = "0";
-      if (isPhase10()) {
-        input.min = "0";
-        input.max = "1";
-        input.placeholder = "0/1";
-      }
-      // ... existing code ...
-    }
-    // ... existing code ...
-  }
-
-  function addRound() {
-    // ... existing code ...
-    for (const p of state.players) {
-      const v = scores[p.id];
-      if (!Number.isInteger(v)) {
-        showMsg(els.roundMsg, "Scores must be whole numbers.");
-        return;
-      }
-      if (isPhase10() && v !== 0 && v !== 1) {
-        showMsg(els.roundMsg, "Phase 10: enter 0 or 1 for each player.");
-        return;
-      }
-    }
-    // ... existing code ...
-  }
-
-  // Boot section
-  // ... existing boot code ...
-  updateWinModeText();
-  updateScoreColumnLabels();
-  renderSetupInputs();
-  // ... existing boot code ...
-</script>
-</file>
-
-<file name=ScoreKeeper/app.html><!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <!-- ... other head content ... -->
-</head>
-<body>
-  <!-- ... other body content ... -->
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 48%" id="colHeadEntity">Player</th>
-        <th style="width: 26%" id="colHeadTotal">Total</th>
-        <th style="width: 26%" id="colHeadThis">This round</th>
-      </tr>
-    </thead>
-    <!-- ... rest of the table ... -->
-  </table>
-  <!-- ... other body content ... -->
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <title>Rick’s Utility Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="color-scheme" content="dark light" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧰</text></svg>"
+    />
+    <style>
+      /* smooth hover + focus */
+      .card {
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.15s ease,
+          background-color 0.15s ease;
+      }
+      .card:focus-visible {
+        outline: 3px solid rgba(59, 130, 246, 0.6);
+        outline-offset: 3px;
+      }
+      .glass {
+        backdrop-filter: blur(8px);
+        background: color-mix(
+          in oklab,
+          var(--tw-bg-opacity, 1) currentColor 0%,
+          transparent 100%
+        );
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 selection:bg-indigo-200/60 dark:selection:bg-indigo-400/30"
+  >
+    <script>
+      /* ---------- EDITABLE BOOKMARKS ----------
+       * Add/edit your default links here.
+       * Tip: If your apps live next to this file, use relative paths like "./money.html".
+       */
+      const LINKS = [
+        {
+          name: "Money Counter",
+          url: "./MoneyCounter.html",
+          icon: "💵",
+          desc: "Cash counter utility",
+        },
+        {
+          name: "Clock",
+          url: "./clock.html",
+          icon: "⏰",
+          desc: "Time & display clock",
+        },
+        {
+          name: "Timer",
+          url: "./Timer.html",
+          icon: "⏳",
+          desc: "Countdown timer",
+        },
+
+        {
+          name: "Time Converter",
+          url: "./Time Converter.html",
+          icon: "🕒",
+          desc: "24h ↔ 12h time converter",
+        },
+        {
+          name: "ScoreKeeper",
+          url: "./ScoreKeeper/app.html",
+          icon: "📊",
+          desc: "Game score tracking utility",
+        },
+      ];
+
+      /* Anything added via the “Add Link” button is stored in localStorage
+         and merged with the array above so you can add stuff without editing code. */
+    </script>
+
+    <!-- Header -->
+    <header class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
+      <div class="flex items-center gap-4 justify-between">
+        <h1
+          class="text-2xl sm:text-3xl font-semibold tracking-tight flex items-center gap-3"
+        >
+          <span
+            class="rounded-2xl p-2 text-xl sm:text-2xl bg-indigo-100 dark:bg-indigo-900/40"
+            >🧰</span
+          >
+          Rick’s Utility Dashboard
+        </h1>
+        <div class="flex items-center gap-2">
+          <button
+            id="themeToggle"
+            class="rounded-xl border border-zinc-300/70 dark:border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            title="Toggle dark mode (⌘/Ctrl + J)"
+          >
+            Toggle Theme
+          </button>
+          <button
+            id="addLinkBtn"
+            class="rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-500"
+          >
+            + Add Link
+          </button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="mt-4">
+        <label class="sr-only" for="search">Search links</label>
+        <input
+          id="search"
+          type="search"
+          placeholder="Search…"
+          class="w-full rounded-2xl border border-zinc-300/70 dark:border-zinc-700 bg-white/70 dark:bg-zinc-900/60 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          autocomplete="off"
+        />
+      </div>
+    </header>
+
+    <!-- Grid -->
+    <main class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
+      <div
+        id="grid"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
+      ></div>
+      <p id="emptyState" class="hidden mt-8 text-center text-zinc-500">
+        No links match your search.
+      </p>
+    </main>
+
+    <template id="cardTemplate">
+      <a
+        class="card group block rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 hover:-translate-y-0.5 hover:shadow-lg p-4 sm:p-5 focus-visible:ring-0"
+        target="_self"
+        rel="noopener"
+      >
+        <div class="flex items-start gap-4">
+          <div class="text-3xl shrink-0 leading-none">🔗</div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="truncate font-medium text-lg"></h2>
+              <svg
+                class="size-4 opacity-60 group-hover:opacity-100"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M10 6h8m0 0v8m0-8L6 18"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+            <p
+              class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2"
+            ></p>
+            <p
+              class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 break-all"
+            ></p>
+          </div>
+        </div>
+      </a>
+    </template>
+
+    <script>
+      // ---- Dark mode (persisted) + Shortcut
+      (function initTheme() {
+        const key = "dash.theme";
+        const userPref = localStorage.getItem(key);
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        if (userPref ? userPref === "dark" : prefersDark)
+          document.documentElement.classList.add("dark");
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          document.documentElement.classList.toggle("dark");
+          localStorage.setItem(
+            key,
+            document.documentElement.classList.contains("dark")
+              ? "dark"
+              : "light",
+          );
+        });
+        // Ctrl/Cmd + J to toggle theme
+        window.addEventListener("keydown", (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+            e.preventDefault();
+            document.getElementById("themeToggle").click();
+          }
+        });
+      })();
+
+      // ---- Data: merge defaults + user-added
+      const STORAGE_KEY = "dash.userLinks";
+      function getUserLinks() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        } catch {
+          return [];
+        }
+      }
+      function saveUserLinks(arr) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+      }
+      function allLinks() {
+        return [...LINKS, ...getUserLinks()];
+      }
+
+      // ---- Render
+      const grid = document.getElementById("grid");
+      const empty = document.getElementById("emptyState");
+      function render(filter = "") {
+        const tpl = document.getElementById("cardTemplate");
+        grid.innerHTML = "";
+        const f = filter.trim().toLowerCase();
+        const list = allLinks().filter(
+          (l) =>
+            !f ||
+            l.name.toLowerCase().includes(f) ||
+            l.url.toLowerCase().includes(f) ||
+            (l.desc || "").toLowerCase().includes(f),
+        );
+        if (list.length === 0) {
+          empty.classList.remove("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+        for (const item of list) {
+          const node = tpl.content.firstElementChild.cloneNode(true);
+          node.href = item.url;
+          node.querySelector("div .text-3xl").textContent = item.icon || "🔗";
+          node.querySelector("h2").textContent = item.name;
+          node.querySelector("p.text-sm").textContent = item.desc || "";
+          node.querySelector("p.text-xs").textContent = item.url;
+          grid.appendChild(node);
+        }
+      }
+      render();
+
+      // ---- Search
+      const search = document.getElementById("search");
+      search.addEventListener("input", () => render(search.value));
+
+      // ---- Add Link (stores to localStorage)
+      document
+        .getElementById("addLinkBtn")
+        .addEventListener("click", async () => {
+          const name = prompt("Link name (e.g., 'Router Admin'):");
+          if (!name) return;
+          const url = prompt(
+            "URL or path (e.g., 'http://192.168.1.1' or './router.html'):",
+          );
+          if (!url) return;
+          const icon =
+            prompt(
+              "Icon (emoji optional, e.g., '🛠️'). Leave blank for default:",
+            ) || "🔗";
+          const desc = prompt("Short description (optional):") || "";
+          const current = getUserLinks();
+          current.push({ name, url, icon, desc });
+          saveUserLinks(current);
+          render(search.value);
+        });
+
+      // Optional: open with Enter when search has an exact match
+      search.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const f = search.value.trim().toLowerCase();
+          if (!f) return;
+          const list = allLinks().filter((l) => l.name.toLowerCase() === f);
+          if (list[0]) window.location.assign(list[0].url);
+        }
+      });
+    </script>
+
+    <!-- Footer -->
+    <footer
+      class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-8 text-center text-xs text-zinc-500"
+    >
+      Press
+      <kbd
+        class="px-1.5 py-0.5 rounded border border-zinc-300/70 dark:border-zinc-700"
+        >⌘/Ctrl</kbd
+      >
+      +
+      <kbd
+        class="px-1.5 py-0.5 rounded border border-zinc-300/70 dark:border-zinc-700"
+        >J</kbd
+      >
+      to toggle theme · Use the “+ Add Link” button to grow your hub
+    </footer>
+  </body>
 </html>
-</file>
