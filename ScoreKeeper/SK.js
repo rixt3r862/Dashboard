@@ -221,6 +221,11 @@
     // IMPORTANT: clear old round inputs so they never “stick”
     els.roundInputs.innerHTML = "";
 
+    // IMPORTANT: New Game should fully reset player names (only "Same Players" preserves names)
+    document.querySelectorAll("[data-player-name]").forEach((inp) => {
+      inp.value = "";
+    });
+
     els.presetSelect.value = "custom";
     els.playerCount.value = 4;
     els.targetPoints.value = 100;
