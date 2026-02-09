@@ -63,6 +63,10 @@
     hearts: "./img/Hearts.png",
     spades: "./img/Spades.png",
   };
+  const PRESET_TINT_OVERRIDES = {
+    // Spades image tends to sample too light; use a stable slate-blue tint.
+    spades: [70, 90, 120],
+  };
 
   const $ = (id) => document.getElementById(id);
 
@@ -1110,6 +1114,12 @@ function normalizeName(name) {
   }
 
   function refreshScoreboardTintFromImage() {
+    const override = PRESET_TINT_OVERRIDES[state.presetKey];
+    if (override) {
+      setScoreboardTint(override);
+      return;
+    }
+
     try {
       const rgb = dominantColorFromImage(els.scoreboardBgImage);
       setScoreboardTint(rgb);
