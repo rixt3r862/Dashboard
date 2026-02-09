@@ -104,6 +104,7 @@
     scoreboardEmpty: $("scoreboardEmpty"),
     scoreboardArea: $("scoreboardArea"),
     scoreboardBody: $("scoreboardBody"),
+    scoreboardTitle: $("scoreboardTitle"),
 
     colHeadEntity: $("colHeadEntity"),
     colHeadTotal: $("colHeadTotal"),
@@ -1028,6 +1029,15 @@ function normalizeName(name) {
     }
   }
 
+  function updateScoreboardTitle() {
+    const playing = state.mode === "playing" || state.mode === "finished";
+    const presetLabel = PRESETS[state.presetKey]?.label || "";
+    const showGameLabel = playing && state.presetKey !== "custom" && presetLabel;
+    els.scoreboardTitle.textContent = showGameLabel
+      ? `${presetLabel} Scoreboard`
+      : "Scoreboard";
+  }
+
   function renderMode() {
     const playing = state.mode === "playing" || state.mode === "finished";
 
@@ -1063,6 +1073,7 @@ function normalizeName(name) {
       }
     }
 
+    updateScoreboardTitle();
     renderWinnerBanner();
   }
 
