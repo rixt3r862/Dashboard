@@ -121,13 +121,19 @@
 
   // Guard (ignore optional teamPickerRow)
   const required = Object.entries(els)
-<<<<<<< HEAD
     .filter(
-      ([k, v]) => !["teamPickerRow", "spadesPartnerLabel"].includes(k) && !v,
+      ([k, v]) =>
+        ![
+          "teamPickerRow",
+          "spadesPartnerLabel",
+          "btnNewSame",
+          "btnNewSame2",
+          "colHeadTotal",
+          "colHeadThis",
+          "targetLabel",
+          "phase10Ref",
+        ].includes(k) && !v,
     )
-=======
-    .filter(([k, v]) => !["teamPickerRow","spadesPartnerLabel","btnNewSame","btnNewSame2","colHeadTotal","colHeadThis","targetLabel","phase10Ref"].includes(k) && !v)
->>>>>>> origin/main
     .map(([k]) => k);
   if (required.length) {
     console.error("Scorekeeper: missing required element IDs:", required);
@@ -257,7 +263,6 @@
         : {};
       state.bannerDismissed = false;
 
-<<<<<<< HEAD
       // IMPORTANT: force round inputs to rebuild for the loaded player IDs
       // (prevents "stale IDs" causing Add Round to fail)
       els.roundInputs.innerHTML = "";
@@ -269,10 +274,6 @@
         typeof payload.presetNote === "string"
           ? payload.presetNote
           : PRESETS[state.presetKey]?.notes || "";
-=======
-      state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex) ? payload.spadesPartnerIndex : 2;
-      state.presetNote = typeof payload.presetNote === "string" ? payload.presetNote : (PRESETS[state.presetKey]?.notes || "");
->>>>>>> origin/main
 
       els.presetSelect.value = state.presetKey;
       updateWinModeText();
@@ -331,16 +332,11 @@
       return;
     }
 
-<<<<<<< HEAD
     // Keep preset + target settings as-is (or fall back to current target input)
     const target =
       Number.isInteger(state.target) && state.target > 0
         ? state.target
         : clampInt(els.targetPoints.value, 1, 1000000);
-=======
-    // Keep preset/target/winMode; just reset scoring
-    const target = state.target || clampInt(els.targetPoints.value, 1, 1000000);
->>>>>>> origin/main
 
     state.mode = "playing";
     state.target = target;
@@ -612,12 +608,8 @@ function normalizeName(name) {
 
     const teamA = `${p1Name} + ${names[partnerIdx] || `Player ${state.spadesPartnerIndex}`}`;
     const remaining = [1, 2, 3].filter((i) => i !== partnerIdx);
-<<<<<<< HEAD
-    const teamB = `${names[remaining[0]] || `Player ${remaining[0] + 1}`} & ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
-=======
     const teamB =
       `${names[remaining[0]] || `Player ${remaining[0] + 1}`} + ${names[remaining[1]] || `Player ${remaining[1] + 1}`}`;
->>>>>>> origin/main
 
     els.teamChips.innerHTML = `
       <div class="chip"><strong>${escapeHtml(teamA)}</strong></div>
