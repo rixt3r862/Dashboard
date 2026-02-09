@@ -55,6 +55,14 @@
         "Standard scoring: you score points from opponents’ remaining cards. First to 100+ wins.",
     },
   };
+  const PRESET_BACKGROUNDS = {
+    uno: "./img/Uno.png",
+    phase10: "./img/Phase 10.png",
+    crazy8s: "./img/Crazy8s.png",
+    skyjo: "./img/SkyJo.png",
+    hearts: "./img/Hearts.png",
+    spades: "./img/Spades.png",
+  };
 
   const $ = (id) => document.getElementById(id);
 
@@ -105,6 +113,8 @@
     scoreboardArea: $("scoreboardArea"),
     scoreboardBody: $("scoreboardBody"),
     scoreboardTitle: $("scoreboardTitle"),
+    scoreboardCard: $("scoreboardCard"),
+    scoreboardBgImage: $("scoreboardBgImage"),
 
     colHeadEntity: $("colHeadEntity"),
     colHeadTotal: $("colHeadTotal"),
@@ -1038,6 +1048,20 @@ function normalizeName(name) {
       : "Scoreboard";
   }
 
+  function updateScoreboardBackground() {
+    const playing = state.mode === "playing" || state.mode === "finished";
+    const bgSrc = playing ? PRESET_BACKGROUNDS[state.presetKey] : null;
+    if (bgSrc) {
+      els.scoreboardBgImage.src = bgSrc;
+      els.scoreboardBgImage.hidden = false;
+      els.scoreboardCard.classList.add("has-bg");
+    } else {
+      els.scoreboardBgImage.src = "";
+      els.scoreboardBgImage.hidden = true;
+      els.scoreboardCard.classList.remove("has-bg");
+    }
+  }
+
   function renderMode() {
     const playing = state.mode === "playing" || state.mode === "finished";
 
@@ -1074,6 +1098,7 @@ function normalizeName(name) {
     }
 
     updateScoreboardTitle();
+    updateScoreboardBackground();
     renderWinnerBanner();
   }
 
