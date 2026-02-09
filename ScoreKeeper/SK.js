@@ -407,6 +407,11 @@ function normalizeName(name) {
     if (els.colHeadThis) {
       els.colHeadThis.textContent = isPhase10() ? "Completed" : "This round";
     }
+
+    // Phase 10 reference (hints/reminders)
+    if (els.phase10Ref) {
+      els.phase10Ref.style.display = isPhase10() ? "block" : "none";
+    }
   }
 
   function phase10CurrentPhase(totalCompleted) {
@@ -615,9 +620,9 @@ function normalizeName(name) {
 >>>>>>> origin/main
 
     els.teamChips.innerHTML = `
-    <div class="chip"><strong>Team A:</strong> ${escapeHtml(teamA)}</div>
-    <div class="chip"><strong>Team B:</strong> ${escapeHtml(teamB)}</div>
-  `;
+      <div class="chip"><strong>${escapeHtml(teamA)}</strong></div>
+      <div class="chip"><strong>${escapeHtml(teamB)}</strong></div>
+    `;
   }
 
   function startGame() {
@@ -644,10 +649,26 @@ function normalizeName(name) {
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
 
+    // Force fresh round inputs for fresh player IDs
+    els.roundInputs.innerHTML = "";
+
     save();
     applyPhase10UiText();
     renderAll();
     setLive("Game started.");
+  }
+  // Ensure the DOM round inputs match current players (prevents “stale IDs” scoring bug)
+  function roundInputsMatchPlayers() {
+    const inputs = Array.from(document.querySelectorAll("[data-round-score]"));
+    if (inputs.length !== state.players.length) return false;
+
+    const domIds = inputs.map((el) => el.getAttribute("data-round-score"));
+    const stateIds = state.players.map((p) => p.id);
+
+    for (let i = 0; i < stateIds.length; i++) {
+      if (domIds[i] !== stateIds[i]) return false;
+    }
+    return true;
   }
 
   function totalsByPlayerId() {
@@ -1043,19 +1064,11 @@ function normalizeName(name) {
           : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
-<<<<<<< HEAD
     if (playing && state.players.length) {
-      // Rebuild if empty OR stale
-      if (
-        els.roundInputs.childElementCount === 0 ||
-        !roundInputsMatchPlayers()
-      ) {
+      // Rebuild if empty OR stale bindings (players changed)
+      if (els.roundInputs.childElementCount === 0 || !roundInputsMatchPlayers()) {
         renderRoundInputs();
       }
-=======
-    if (playing && els.roundInputs.childElementCount === 0) {
-      renderRoundInputs();
->>>>>>> origin/main
     }
 
     renderWinnerBanner();
