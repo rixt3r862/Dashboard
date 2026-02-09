@@ -3,12 +3,57 @@
   const STORAGE_KEY = "scorekeeper.v2";
 
   const PRESETS = {
-    custom: { label: "Custom", target: null, winMode: "high", teams: false, notes: "" },
-    uno: { label: "Uno", target: 500, winMode: "high", teams: false, notes: "First player to 500 points wins." },
-    phase10: { label: "Phase 10", target: 10, winMode: "high", teams: false, notes: "Tracking phases completed (not points)." },
-    skyjo: { label: "SkyJo", target: 100, winMode: "low", teams: false, notes: "Lowest score wins. Negative scores possible." },
-    hearts: { label: "Hearts", target: 100, winMode: "low", teams: false, notes: "Lowest score wins. Shooting the moon applies." },
-    spades: { label: "Spades", target: 500, winMode: "high", teams: true, notes: "Partnership game. Scores are tracked per-player and summed by team." },
+    custom: {
+      label: "Custom",
+      target: null,
+      winMode: "high",
+      teams: false,
+      notes: "",
+    },
+    uno: {
+      label: "Uno",
+      target: 500,
+      winMode: "high",
+      teams: false,
+      notes: "First player to 500 points wins.",
+    },
+    phase10: {
+      label: "Phase 10",
+      target: 10,
+      winMode: "high",
+      teams: false,
+      notes: "Tracking phases completed (not points).",
+    },
+    skyjo: {
+      label: "SkyJo",
+      target: 100,
+      winMode: "low",
+      teams: false,
+      notes: "Lowest score wins. Negative scores possible.",
+    },
+    hearts: {
+      label: "Hearts",
+      target: 100,
+      winMode: "low",
+      teams: false,
+      notes: "Lowest score wins. Shooting the moon applies.",
+    },
+    spades: {
+      label: "Spades",
+      target: 500,
+      winMode: "high",
+      teams: true,
+      notes:
+        "Partnership game. Scores are tracked per-player and summed by team.",
+    },
+    crazy8s: {
+      label: "Crazy 8s",
+      target: 100,
+      winMode: "high",
+      teams: false,
+      notes:
+        "Standard scoring: you score points from opponents’ remaining cards. First to 100+ wins.",
+    },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -48,7 +93,6 @@
     teamPickerRow: $("teamPickerRow"),
     spadesPartnerLabel: $("spadesPartnerLabel"),
 
-
     targetPill: $("targetPill"),
     roundPill: $("roundPill"),
     roundInputs: $("roundInputs"),
@@ -77,7 +121,19 @@
 
   // Guard (ignore optional teamPickerRow)
   const required = Object.entries(els)
-    .filter(([k, v]) => !["teamPickerRow","spadesPartnerLabel","btnNewSame","btnNewSame2","colHeadTotal","colHeadThis","targetLabel","phase10Ref"].includes(k) && !v)
+    .filter(
+      ([k, v]) =>
+        ![
+          "teamPickerRow",
+          "spadesPartnerLabel",
+          "btnNewSame",
+          "btnNewSame2",
+          "colHeadTotal",
+          "colHeadThis",
+          "targetLabel",
+          "phase10Ref",
+        ].includes(k) && !v,
+    )
     .map(([k]) => k);
   if (required.length) {
     console.error("Scorekeeper: missing required element IDs:", required);
@@ -150,13 +206,13 @@
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       detectSaved();
-    } catch { }
+    } catch {}
   }
 
   function clearSaved() {
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch { }
+    } catch {}
     detectSaved();
   }
 
@@ -165,31 +221,59 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return false;
       const payload = JSON.parse(raw);
-      if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.rounds)) return false;
+      if (
+        !payload ||
+        !Array.isArray(payload.players) ||
+        !Array.isArray(payload.rounds)
+      )
+        return false;
 
-      state.mode = payload.mode === "playing" || payload.mode === "finished" ? payload.mode : "setup";
-      state.presetKey = PRESETS[payload.presetKey] ? payload.presetKey : "custom";
+      state.mode =
+        payload.mode === "playing" || payload.mode === "finished"
+          ? payload.mode
+          : "setup";
+      state.presetKey = PRESETS[payload.presetKey]
+        ? payload.presetKey
+        : "custom";
       state.target = Number.isFinite(payload.target) ? payload.target : 100;
       state.winMode = payload.winMode === "low" ? "low" : "high";
 
-      state.players = payload.players.map((p) => ({ id: String(p.id), name: String(p.name) }));
+      state.players = payload.players.map((p) => ({
+        id: String(p.id),
+        name: String(p.name),
+      }));
       state.teams = Array.isArray(payload.teams)
         ? payload.teams.map((t) => ({
-          id: String(t.id),
-          name: String(t.name),
-          members: Array.isArray(t.members) ? t.members.map(String) : [],
-        }))
+            id: String(t.id),
+            name: String(t.name),
+            members: Array.isArray(t.members) ? t.members.map(String) : [],
+          }))
         : null;
 
-      state.rounds = payload.rounds.map((r) => ({ n: Number(r.n), scores: r.scores || {}, ts: r.ts || Date.now() }));
+      state.rounds = payload.rounds.map((r) => ({
+        n: Number(r.n),
+        scores: r.scores || {},
+        ts: r.ts || Date.now(),
+      }));
       state.winnerId = payload.winnerId || null;
       state.sortByTotal = !!payload.sortByTotal;
 
-      state.lastRoundScores = state.rounds.length ? state.rounds[state.rounds.length - 1].scores || {} : {};
+      state.lastRoundScores = state.rounds.length
+        ? state.rounds[state.rounds.length - 1].scores || {}
+        : {};
       state.bannerDismissed = false;
 
-      state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex) ? payload.spadesPartnerIndex : 2;
-      state.presetNote = typeof payload.presetNote === "string" ? payload.presetNote : (PRESETS[state.presetKey]?.notes || "");
+      // IMPORTANT: force round inputs to rebuild for the loaded player IDs
+      // (prevents "stale IDs" causing Add Round to fail)
+      els.roundInputs.innerHTML = "";
+
+      state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex)
+        ? payload.spadesPartnerIndex
+        : 2;
+      state.presetNote =
+        typeof payload.presetNote === "string"
+          ? payload.presetNote
+          : PRESETS[state.presetKey]?.notes || "";
 
       els.presetSelect.value = state.presetKey;
       updateWinModeText();
@@ -248,8 +332,11 @@
       return;
     }
 
-    // Keep preset/target/winMode; just reset scoring
-    const target = state.target || clampInt(els.targetPoints.value, 1, 1000000);
+    // Keep preset + target settings as-is (or fall back to current target input)
+    const target =
+      Number.isInteger(state.target) && state.target > 0
+        ? state.target
+        : clampInt(els.targetPoints.value, 1, 1000000);
 
     state.mode = "playing";
     state.target = target;
@@ -282,19 +369,24 @@ function normalizeName(name) {
 
   function validateSetup(names, target) {
     if (names.length < 2) return "At least 2 players are required.";
-    if (!Number.isInteger(target) || target < 1) return "Target must be a positive whole number.";
+    if (!Number.isInteger(target) || target < 1)
+      return "Target must be a positive whole number.";
     if (names.some((n) => !n)) return "All player names are required.";
     const lowered = names.map((n) => n.toLowerCase());
-    if (new Set(lowered).size !== lowered.length) return "Player names must be unique (case-insensitive).";
+    if (new Set(lowered).size !== lowered.length)
+      return "Player names must be unique (case-insensitive).";
     return "";
   }
 
   function currentNameInputs() {
-    return Array.from(document.querySelectorAll("[data-player-name]")).map((inp) => normalizeName(inp.value));
+    return Array.from(document.querySelectorAll("[data-player-name]")).map(
+      (inp) => normalizeName(inp.value),
+    );
   }
 
   function updateWinModeText() {
-    els.winModeText.textContent = state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
+    els.winModeText.textContent =
+      state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
   }
 
   function isPhase10() {
@@ -383,7 +475,6 @@ function normalizeName(name) {
         showMsg(els.setupMsg, state.presetNote);
       });
 
-
       field.appendChild(label);
       field.appendChild(input);
       wrap.appendChild(field);
@@ -425,7 +516,10 @@ function normalizeName(name) {
     if (players.length !== 4) return null;
 
     // Convert partner (2|3|4) -> index (1|2|3)
-    const partnerIdx = Math.min(3, Math.max(1, (state.spadesPartnerIndex ?? 2) - 1));
+    const partnerIdx = Math.min(
+      3,
+      Math.max(1, (state.spadesPartnerIndex ?? 2) - 1),
+    );
 
     const p0 = players[0];
     const partner = players[partnerIdx];
@@ -441,7 +535,11 @@ function normalizeName(name) {
 
     return [
       { id: "teamA", name: teamAName, members: [p0.id, partner.id] },
-      { id: "teamB", name: teamBName, members: [remaining[0].id, remaining[1].id] },
+      {
+        id: "teamB",
+        name: teamBName,
+        members: [remaining[0].id, remaining[1].id],
+      },
     ];
   }
 
@@ -455,7 +553,8 @@ function normalizeName(name) {
       els.spadesPartner.innerHTML = "";
       els.spadesPartner.disabled = true;
       if (els.teamPickerRow) els.teamPickerRow.style.display = "none";
-      if (els.spadesPartnerLabel) els.spadesPartnerLabel.textContent = "Partner for Player 1";
+      if (els.spadesPartnerLabel)
+        els.spadesPartnerLabel.textContent = "Partner for Player 1";
       return;
     }
 
@@ -466,12 +565,12 @@ function normalizeName(name) {
 
     // Update the label live based on Player 1's name (if available)
     const p1Name = names[0] || "Player 1";
-    if (els.spadesPartnerLabel) els.spadesPartnerLabel.textContent = `Partner for ${p1Name}`;
+    if (els.spadesPartnerLabel)
+      els.spadesPartnerLabel.textContent = `Partner for ${p1Name}`;
 
     // Need exactly 4 players for partner picking + teams
     if (names.length !== 4) {
-      els.teamChips.innerHTML =
-        `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
+      els.teamChips.innerHTML = `<div class="chip"><strong>Spades:</strong> enter 4 players to choose teams</div>`;
       els.spadesPartner.innerHTML = "";
       els.spadesPartner.disabled = true;
       if (els.teamPickerRow) els.teamPickerRow.style.display = "none";
@@ -482,7 +581,9 @@ function normalizeName(name) {
     els.spadesPartner.disabled = false;
 
     // Preserve selection if still valid
-    const current = [2, 3, 4].includes(state.spadesPartnerIndex) ? state.spadesPartnerIndex : 2;
+    const current = [2, 3, 4].includes(state.spadesPartnerIndex)
+      ? state.spadesPartnerIndex
+      : 2;
 
     const optName = (i) => (names[i] ? names[i] : `Player ${i + 1}`);
     const options = [
@@ -492,7 +593,10 @@ function normalizeName(name) {
     ];
 
     els.spadesPartner.innerHTML = options
-      .map((o) => `<option value="${o.val}" ${o.val === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`)
+      .map(
+        (o) =>
+          `<option value="${o.val}" ${o.val === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`,
+      )
       .join("");
 
     // Sync state with the actual select value
@@ -574,7 +678,10 @@ function normalizeName(name) {
     const totals = {};
     if (!state.teams) return totals;
     for (const t of state.teams) {
-      totals[t.id] = t.members.reduce((sum, pid) => sum + (playerTotals[pid] ?? 0), 0);
+      totals[t.id] = t.members.reduce(
+        (sum, pid) => sum + (playerTotals[pid] ?? 0),
+        0,
+      );
     }
     return totals;
   }
@@ -605,7 +712,9 @@ function normalizeName(name) {
     if (state.winMode === "low") {
       const gameOver = entries.some((x) => (x.total ?? 0) >= state.target);
       if (!gameOver) return null;
-      const sorted = [...entries].sort((a, b) => (a.total ?? 0) - (b.total ?? 0));
+      const sorted = [...entries].sort(
+        (a, b) => (a.total ?? 0) - (b.total ?? 0),
+      );
       return sorted[0]?.id ?? null;
     } else {
       const eligible = entries.filter((x) => (x.total ?? 0) >= state.target);
@@ -728,9 +837,15 @@ function normalizeName(name) {
 
     if (state.teams) {
       const teamTotals = totalsByTeamId(playerTotals);
-      entries = state.teams.map((t) => ({ id: t.id, total: teamTotals[t.id] ?? 0 }));
+      entries = state.teams.map((t) => ({
+        id: t.id,
+        total: teamTotals[t.id] ?? 0,
+      }));
     } else {
-      entries = state.players.map((p) => ({ id: p.id, total: playerTotals[p.id] ?? 0 }));
+      entries = state.players.map((p) => ({
+        id: p.id,
+        total: playerTotals[p.id] ?? 0,
+      }));
     }
 
     const w = determineWinnerFromTotals(entries);
@@ -755,7 +870,9 @@ function normalizeName(name) {
   function undoLastRound() {
     if (state.rounds.length === 0) return;
     state.rounds.pop();
-    state.lastRoundScores = state.rounds.length ? state.rounds[state.rounds.length - 1].scores || {} : {};
+    state.lastRoundScores = state.rounds.length
+      ? state.rounds[state.rounds.length - 1].scores || {}
+      : {};
     state.winnerId = null;
     state.mode = state.players.length ? "playing" : "setup";
     state.bannerDismissed = true;
@@ -779,7 +896,8 @@ function normalizeName(name) {
 
     for (const pid of cols) {
       const th = document.createElement("th");
-      th.textContent = state.players.find((p) => p.id === pid)?.name ?? "Player";
+      th.textContent =
+        state.players.find((p) => p.id === pid)?.name ?? "Player";
       trh.appendChild(th);
     }
     thead.appendChild(trh);
@@ -802,7 +920,9 @@ function normalizeName(name) {
     }
     tbl.appendChild(tbody);
 
-    els.historySummaryText.textContent = state.rounds.length ? `Round History (${state.rounds.length})` : "Round History (0)";
+    els.historySummaryText.textContent = state.rounds.length
+      ? `Round History (${state.rounds.length})`
+      : "Round History (0)";
   }
 
   function renderScoreboard() {
@@ -813,27 +933,42 @@ function normalizeName(name) {
 
     if (state.teams) {
       const teamTotals = totalsByTeamId(playerTotals);
-      entries = state.teams.map((t) => ({ id: t.id, name: t.name, total: teamTotals[t.id] ?? 0 }));
+      entries = state.teams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        total: teamTotals[t.id] ?? 0,
+      }));
 
       for (const t of state.teams) {
-        thisRoundById[t.id] = t.members.reduce((sum, pid) => sum + Number(state.lastRoundScores?.[pid] ?? 0), 0);
+        thisRoundById[t.id] = t.members.reduce(
+          (sum, pid) => sum + Number(state.lastRoundScores?.[pid] ?? 0),
+          0,
+        );
       }
 
       els.colHeadEntity.textContent = "Team";
     } else {
-      entries = state.players.map((p) => ({ id: p.id, name: p.name, total: playerTotals[p.id] ?? 0 }));
+      entries = state.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        total: playerTotals[p.id] ?? 0,
+      }));
       for (const p of state.players) {
         thisRoundById[p.id] = Number(state.lastRoundScores?.[p.id] ?? 0);
       }
       els.colHeadEntity.textContent = "Player";
     }
 
-    const leader = leaderIdFromTotals(entries.map((e) => ({ id: e.id, total: e.total })));
+    const leader = leaderIdFromTotals(
+      entries.map((e) => ({ id: e.id, total: e.total })),
+    );
     const winner = state.winnerId;
 
     let entriesToShow = [...entries];
     if (state.sortByTotal) {
-      entriesToShow.sort((a, b) => (state.winMode === "low" ? a.total - b.total : b.total - a.total));
+      entriesToShow.sort((a, b) =>
+        state.winMode === "low" ? a.total - b.total : b.total - a.total,
+      );
     }
 
     els.scoreboardBody.innerHTML = "";
@@ -904,14 +1039,21 @@ function normalizeName(name) {
     els.scoreboardArea.style.display = state.players.length ? "block" : "none";
 
     els.btnToggleSort.disabled = !state.players.length;
-    els.btnToggleSort.textContent = state.sortByTotal ? "Sort: Totals" : "Sort: Off";
+    els.btnToggleSort.textContent = state.sortByTotal
+      ? "Sort: Totals"
+      : "Sort: Off";
 
     els.btnUndo.disabled = !(state.rounds.length > 0);
 
     els.targetPill.textContent = String(state.target);
     els.roundPill.textContent = String(state.rounds.length + 1);
 
-    const statusText = state.mode === "setup" ? "Setup" : state.mode === "playing" ? "Playing" : "Finished";
+    const statusText =
+      state.mode === "setup"
+        ? "Setup"
+        : state.mode === "playing"
+          ? "Playing"
+          : "Finished";
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
     if (playing && state.players.length) {
@@ -935,11 +1077,23 @@ function normalizeName(name) {
   }
 
   function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (s) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
+    return String(str).replace(
+      /[&<>"']/g,
+      (s) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[s],
+    );
   }
 
   // Events
-  els.presetSelect.addEventListener("change", (e) => applyPreset(e.target.value));
+  els.presetSelect.addEventListener("change", (e) =>
+    applyPreset(e.target.value),
+  );
 
   // Normalize playerCount only after commit (change/blur), not mid-typing
   els.playerCount.addEventListener("change", () => renderSetupInputs());
@@ -1028,7 +1182,10 @@ function normalizeName(name) {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const payload = JSON.parse(raw);
-      if (payload && (payload.mode === "playing" || payload.mode === "finished")) {
+      if (
+        payload &&
+        (payload.mode === "playing" || payload.mode === "finished")
+      ) {
         loadSaved();
       } else {
         renderAll();
