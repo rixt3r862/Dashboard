@@ -1048,6 +1048,81 @@ function normalizeName(name) {
       : "Scoreboard";
   }
 
+  function setScoreboardTint(rgb) {
+    if (!Array.isArray(rgb) || rgb.length !== 3) {
+      els.scoreboardCard.style.removeProperty("--scoreboard-tint-rgb");
+      return;
+    }
+    const [r, g, b] = rgb.map((x) => Math.max(0, Math.min(255, Number(x) || 0)));
+    els.scoreboardCard.style.setProperty("--scoreboard-tint-rgb", `${r}, ${g}, ${b}`);
+  }
+
+  function dominantColorFromImage(img) {
+    if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+
+    const maxSide = 64;
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.drawImage(img, 0, 0, w, h);
+    const pixels = ctx.getImageData(0, 0, w, h).data;
+
+    const bins = new Map();
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const a = pixels[i + 3] / 255;
+      if (a < 0.15) continue;
+
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const sat = max === 0 ? 0 : (max - min) / max;
+      const light = (max + min) / 510;
+      if (light > 0.97 || light < 0.03) continue;
+
+      const qr = Math.round(r / 24) * 24;
+      const qg = Math.round(g / 24) * 24;
+      const qb = Math.round(b / 24) * 24;
+      const key = `${qr},${qg},${qb}`;
+      const score = a * (0.7 + sat * 1.4);
+
+      bins.set(key, (bins.get(key) || 0) + score);
+    }
+
+    let bestKey = null;
+    let bestScore = -1;
+    for (const [key, score] of bins.entries()) {
+      if (score > bestScore) {
+        bestScore = score;
+        bestKey = key;
+      }
+    }
+    if (!bestKey) return null;
+    return bestKey.split(",").map((x) => Number.parseInt(x, 10));
+  }
+
+  function refreshScoreboardTintFromImage() {
+    try {
+      const rgb = dominantColorFromImage(els.scoreboardBgImage);
+      setScoreboardTint(rgb);
+    } catch {
+      setScoreboardTint(null);
+    }
+  }
+
+  function hideScoreboardBackgroundImage() {
+    els.scoreboardBgImage.hidden = true;
+    els.scoreboardBgImage.removeAttribute("src");
+  }
+
   function updateScoreboardBackground() {
     const playing = state.mode === "playing" || state.mode === "finished";
     const bgSrc = playing ? PRESET_BACKGROUNDS[state.presetKey] : null;
@@ -1055,10 +1130,13 @@ function normalizeName(name) {
       els.scoreboardBgImage.src = bgSrc;
       els.scoreboardBgImage.hidden = false;
       els.scoreboardCard.classList.add("has-bg");
+      if (els.scoreboardBgImage.complete && els.scoreboardBgImage.naturalWidth > 0) {
+        refreshScoreboardTintFromImage();
+      }
     } else {
-      els.scoreboardBgImage.src = "";
-      els.scoreboardBgImage.hidden = true;
+      hideScoreboardBackgroundImage();
       els.scoreboardCard.classList.remove("has-bg");
+      setScoreboardTint(null);
     }
   }
 
@@ -1204,6 +1282,13 @@ function normalizeName(name) {
     state.spadesPartnerIndex = Number(els.spadesPartner.value) || 2;
     maybeRenderTeamPreview();
     save();
+  });
+
+  els.scoreboardBgImage.addEventListener("load", refreshScoreboardTintFromImage);
+  els.scoreboardBgImage.addEventListener("error", () => {
+    hideScoreboardBackgroundImage();
+    els.scoreboardCard.classList.remove("has-bg");
+    setScoreboardTint(null);
   });
 
   // Boot

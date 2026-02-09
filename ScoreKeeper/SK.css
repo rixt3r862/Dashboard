@@ -208,6 +208,10 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
   isolation: isolate;
   overflow: hidden;
 }
+#scoreboardCard.has-bg{
+  background: rgba(var(--scoreboard-tint-rgb, 255, 255, 255), .14);
+  border-color: rgba(var(--scoreboard-tint-rgb, 229, 231, 235), .45);
+}
 .scoreboard-bg-image{
   position: absolute;
   inset: 0;
@@ -220,20 +224,25 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
   z-index: 0;
   pointer-events: none;
 }
+.scoreboard-bg-image[hidden]{
+  display: none !important;
+}
 #scoreboardCard > :not(.scoreboard-bg-image){
   position: relative;
   z-index: 1;
 }
 #scoreboardCard.has-bg table{
-  background: rgba(255,255,255,.86);
+  background: rgba(var(--scoreboard-tint-rgb, 255, 255, 255), .18);
+  border-color: rgba(var(--scoreboard-tint-rgb, 229, 231, 235), .40);
 }
 #scoreboardCard.has-bg th{
-  background: rgba(248,250,252,.92);
+  background: rgba(var(--scoreboard-tint-rgb, 248, 250, 252), .26);
 }
 #scoreboardCard.has-bg details,
 #scoreboardCard.has-bg .history-wrap,
 #scoreboardCard.has-bg .phase10-ref{
-  background: rgba(255,255,255,.9);
+  background: rgba(var(--scoreboard-tint-rgb, 255, 255, 255), .20);
+  border-color: rgba(var(--scoreboard-tint-rgb, 229, 231, 235), .40);
 }
 
 table{
