@@ -10,6 +10,7 @@ export function createRoundEntryController(deps) {
     escapeHtml,
     $,
     onAddRound,
+    onSkyjoMarkGoOut,
   } = deps;
 
   function ensureCurrentRoundScores() {
@@ -117,6 +118,12 @@ export function createRoundEntryController(deps) {
     setLive("Applied winner-only round points.");
   }
 
+  function roundActionSkyjoMarkGoOut(playerId) {
+    if (!playerId) return;
+    onSkyjoMarkGoOut?.(playerId);
+    closeRoundHelperForm();
+  }
+
   function openRoundHelperForm(action) {
     state.activeRoundHelper = action;
     if (action === "set_all") {
@@ -181,7 +188,9 @@ export function createRoundEntryController(deps) {
       els.roundHelperForm.style.display = "block";
       const inp = $("helperWinnerPoints");
       if (inp) inp.focus();
+      return;
     }
+
   }
 
   function renderRoundHelpers() {
@@ -213,7 +222,6 @@ export function createRoundEntryController(deps) {
         ariaLabel: "Set winner-only round points",
       });
     }
-
     els.roundHelperButtons.innerHTML = actions
       .map(
         (a) =>
@@ -239,6 +247,7 @@ export function createRoundEntryController(deps) {
 
     els.roundPreview.style.display = "block";
     const scores = readRoundScores();
+    const isSkyjo = state.presetKey === "skyjo" && !isPhase10();
     const valueLabel = isPhase10() ? "Phase Completed" : "Score";
 
     const rows = state.players
@@ -247,6 +256,15 @@ export function createRoundEntryController(deps) {
         const val = Number.isFinite(rawVal) ? rawVal : 0;
         const displayVal = isPhase10() ? (val > 0 ? "Yes" : "No") : "";
         const playerNameEsc = escapeHtml(p.name);
+        const skyjoWentOutUi = isSkyjo
+          ? `
+            <label class="round-preview-out">
+              <input type="radio" name="skyjoWentOutPlayer" data-preview-action="went-out" data-player-id="${p.id}" ${
+                state.skyjoCurrentRoundWentOutPlayerId === p.id ? "checked" : ""
+              } aria-label="${playerNameEsc} went out this round" />
+            </label>
+          `
+          : "";
         const actions = isPhase10()
           ? `
             <button type="button" class="round-preview-btn ${
@@ -266,7 +284,21 @@ export function createRoundEntryController(deps) {
             <input type="number" inputmode="numeric" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Score for ${playerNameEsc}" />
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
+            ${isSkyjo ? "" : skyjoWentOutUi}
           `;
+
+        if (isSkyjo) {
+          return `
+            <div class="round-preview-item skyjo">
+              <span class="round-preview-name">${playerNameEsc}</span>
+              <span class="round-preview-right">
+                <span class="round-preview-value">${displayVal}</span>
+                <span class="round-preview-actions">${actions}</span>
+              </span>
+              ${skyjoWentOutUi}
+            </div>
+          `;
+        }
 
         return `
           <div class="round-preview-item">
@@ -280,13 +312,24 @@ export function createRoundEntryController(deps) {
       })
       .join("");
 
-    els.roundPreviewBody.innerHTML = `
-      <div class="round-preview-cols">
-        <span>Player</span>
-        <span>${valueLabel}</span>
-      </div>
-      ${rows}
-    `;
+    if (isSkyjo) {
+      els.roundPreviewBody.innerHTML = `
+        <div class="round-preview-cols skyjo">
+          <span>Player</span>
+          <span>${valueLabel}</span>
+          <span>Out</span>
+        </div>
+        ${rows}
+      `;
+    } else {
+      els.roundPreviewBody.innerHTML = `
+        <div class="round-preview-cols">
+          <span>Player</span>
+          <span>${valueLabel}</span>
+        </div>
+        ${rows}
+      `;
+    }
     renderRoundHelpers();
   }
 
@@ -325,7 +368,14 @@ export function createRoundEntryController(deps) {
     els.roundPreviewBody.addEventListener("change", (e) => {
       const target = e.target;
       if (!(target instanceof HTMLInputElement)) return;
-      if (target.getAttribute("data-preview-action") !== "input") return;
+      const previewAction = target.getAttribute("data-preview-action");
+      if (previewAction === "went-out") {
+        const playerId = target.getAttribute("data-player-id");
+        if (!playerId || !target.checked) return;
+        roundActionSkyjoMarkGoOut(playerId);
+        return;
+      }
+      if (previewAction !== "input") return;
       const playerId = target.getAttribute("data-player-id");
       if (!playerId) return;
       setRoundScoreInputValue(playerId, target.value);
@@ -380,6 +430,7 @@ export function createRoundEntryController(deps) {
         const winnerId = $("helperWinnerPlayer")?.value ?? "";
         const points = $("helperWinnerPoints")?.value ?? "";
         roundActionWinnerRoundPoints(winnerId, points);
+        return;
       }
     });
 

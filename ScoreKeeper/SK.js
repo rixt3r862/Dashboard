@@ -7,6 +7,7 @@ import {
   PRESET_TINT_OVERRIDES,
 } from "./js/config.js";
 import {
+  adjustSkyjoRoundScores,
   determineWinnerFromTotals as resolveWinnerFromTotals,
   totalsByPlayerId as sumTotalsByPlayerId,
   totalsByTeamId as sumTotalsByTeamId,
@@ -132,6 +133,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     // Spades partner picker: partner for Player 1 is Player 2|3|4 (default: 2)
     spadesPartnerIndex: 2,
     activeRoundHelper: null,
+
+    // SkyJo per-round "went out" marker for the current round entry.
+    skyjoCurrentRoundWentOutPlayerId: null,
   };
 
   const roundEntry = createRoundEntryController({
@@ -143,6 +147,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     escapeHtml,
     $,
     onAddRound: () => addRound(),
+    onSkyjoMarkGoOut: (playerId) => markSkyjoWentOutForCurrentRound(playerId),
   });
   const history = createHistoryController({
     state,
@@ -216,6 +221,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
         sortByTotal: state.sortByTotal,
         spadesPartnerIndex: state.spadesPartnerIndex,
         presetNote: state.presetNote,
+        skyjoCurrentRoundWentOutPlayerId:
+          state.skyjoCurrentRoundWentOutPlayerId,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       detectSaved();
@@ -282,6 +289,19 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.bannerDismissed = false;
       state.historyEditingRoundN = null;
       state.activeRoundHelper = null;
+      state.skyjoCurrentRoundWentOutPlayerId =
+        typeof payload.skyjoCurrentRoundWentOutPlayerId === "string"
+          ? payload.skyjoCurrentRoundWentOutPlayerId
+          : null;
+      if (
+        state.presetKey !== "skyjo" ||
+        (state.skyjoCurrentRoundWentOutPlayerId &&
+          !state.players.some(
+            (p) => p.id === state.skyjoCurrentRoundWentOutPlayerId,
+          ))
+      ) {
+        state.skyjoCurrentRoundWentOutPlayerId = null;
+      }
 
       state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex)
         ? payload.spadesPartnerIndex
@@ -319,6 +339,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
+    state.skyjoCurrentRoundWentOutPlayerId = null;
     state.presetNote = "";
     state.spadesPartnerIndex = 2;
 
@@ -378,6 +399,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
+    state.skyjoCurrentRoundWentOutPlayerId = null;
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
@@ -681,6 +703,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
+    state.skyjoCurrentRoundWentOutPlayerId = null;
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
@@ -691,7 +714,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
     setLive("Game started.");
   }
   function totalsByPlayerId() {
-    return sumTotalsByPlayerId(state.players, state.rounds);
+    if (state.presetKey !== "skyjo") {
+      return sumTotalsByPlayerId(state.players, state.rounds);
+    }
+    const totals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    for (const r of state.rounds) {
+      const adjusted = adjustedScoresForRound(r);
+      for (const p of state.players) {
+        totals[p.id] += Number(adjusted[p.id] ?? 0);
+      }
+    }
+    return totals;
   }
 
   function totalsByTeamId(playerTotals) {
@@ -719,6 +752,30 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function determineWinnerFromTotals(entries) {
     return resolveWinnerFromTotals(entries, state.winMode, state.target);
+  }
+
+  function markSkyjoWentOutForCurrentRound(playerId) {
+    if (state.presetKey !== "skyjo" || state.mode !== "playing") return;
+    if (!state.players.some((p) => p.id === playerId)) return;
+
+    state.skyjoCurrentRoundWentOutPlayerId = playerId;
+    const name = entityName(playerId);
+    showMsg(els.roundMsg, `${name} marked as went out for this round.`);
+    save();
+    renderAll();
+    setLive(`${name} marked as went out in SkyJo.`);
+  }
+
+  function adjustedScoresForRound(round) {
+    if (state.presetKey === "skyjo") {
+      return adjustSkyjoRoundScores(state.players, round);
+    }
+    const out = {};
+    for (const p of state.players) {
+      const raw = Number(round?.scores?.[p.id] ?? 0);
+      out[p.id] = Number.isFinite(raw) ? raw : 0;
+    }
+    return out;
   }
 
   function entityName(id) {
@@ -754,9 +811,24 @@ import { createScoreboardController } from "./js/scoreboard.js";
       const proceed = window.confirm(`${validation.warning} Add round anyway?`);
       if (!proceed) return;
     }
+    if (
+      state.presetKey === "skyjo" &&
+      !state.skyjoCurrentRoundWentOutPlayerId
+    ) {
+      showMsg(els.roundMsg, "SkyJo: select who went out this round.");
+      return;
+    }
 
     const nextN = state.rounds.length + 1;
-    const round = { n: nextN, scores, ts: Date.now() };
+    const round = {
+      n: nextN,
+      scores,
+      ts: Date.now(),
+      skyjoWentOutPlayerId:
+        state.presetKey === "skyjo"
+          ? state.skyjoCurrentRoundWentOutPlayerId || null
+          : null,
+    };
     state.rounds.push(round);
     state.lastRoundScores = scores;
     state.currentRoundScores = Object.fromEntries(
@@ -764,6 +836,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     );
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
+    state.skyjoCurrentRoundWentOutPlayerId = null;
 
     const playerTotals = totalsByPlayerId();
     let entries = [];
@@ -788,7 +861,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.bannerDismissed = false;
       setLive(`Winner declared: ${entityName(w)}.`);
     } else {
-      setLive(`Round ${nextN} added.`);
+      if (state.presetKey === "skyjo" && round.skyjoWentOutPlayerId) {
+        setLive(
+          `Round ${nextN} added. ${entityName(round.skyjoWentOutPlayerId)} went out this round.`,
+        );
+      } else {
+        setLive(`Round ${nextN} added.`);
+      }
     }
 
     save();
@@ -814,6 +893,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.bannerDismissed = true;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
+    state.skyjoCurrentRoundWentOutPlayerId = null;
 
     save();
     applyPhase10UiText();

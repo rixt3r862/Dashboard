@@ -20,7 +20,6 @@ export function createHistoryController(deps) {
     state.rounds.forEach((r, i) => {
       r.n = i + 1;
     });
-
     state.lastRoundScores = state.rounds.length
       ? state.rounds[state.rounds.length - 1].scores || {}
       : {};

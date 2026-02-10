@@ -9,6 +9,28 @@ export function totalsByPlayerId(players, rounds) {
   return totals;
 }
 
+export function adjustSkyjoRoundScores(players, round) {
+  const out = {};
+  for (const p of players) {
+    const raw = Number(round?.scores?.[p.id] ?? 0);
+    out[p.id] = Number.isFinite(raw) ? raw : 0;
+  }
+
+  const wentOutId = round?.skyjoWentOutPlayerId || null;
+  if (!wentOutId || !(wentOutId in out)) return out;
+
+  const wentOutScore = Number(out[wentOutId] ?? 0);
+  // Official rule: only positive scores can be doubled.
+  if (wentOutScore <= 0) return out;
+
+  const otherHasLessOrEqual = players.some((p) => {
+    if (p.id === wentOutId) return false;
+    return Number(out[p.id] ?? 0) <= wentOutScore;
+  });
+  if (otherHasLessOrEqual) out[wentOutId] = wentOutScore * 2;
+  return out;
+}
+
 export function totalsByTeamId(teams, playerTotals) {
   const totals = {};
   if (!teams) return totals;

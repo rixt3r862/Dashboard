@@ -1,3 +1,5 @@
+import { adjustSkyjoRoundScores } from "./rules.mjs";
+
 export function createScoreboardController(deps) {
   const {
     state,
@@ -31,8 +33,24 @@ export function createScoreboardController(deps) {
     return lines[hash % lines.length];
   }
 
+  function adjustedSkyjoScoresForRound(round) {
+    if (state.presetKey !== "skyjo") {
+      const out = {};
+      for (const p of state.players) {
+        const raw = Number(round?.scores?.[p.id] ?? 0);
+        out[p.id] = Number.isFinite(raw) ? raw : 0;
+      }
+      return out;
+    }
+    return adjustSkyjoRoundScores(state.players, round);
+  }
+
   function renderScoreboard() {
     const playerTotals = totalsByPlayerId();
+    const lastRound = state.rounds.length
+      ? state.rounds[state.rounds.length - 1]
+      : null;
+    const adjustedLastRoundScores = adjustedSkyjoScoresForRound(lastRound);
 
     let entries = [];
     const thisRoundById = {};
@@ -60,7 +78,7 @@ export function createScoreboardController(deps) {
         total: playerTotals[p.id] ?? 0,
       }));
       for (const p of state.players) {
-        thisRoundById[p.id] = Number(state.lastRoundScores?.[p.id] ?? 0);
+        thisRoundById[p.id] = Number(adjustedLastRoundScores[p.id] ?? 0);
       }
       els.colHeadEntity.textContent = "Player";
     }

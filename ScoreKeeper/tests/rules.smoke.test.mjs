@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  adjustSkyjoRoundScores,
   determineWinnerFromTotals,
   totalsByPlayerId,
   totalsByTeamId,
@@ -116,4 +117,36 @@ test("team totals are summed from player totals (Spades-style)", () => {
     A: 75,
     B: 85,
   });
+});
+
+test("SkyJo went-out player doubles only when another player is lower or equal", () => {
+  const players = [
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "c", name: "C" },
+  ];
+
+  const doubled = adjustSkyjoRoundScores(players, {
+    scores: { a: 8, b: 4, c: 10 },
+    skyjoWentOutPlayerId: "a",
+  });
+  assert.deepEqual(doubled, { a: 16, b: 4, c: 10 });
+
+  const tieAlsoDoubles = adjustSkyjoRoundScores(players, {
+    scores: { a: 5, b: 5, c: 12 },
+    skyjoWentOutPlayerId: "a",
+  });
+  assert.deepEqual(tieAlsoDoubles, { a: 10, b: 5, c: 12 });
+
+  const noDoubleWhenStrictLowest = adjustSkyjoRoundScores(players, {
+    scores: { a: 3, b: 4, c: 12 },
+    skyjoWentOutPlayerId: "a",
+  });
+  assert.deepEqual(noDoubleWhenStrictLowest, { a: 3, b: 4, c: 12 });
+
+  const noDoubleWhenNonPositive = adjustSkyjoRoundScores(players, {
+    scores: { a: -2, b: 1, c: 7 },
+    skyjoWentOutPlayerId: "a",
+  });
+  assert.deepEqual(noDoubleWhenNonPositive, { a: -2, b: 1, c: 7 });
 });
