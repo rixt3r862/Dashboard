@@ -1,3 +1,5 @@
+import { bindSelectOnFocusAndClick } from "./inputUx.js";
+
 export function createHistoryController(deps) {
   const {
     state,
@@ -13,13 +15,6 @@ export function createHistoryController(deps) {
     totalsByTeamId,
     determineWinnerFromTotals,
   } = deps;
-
-  function selectInputValue(input) {
-    if (!(input instanceof HTMLInputElement)) return;
-    requestAnimationFrame(() => {
-      input.select();
-    });
-  }
 
   function recalcAfterHistoryChange(liveText) {
     state.rounds.forEach((r, i) => {
@@ -147,16 +142,19 @@ export function createHistoryController(deps) {
     const trh = document.createElement("tr");
     const th0 = document.createElement("th");
     th0.textContent = "Round";
+    th0.scope = "col";
     trh.appendChild(th0);
 
     for (const pid of cols) {
       const th = document.createElement("th");
       th.textContent =
         state.players.find((p) => p.id === pid)?.name ?? "Player";
+      th.scope = "col";
       trh.appendChild(th);
     }
     const thActions = document.createElement("th");
     thActions.textContent = "Actions";
+    thActions.scope = "col";
     trh.appendChild(thActions);
     thead.appendChild(trh);
     tbl.appendChild(thead);
@@ -172,6 +170,7 @@ export function createHistoryController(deps) {
       for (const pid of cols) {
         const td = document.createElement("td");
         const v = Number(r.scores?.[pid] ?? 0);
+        const playerName = state.players.find((p) => p.id === pid)?.name ?? "Player";
         if (editing) {
           let input;
           if (isPhase10()) {
@@ -182,12 +181,17 @@ export function createHistoryController(deps) {
               <option value="1">Yes</option>
             `;
             input.value = String(v <= 0 ? 0 : 1);
+            input.setAttribute(
+              "aria-label",
+              `Round ${r.n} completion for ${playerName}`,
+            );
           } else {
             input = document.createElement("input");
             input.type = "number";
             input.inputMode = "numeric";
             input.className = "history-edit-input";
             input.value = String(Number.isFinite(v) ? v : 0);
+            input.setAttribute("aria-label", `Round ${r.n} score for ${playerName}`);
           }
           input.setAttribute("data-history-edit-round", String(r.n));
           input.setAttribute("data-history-edit-score", pid);
@@ -206,13 +210,13 @@ export function createHistoryController(deps) {
       tdActions.className = "history-actions";
       if (editing) {
         tdActions.innerHTML = `
-          <button type="button" class="history-action-btn" data-history-action="save" data-round-n="${r.n}">Save</button>
-          <button type="button" class="history-action-btn" data-history-action="cancel" data-round-n="${r.n}">Cancel</button>
+          <button type="button" class="history-action-btn" data-history-action="save" data-round-n="${r.n}" aria-label="Save round ${r.n} edits">Save</button>
+          <button type="button" class="history-action-btn" data-history-action="cancel" data-round-n="${r.n}" aria-label="Cancel round ${r.n} edits">Cancel</button>
         `;
       } else {
         tdActions.innerHTML = `
-          <button type="button" class="history-action-btn" data-history-action="edit" data-round-n="${r.n}">Edit</button>
-          <button type="button" class="history-action-btn danger" data-history-action="delete" data-round-n="${r.n}">Delete</button>
+          <button type="button" class="history-action-btn" data-history-action="edit" data-round-n="${r.n}" aria-label="Edit round ${r.n}">Edit</button>
+          <button type="button" class="history-action-btn danger" data-history-action="delete" data-round-n="${r.n}" aria-label="Delete round ${r.n}">Delete</button>
         `;
       }
       tr.appendChild(tdActions);
@@ -252,19 +256,7 @@ export function createHistoryController(deps) {
       saveHistoryEdit(roundN);
     });
 
-    els.historyTable.addEventListener("focusin", (e) => {
-      const target = e.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (!target.classList.contains("history-edit-input")) return;
-      selectInputValue(target);
-    });
-
-    els.historyTable.addEventListener("click", (e) => {
-      const target = e.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (!target.classList.contains("history-edit-input")) return;
-      selectInputValue(target);
-    });
+    bindSelectOnFocusAndClick(els.historyTable, "input.history-edit-input");
   }
 
   return {

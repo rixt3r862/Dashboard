@@ -1,9 +1,17 @@
 // scorekeeper.js
 import {
+  APP_LIMITS,
+  APP_MESSAGES,
   PRESETS,
   PRESET_BACKGROUNDS,
   PRESET_TINT_OVERRIDES,
 } from "./js/config.js";
+import {
+  determineWinnerFromTotals as resolveWinnerFromTotals,
+  totalsByPlayerId as sumTotalsByPlayerId,
+  totalsByTeamId as sumTotalsByTeamId,
+  validateRoundScores as validateScoresByRules,
+} from "./js/rules.mjs";
 import { createHistoryController } from "./js/history.js";
 import { createRoundEntryController } from "./js/roundEntry.js";
 import { createScoreboardController } from "./js/scoreboard.js";
@@ -105,7 +113,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   const state = {
     mode: "setup", // setup | playing | finished
     presetKey: "custom",
-    target: 100,
+    target: APP_LIMITS.defaultTarget,
     winMode: "high", // high | low
     players: [], // { id, name }
     teams: null, // null | [{ id, name, members:[playerId]}]
@@ -240,7 +248,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.presetKey = PRESETS[payload.presetKey]
         ? payload.presetKey
         : "custom";
-      state.target = Number.isFinite(payload.target) ? payload.target : 100;
+      state.target = Number.isFinite(payload.target)
+        ? payload.target
+        : APP_LIMITS.defaultTarget;
       state.winMode = payload.winMode === "low" ? "low" : "high";
 
       state.players = payload.players.map((p) => ({
@@ -297,7 +307,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function newGame() {
     state.mode = "setup";
     state.presetKey = "custom";
-    state.target = 100;
+    state.target = APP_LIMITS.defaultTarget;
     state.winMode = "high";
     state.players = [];
     state.teams = null;
@@ -313,8 +323,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.spadesPartnerIndex = 2;
 
     els.presetSelect.value = "custom";
-    els.playerCount.value = 4;
-    els.targetPoints.value = 100;
+    els.playerCount.value = APP_LIMITS.defaultPlayerCount;
+    els.targetPoints.value = APP_LIMITS.defaultTarget;
 
     updateWinModeText();
     maybeRenderTeamPreview();
@@ -345,7 +355,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const target =
       Number.isInteger(state.target) && state.target > 0
         ? state.target
-        : clampInt(els.targetPoints.value, 1, 1000000);
+        : clampInt(
+            els.targetPoints.value,
+            APP_LIMITS.targetMin,
+            APP_LIMITS.targetMax,
+          );
 
     state.mode = "playing";
     state.target = target;
@@ -379,13 +393,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function validateSetup(names, target) {
-    if (names.length < 2) return "At least 2 players are required.";
-    if (!Number.isInteger(target) || target < 1)
-      return "Target must be a positive whole number.";
-    if (names.some((n) => !n)) return "All player names are required.";
+    if (names.length < APP_LIMITS.playerCountMin)
+      return APP_MESSAGES.setup.minPlayers;
+    if (!Number.isInteger(target) || target < APP_LIMITS.targetMin)
+      return APP_MESSAGES.setup.targetWholePositive;
+    if (names.some((n) => !n)) return APP_MESSAGES.setup.allNamesRequired;
     const lowered = names.map((n) => n.toLowerCase());
     if (new Set(lowered).size !== lowered.length)
-      return "Player names must be unique (case-insensitive).";
+      return APP_MESSAGES.setup.uniqueNames;
     return "";
   }
 
@@ -456,7 +471,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
 
     const n = Number.parseInt(raw, 10);
-    const count = Number.isNaN(n) ? 2 : Math.min(12, Math.max(2, n));
+    const count = Number.isNaN(n)
+      ? APP_LIMITS.playerCountMin
+      : Math.min(
+          APP_LIMITS.playerCountMax,
+          Math.max(APP_LIMITS.playerCountMin, n),
+        );
     els.playerCount.value = count;
 
     const existing = keepExisting ? currentNameInputs() : [];
@@ -496,7 +516,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function updateStartButtonState() {
-    const target = clampInt(els.targetPoints.value, 1, 1000000);
+    const target = clampInt(
+      els.targetPoints.value,
+      APP_LIMITS.targetMin,
+      APP_LIMITS.targetMax,
+    );
     const names = currentNameInputs();
     const msg = validateSetup(names, target);
 
@@ -510,7 +534,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (state.presetKey === "spades" && names.length !== 4) {
       showMsg(
         els.setupMsg,
-        `${state.presetNote ? state.presetNote + " " : ""}Spades is usually 4 players. You can still start, but teams are only auto-made for 4.`,
+        `${state.presetNote ? state.presetNote + " " : ""}${APP_MESSAGES.setup.spadesCountGuidance}`,
       );
     } else {
       showMsg(els.setupMsg, state.presetNote);
@@ -629,7 +653,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function startGame() {
-    const target = clampInt(els.targetPoints.value, 1, 1000000);
+    const target = clampInt(
+      els.targetPoints.value,
+      APP_LIMITS.targetMin,
+      APP_LIMITS.targetMax,
+    );
     const names = currentNameInputs();
 
     const msg = validateSetup(names, target);
@@ -663,26 +691,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
     setLive("Game started.");
   }
   function totalsByPlayerId() {
-    const totals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-    for (const r of state.rounds) {
-      for (const p of state.players) {
-        const v = Number(r.scores?.[p.id] ?? 0);
-        totals[p.id] += Number.isFinite(v) ? v : 0;
-      }
-    }
-    return totals;
+    return sumTotalsByPlayerId(state.players, state.rounds);
   }
 
   function totalsByTeamId(playerTotals) {
-    const totals = {};
-    if (!state.teams) return totals;
-    for (const t of state.teams) {
-      totals[t.id] = t.members.reduce(
-        (sum, pid) => sum + (playerTotals[pid] ?? 0),
-        0,
-      );
-    }
-    return totals;
+    return sumTotalsByTeamId(state.teams, playerTotals);
   }
 
   function leaderIdFromTotals(entries) {
@@ -704,23 +717,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return best;
   }
 
-  // ✅ FIXED low-score logic:
-  // Low-score games (SkyJo/Hearts): game ends when someone reaches/exceeds target; lowest total wins.
-  // High-score games (Uno/Spades/etc.): game ends when someone reaches/exceeds target; highest total wins.
   function determineWinnerFromTotals(entries) {
-    if (state.winMode === "low") {
-      const gameOver = entries.some((x) => (x.total ?? 0) >= state.target);
-      if (!gameOver) return null;
-      const sorted = [...entries].sort(
-        (a, b) => (a.total ?? 0) - (b.total ?? 0),
-      );
-      return sorted[0]?.id ?? null;
-    } else {
-      const eligible = entries.filter((x) => (x.total ?? 0) >= state.target);
-      if (!eligible.length) return null;
-      eligible.sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
-      return eligible[0].id;
-    }
+    return resolveWinnerFromTotals(entries, state.winMode, state.target);
   }
 
   function entityName(id) {
@@ -732,61 +730,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function validateRoundScores(scores, opts = {}) {
     const { contextLabel = "round" } = opts;
-
-    for (const p of state.players) {
-      const v = scores[p.id];
-      if (!Number.isInteger(v)) {
-        return {
-          ok: false,
-          error: "Scores must be whole numbers.",
-        };
-      }
-
-      // Guard against obvious typo values.
-      if (v < -10000 || v > 10000) {
-        return {
-          ok: false,
-          error: `Score for ${p.name} looks out of range (${v}).`,
-        };
-      }
-    }
-
-    if (isPhase10()) {
-      for (const p of state.players) {
-        const v = Number(scores[p.id] ?? 0);
-        if (v !== 0 && v !== 1) {
-          return {
-            ok: false,
-            error: "Phase 10 scores must be Yes/No only.",
-          };
-        }
-      }
-    }
-
-    const warnings = [];
-    if (state.presetKey === "hearts") {
-      const total = state.players.reduce(
-        (sum, p) => sum + Number(scores[p.id] ?? 0),
-        0,
-      );
-      const normalTotal = 26;
-      const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
-      const validTotals = new Set([normalTotal, shootMoonTotal]);
-      if (!validTotals.has(total)) {
-        warnings.push(
-          `Hearts ${contextLabel} total is ${total} (typical is ${normalTotal}, or ${shootMoonTotal} when someone shoots the moon).`,
-        );
-      }
-    }
-
-    if (warnings.length) {
-      return {
-        ok: true,
-        warning: warnings.join(" "),
-      };
-    }
-
-    return { ok: true };
+    return validateScoresByRules({
+      scores,
+      players: state.players,
+      presetKey: state.presetKey,
+      contextLabel,
+      minScore: APP_LIMITS.scoreMin,
+      maxScore: APP_LIMITS.scoreMax,
+      messages: APP_MESSAGES.roundValidation,
+    });
   }
 
   function addRound() {
@@ -1000,7 +952,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   els.btnLoadSaved.addEventListener("click", () => {
     const ok = loadSaved();
     if (!ok) {
-      showMsg(els.setupMsg, "No valid saved game found.");
+      showMsg(els.setupMsg, APP_MESSAGES.setup.noValidSavedGame);
       clearSaved();
     }
   });

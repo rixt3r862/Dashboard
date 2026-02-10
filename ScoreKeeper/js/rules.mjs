@@ -1,0 +1,113 @@
+export function totalsByPlayerId(players, rounds) {
+  const totals = Object.fromEntries(players.map((p) => [p.id, 0]));
+  for (const r of rounds) {
+    for (const p of players) {
+      const v = Number(r.scores?.[p.id] ?? 0);
+      totals[p.id] += Number.isFinite(v) ? v : 0;
+    }
+  }
+  return totals;
+}
+
+export function totalsByTeamId(teams, playerTotals) {
+  const totals = {};
+  if (!teams) return totals;
+  for (const t of teams) {
+    totals[t.id] = t.members.reduce(
+      (sum, pid) => sum + (playerTotals[pid] ?? 0),
+      0,
+    );
+  }
+  return totals;
+}
+
+export function determineWinnerFromTotals(entries, winMode, target) {
+  if (winMode === "low") {
+    const gameOver = entries.some((x) => (x.total ?? 0) >= target);
+    if (!gameOver) return null;
+    const sorted = [...entries].sort((a, b) => (a.total ?? 0) - (b.total ?? 0));
+    return sorted[0]?.id ?? null;
+  }
+
+  const eligible = entries.filter((x) => (x.total ?? 0) >= target);
+  if (!eligible.length) return null;
+  eligible.sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+  return eligible[0].id;
+}
+
+export function validateRoundScores({
+  scores,
+  players,
+  presetKey,
+  contextLabel = "round",
+  minScore = -10000,
+  maxScore = 10000,
+  messages = {},
+}) {
+  const wholeNumbersMsg = messages.wholeNumbers || "Scores must be whole numbers.";
+  const outOfRangeMsg =
+    messages.outOfRange ||
+    (({ name, value }) => `Score for ${name} looks out of range (${value}).`);
+  const phase10YesNoMsg =
+    messages.phase10YesNo || "Phase 10 scores must be Yes/No only.";
+  const heartsTotalWarningMsg =
+    messages.heartsTotalWarning ||
+    (({ contextLabel: ctx, total, normalTotal, shootMoonTotal }) =>
+      `Hearts ${ctx} total is ${total} (typical is ${normalTotal}, or ${shootMoonTotal} when someone shoots the moon).`);
+
+  for (const p of players) {
+    const v = scores[p.id];
+    if (!Number.isInteger(v)) {
+      return {
+        ok: false,
+        error: wholeNumbersMsg,
+      };
+    }
+
+    if (v < minScore || v > maxScore) {
+      return {
+        ok: false,
+        error: outOfRangeMsg({ name: p.name, value: v }),
+      };
+    }
+  }
+
+  if (presetKey === "phase10") {
+    for (const p of players) {
+      const v = Number(scores[p.id] ?? 0);
+      if (v !== 0 && v !== 1) {
+        return {
+          ok: false,
+          error: phase10YesNoMsg,
+        };
+      }
+    }
+  }
+
+  const warnings = [];
+  if (presetKey === "hearts") {
+    const total = players.reduce((sum, p) => sum + Number(scores[p.id] ?? 0), 0);
+    const normalTotal = 26;
+    const shootMoonTotal = 26 * Math.max(0, players.length - 1);
+    const validTotals = new Set([normalTotal, shootMoonTotal]);
+    if (!validTotals.has(total)) {
+      warnings.push(
+        heartsTotalWarningMsg({
+          contextLabel,
+          total,
+          normalTotal,
+          shootMoonTotal,
+        }),
+      );
+    }
+  }
+
+  if (warnings.length) {
+    return {
+      ok: true,
+      warning: warnings.join(" "),
+    };
+  }
+
+  return { ok: true };
+}

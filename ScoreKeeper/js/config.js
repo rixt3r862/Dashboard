@@ -64,3 +64,39 @@ export const PRESET_TINT_OVERRIDES = {
   // Spades image tends to sample too light; use a stable slate-blue tint.
   spades: [70, 90, 120],
 };
+
+export const APP_LIMITS = {
+  playerCountMin: 2,
+  playerCountMax: 12,
+  defaultPlayerCount: 4,
+  targetMin: 1,
+  targetMax: 1000000,
+  defaultTarget: 100,
+  scoreMin: -10000,
+  scoreMax: 10000,
+};
+
+export const APP_MESSAGES = {
+  setup: {
+    minPlayers: "At least 2 players are required.",
+    targetWholePositive: "Target must be a positive whole number.",
+    allNamesRequired: "All player names are required.",
+    uniqueNames: "Player names must be unique (case-insensitive).",
+    spadesCountGuidance:
+      "Spades is usually 4 players. You can still start, but teams are only auto-made for 4.",
+    noValidSavedGame: "No valid saved game found.",
+  },
+  roundValidation: {
+    wholeNumbers: "Scores must be whole numbers.",
+    outOfRange: ({ name, value }) =>
+      `Score for ${name} looks out of range (${value}).`,
+    phase10YesNo: "Phase 10 scores must be Yes/No only.",
+    heartsTotalWarning: ({
+      contextLabel,
+      total,
+      normalTotal,
+      shootMoonTotal,
+    }) =>
+      `Hearts ${contextLabel} total is ${total} (typical is ${normalTotal}, or ${shootMoonTotal} when someone shoots the moon).`,
+  },
+};

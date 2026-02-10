@@ -1,3 +1,5 @@
+import { bindSelectOnFocusAndClick } from "./inputUx.js";
+
 export function createRoundEntryController(deps) {
   const {
     state,
@@ -26,13 +28,6 @@ export function createRoundEntryController(deps) {
   function readRoundScores() {
     ensureCurrentRoundScores();
     return { ...state.currentRoundScores };
-  }
-
-  function selectInputValue(input) {
-    if (!(input instanceof HTMLInputElement)) return;
-    requestAnimationFrame(() => {
-      input.select();
-    });
   }
 
   function closeRoundHelperForm() {
@@ -128,9 +123,9 @@ export function createRoundEntryController(deps) {
       if (isPhase10()) {
         els.roundHelperForm.innerHTML = `
           <div class="round-helper-form-row">
-            <button type="button" class="round-helper-btn" data-helper-form-action="apply_set_all" data-set-all-value="0">No</button>
-            <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_set_all" data-set-all-value="1">Yes</button>
-            <button type="button" class="round-helper-btn" data-helper-form-action="cancel">Cancel</button>
+            <button type="button" class="round-helper-btn" data-helper-form-action="apply_set_all" data-set-all-value="0" aria-label="Set all players to No">No</button>
+            <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_set_all" data-set-all-value="1" aria-label="Set all players to Yes">Yes</button>
+            <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel set all">Cancel</button>
           </div>
         `;
         els.roundHelperForm.style.display = "block";
@@ -139,9 +134,9 @@ export function createRoundEntryController(deps) {
 
       els.roundHelperForm.innerHTML = `
         <div class="round-helper-form-row">
-          <input id="helperSetAllValue" class="round-helper-input" type="number" inputmode="numeric" placeholder="Score" />
-          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_set_all">Apply</button>
-          <button type="button" class="round-helper-btn" data-helper-form-action="cancel">Cancel</button>
+          <input id="helperSetAllValue" class="round-helper-input" type="number" inputmode="numeric" placeholder="Score" aria-label="Set all score value" />
+          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_set_all" aria-label="Apply set all score">Apply</button>
+          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel set all">Cancel</button>
         </div>
       `;
       els.roundHelperForm.style.display = "block";
@@ -159,9 +154,9 @@ export function createRoundEntryController(deps) {
         .join("");
       els.roundHelperForm.innerHTML = `
         <div class="round-helper-form-row">
-          <select id="helperMoonShooter" class="round-helper-input">${options}</select>
-          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_hearts_moon">Apply & Add Round</button>
-          <button type="button" class="round-helper-btn" data-helper-form-action="cancel">Cancel</button>
+          <select id="helperMoonShooter" class="round-helper-input" aria-label="Player who shot the moon">${options}</select>
+          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_hearts_moon" aria-label="Apply shoot the moon and add round">Apply & Add Round</button>
+          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel shoot the moon">Cancel</button>
         </div>
       `;
       els.roundHelperForm.style.display = "block";
@@ -177,10 +172,10 @@ export function createRoundEntryController(deps) {
         .join("");
       els.roundHelperForm.innerHTML = `
         <div class="round-helper-form-row">
-          <select id="helperWinnerPlayer" class="round-helper-input">${options}</select>
-          <input id="helperWinnerPoints" class="round-helper-input" type="number" inputmode="numeric" placeholder="Winner points" min="0" />
-          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_winner_round">Apply</button>
-          <button type="button" class="round-helper-btn" data-helper-form-action="cancel">Cancel</button>
+          <select id="helperWinnerPlayer" class="round-helper-input" aria-label="Round winner">${options}</select>
+          <input id="helperWinnerPoints" class="round-helper-input" type="number" inputmode="numeric" placeholder="Winner points" min="0" aria-label="Winner points" />
+          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_winner_round" aria-label="Apply winner round points">Apply</button>
+          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel winner round points">Cancel</button>
         </div>
       `;
       els.roundHelperForm.style.display = "block";
@@ -199,22 +194,30 @@ export function createRoundEntryController(deps) {
     }
 
     const actions = [
-      { key: "repeat_last", label: "🔁 Repeat Last" },
-      { key: "set_all", label: "🧮 Set All..." },
-      { key: "zero_all", label: "🧹 Zero All" },
+      { key: "repeat_last", label: "🔁 Repeat Last", ariaLabel: "Repeat last round scores" },
+      { key: "set_all", label: "🧮 Set All...", ariaLabel: "Set all players to one score" },
+      { key: "zero_all", label: "🧹 Zero All", ariaLabel: "Set all players to zero" },
     ];
 
     if (state.presetKey === "hearts") {
-      actions.push({ key: "hearts_moon", label: "🌙 Shoot Moon..." });
+      actions.push({
+        key: "hearts_moon",
+        label: "🌙 Shoot Moon...",
+        ariaLabel: "Record shoot the moon",
+      });
     }
     if (state.presetKey === "uno" || state.presetKey === "crazy8s") {
-      actions.push({ key: "winner_round", label: "🏆 Set Winner Round..." });
+      actions.push({
+        key: "winner_round",
+        label: "🏆 Set Winner Round...",
+        ariaLabel: "Set winner-only round points",
+      });
     }
 
     els.roundHelperButtons.innerHTML = actions
       .map(
         (a) =>
-          `<button type="button" class="round-helper-btn" data-round-helper="${a.key}">${escapeHtml(a.label)}</button>`,
+          `<button type="button" class="round-helper-btn" data-round-helper="${a.key}" aria-label="${escapeHtml(a.ariaLabel)}">${escapeHtml(a.label)}</button>`,
       )
       .join("");
     els.roundHelperBar.style.display = "block";
@@ -243,30 +246,31 @@ export function createRoundEntryController(deps) {
         const rawVal = Number(scores[p.id] ?? 0);
         const val = Number.isFinite(rawVal) ? rawVal : 0;
         const displayVal = isPhase10() ? (val > 0 ? "Yes" : "No") : "";
+        const playerNameEsc = escapeHtml(p.name);
         const actions = isPhase10()
           ? `
             <button type="button" class="round-preview-btn ${
               val <= 0 ? "active" : ""
             }" data-preview-action="set" data-player-id="${
               p.id
-            }" data-value="0">No</button>
+            }" data-value="0" aria-label="Set ${playerNameEsc} to No">No</button>
             <button type="button" class="round-preview-btn ${
               val > 0 ? "active" : ""
             }" data-preview-action="set" data-player-id="${
               p.id
-            }" data-value="1">Yes</button>
+            }" data-value="1" aria-label="Set ${playerNameEsc} to Yes">Yes</button>
           `
           : `
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5">-5</button>
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1">-1</button>
-            <input type="number" inputmode="numeric" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" />
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1">+1</button>
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5">+5</button>
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
+            <input type="number" inputmode="numeric" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Score for ${playerNameEsc}" />
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
           `;
 
         return `
           <div class="round-preview-item">
-            <span class="round-preview-name">${escapeHtml(p.name)}</span>
+            <span class="round-preview-name">${playerNameEsc}</span>
             <span class="round-preview-right">
               <span class="round-preview-value">${displayVal}</span>
               <span class="round-preview-actions">${actions}</span>
@@ -325,20 +329,6 @@ export function createRoundEntryController(deps) {
       const playerId = target.getAttribute("data-player-id");
       if (!playerId) return;
       setRoundScoreInputValue(playerId, target.value);
-    });
-
-    els.roundPreviewBody.addEventListener("focusin", (e) => {
-      const target = e.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (target.getAttribute("data-preview-action") !== "input") return;
-      selectInputValue(target);
-    });
-
-    els.roundPreviewBody.addEventListener("click", (e) => {
-      const target = e.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (target.getAttribute("data-preview-action") !== "input") return;
-      selectInputValue(target);
     });
 
     els.roundPreviewBody.addEventListener("keydown", (e) => {
@@ -417,19 +407,11 @@ export function createRoundEntryController(deps) {
       }
     });
 
-    els.roundHelperForm.addEventListener("focusin", (e) => {
-      const target = e.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (!target.classList.contains("round-helper-input")) return;
-      selectInputValue(target);
-    });
-
-    els.roundHelperForm.addEventListener("click", (e) => {
-      const target = e.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (!target.classList.contains("round-helper-input")) return;
-      selectInputValue(target);
-    });
+    bindSelectOnFocusAndClick(
+      els.roundPreviewBody,
+      'input[data-preview-action="input"]',
+    );
+    bindSelectOnFocusAndClick(els.roundHelperForm, "input.round-helper-input");
   }
 
   return {
