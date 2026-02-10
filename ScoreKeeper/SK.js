@@ -871,8 +871,9 @@ function normalizeName(name) {
 
     els.roundPreview.style.display = "block";
     const scores = readRoundScores();
+    const valueLabel = isPhase10() ? "Phase Completed" : "Score";
 
-    els.roundPreviewBody.innerHTML = state.players
+    const rows = state.players
       .map((p) => {
         const rawVal = Number(scores[p.id] ?? 0);
         const val = Number.isFinite(rawVal) ? rawVal : 0;
@@ -901,6 +902,14 @@ function normalizeName(name) {
         `;
       })
       .join("");
+
+    els.roundPreviewBody.innerHTML = `
+      <div class="round-preview-cols">
+        <span>Player</span>
+        <span>${valueLabel}</span>
+      </div>
+      ${rows}
+    `;
   }
 
   function clearRoundInputs() {
