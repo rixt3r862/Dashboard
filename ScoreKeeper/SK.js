@@ -110,6 +110,8 @@
     roundInputs: $("roundInputs"),
     roundPreview: $("roundPreview"),
     roundPreviewBody: $("roundPreviewBody"),
+    roundHelperBar: $("roundHelperBar"),
+    roundHelperButtons: $("roundHelperButtons"),
 
     winnerBanner: $("winnerBanner"),
     winnerText: $("winnerText"),
@@ -862,6 +864,131 @@ function normalizeName(name) {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
+  function applyRoundScores(scoresByPlayerId) {
+    for (const p of state.players) {
+      if (!(p.id in scoresByPlayerId)) continue;
+      setRoundScoreInputValue(p.id, scoresByPlayerId[p.id]);
+    }
+  }
+
+  function promptForPlayerId(titleText) {
+    if (!state.players.length) return null;
+    const list = state.players
+      .map((p, i) => `${i + 1}. ${p.name}`)
+      .join("\n");
+    const raw = window.prompt(
+      `${titleText}\n${list}\nType player number or full name:`,
+      "1",
+    );
+    if (!raw) return null;
+
+    const text = raw.trim();
+    const idx = Number.parseInt(text, 10);
+    if (Number.isInteger(idx) && idx >= 1 && idx <= state.players.length) {
+      return state.players[idx - 1].id;
+    }
+
+    const lowered = text.toLowerCase();
+    const exact = state.players.find((p) => p.name.toLowerCase() === lowered);
+    if (exact) return exact.id;
+
+    showMsg(els.roundMsg, "Player not found.");
+    return null;
+  }
+
+  function roundActionRepeatLast() {
+    if (!state.rounds.length) {
+      showMsg(els.roundMsg, "No previous round to repeat.");
+      return;
+    }
+    applyRoundScores(state.rounds[state.rounds.length - 1].scores || {});
+    showMsg(els.roundMsg, "");
+    setLive("Loaded previous round scores.");
+  }
+
+  function roundActionSetAll() {
+    const label = isPhase10() ? "No (0) or Yes (1)" : "a whole number";
+    const raw = window.prompt(`Set all players to ${label}:`, "0");
+    if (raw === null) return;
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isInteger(n)) {
+      showMsg(els.roundMsg, "Enter a whole number.");
+      return;
+    }
+    const val = isPhase10() ? (n <= 0 ? 0 : 1) : n;
+    const scores = Object.fromEntries(state.players.map((p) => [p.id, val]));
+    applyRoundScores(scores);
+    showMsg(els.roundMsg, "");
+    setLive("Applied score to all players.");
+  }
+
+  function roundActionZeroAll() {
+    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    applyRoundScores(scores);
+    showMsg(els.roundMsg, "");
+    setLive("Cleared round scores.");
+  }
+
+  function roundActionHeartsShootMoon() {
+    const shooterId = promptForPlayerId("Who shot the moon?");
+    if (!shooterId) return;
+    const scores = Object.fromEntries(state.players.map((p) => [p.id, 26]));
+    scores[shooterId] = 0;
+    applyRoundScores(scores);
+    showMsg(els.roundMsg, "");
+    // One-click flow: apply scores and immediately add the round.
+    addRound();
+  }
+
+  function roundActionWinnerRoundPoints() {
+    const winnerId = promptForPlayerId("Who won the round?");
+    if (!winnerId) return;
+
+    const raw = window.prompt("Winner points for this round:", "0");
+    if (raw === null) return;
+    const points = Number.parseInt(raw, 10);
+    if (!Number.isInteger(points) || points < 0) {
+      showMsg(els.roundMsg, "Winner points must be 0 or more.");
+      return;
+    }
+
+    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    scores[winnerId] = points;
+    applyRoundScores(scores);
+    showMsg(els.roundMsg, "");
+    setLive("Applied winner-only round points.");
+  }
+
+  function renderRoundHelpers() {
+    const playing = state.mode === "playing" || state.mode === "finished";
+    if (!playing || !state.players.length) {
+      els.roundHelperBar.style.display = "none";
+      els.roundHelperButtons.innerHTML = "";
+      return;
+    }
+
+    const actions = [
+      { key: "repeat_last", label: "🔁 Repeat Last" },
+      { key: "set_all", label: "🧮 Set All..." },
+      { key: "zero_all", label: "🧹 Zero All" },
+    ];
+
+    if (state.presetKey === "hearts") {
+      actions.push({ key: "hearts_moon", label: "🌙 Shoot Moon..." });
+    }
+    if (state.presetKey === "uno" || state.presetKey === "crazy8s") {
+      actions.push({ key: "winner_round", label: "🏆 Set Winner Round..." });
+    }
+
+    els.roundHelperButtons.innerHTML = actions
+      .map(
+        (a) =>
+          `<button type="button" class="round-helper-btn" data-round-helper="${a.key}">${escapeHtml(a.label)}</button>`,
+      )
+      .join("");
+    els.roundHelperBar.style.display = "block";
+  }
+
   function renderRoundPreview() {
     if (!state.players.length) {
       els.roundPreview.style.display = "none";
@@ -910,6 +1037,7 @@ function normalizeName(name) {
       </div>
       ${rows}
     `;
+    renderRoundHelpers();
   }
 
   function clearRoundInputs() {
@@ -959,9 +1087,12 @@ function normalizeName(name) {
         (sum, p) => sum + Number(scores[p.id] ?? 0),
         0,
       );
-      if (total !== 26) {
+      const normalTotal = 26;
+      const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
+      const validTotals = new Set([normalTotal, shootMoonTotal]);
+      if (!validTotals.has(total)) {
         warnings.push(
-          `Hearts ${contextLabel} total is ${total} (typical is 26).`,
+          `Hearts ${contextLabel} total is ${total} (typical is ${normalTotal}, or ${shootMoonTotal} when someone shoots the moon).`,
         );
       }
     }
@@ -1668,6 +1799,19 @@ function normalizeName(name) {
     if (target.getAttribute("data-preview-action") !== "input") return;
     e.preventDefault();
     addRound();
+  });
+
+  els.roundHelperButtons.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-round-helper]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-round-helper");
+    if (!action) return;
+
+    if (action === "repeat_last") roundActionRepeatLast();
+    if (action === "set_all") roundActionSetAll();
+    if (action === "zero_all") roundActionZeroAll();
+    if (action === "hearts_moon") roundActionHeartsShootMoon();
+    if (action === "winner_round") roundActionWinnerRoundPoints();
   });
 
   els.scoreboardBgImage.addEventListener("load", refreshScoreboardTintFromImage);

@@ -527,6 +527,32 @@ summary::-webkit-details-marker{ display:none; }
   background: rgba(37,99,235,.12);
   border-color: rgba(37,99,235,.45);
 }
+
+.round-helper-bar{
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.65);
+}
+.round-helper-buttons{
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.round-helper-btn{
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.round-helper-btn:hover{
+  border-color: rgba(37,99,235,.35);
+}
 /* Phase 10: 0/1 entry fields stay readable */
 input[placeholder="0 or 1"]{
   text-align: center;
