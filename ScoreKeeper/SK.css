@@ -541,6 +541,27 @@ summary::-webkit-details-marker{ display:none; }
   flex-wrap: wrap;
   gap: 8px;
 }
+.round-helper-form{
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.round-helper-form-row{
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.round-helper-input{
+  min-width: 140px;
+  max-width: 220px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: var(--fs-sm);
+  background: #fff;
+  color: var(--text);
+}
 .round-helper-btn{
   border: 1px solid var(--line);
   background: #fff;
@@ -552,6 +573,11 @@ summary::-webkit-details-marker{ display:none; }
 }
 .round-helper-btn:hover{
   border-color: rgba(37,99,235,.35);
+}
+.round-helper-btn.primary{
+  background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(37,99,235,.88));
+  border-color: rgba(37,99,235,.9);
+  color: #fff;
 }
 /* Phase 10: 0/1 entry fields stay readable */
 input[placeholder="0 or 1"]{

@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Card Game Score Keeper</title>
   <link rel="stylesheet" href="./SK.css" />
-  <script src="./SK.js" defer></script>
+  <script type="module" src="./SK.js"></script>
 </head>
 
 <body>
@@ -141,8 +141,6 @@
 
           <div class="hr"></div>
 
-          <div id="roundInputs" class="row" aria-label="Round scores" style="display: none" aria-hidden="true"></div>
-
           <div id="roundPreview" class="round-preview" aria-label="Current round preview">
             <div class="muted"><strong>Round Entry</strong></div>
             <div id="roundPreviewBody" class="round-preview-grid"></div>
@@ -151,6 +149,7 @@
           <div id="roundHelperBar" class="round-helper-bar" style="display: none" aria-label="Round helpers">
             <div class="muted"><strong>Quick Actions</strong></div>
             <div id="roundHelperButtons" class="round-helper-buttons"></div>
+            <div id="roundHelperForm" class="round-helper-form" style="display: none"></div>
           </div>
 
           <div class="hr"></div>

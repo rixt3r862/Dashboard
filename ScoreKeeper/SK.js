@@ -1,72 +1,15 @@
 // scorekeeper.js
+import {
+  PRESETS,
+  PRESET_BACKGROUNDS,
+  PRESET_TINT_OVERRIDES,
+} from "./js/config.js";
+import { createHistoryController } from "./js/history.js";
+import { createRoundEntryController } from "./js/roundEntry.js";
+import { createScoreboardController } from "./js/scoreboard.js";
+
 (() => {
   const STORAGE_KEY = "scorekeeper.v2";
-
-  const PRESETS = {
-    custom: {
-      label: "Custom",
-      target: null,
-      winMode: "high",
-      teams: false,
-      notes: "",
-    },
-    uno: {
-      label: "Uno",
-      target: 500,
-      winMode: "high",
-      teams: false,
-      notes: "First player to 500 points wins.",
-    },
-    phase10: {
-      label: "Phase 10",
-      target: 10,
-      winMode: "high",
-      teams: false,
-      notes: "Tracking phases completed (not points).",
-    },
-    skyjo: {
-      label: "SkyJo",
-      target: 100,
-      winMode: "low",
-      teams: false,
-      notes: "Lowest score wins. Negative scores possible.",
-    },
-    hearts: {
-      label: "Hearts",
-      target: 100,
-      winMode: "low",
-      teams: false,
-      notes: "Lowest score wins. Shooting the moon applies.",
-    },
-    spades: {
-      label: "Spades",
-      target: 500,
-      winMode: "high",
-      teams: true,
-      notes:
-        "Partnership game. Scores are tracked per-player and summed by team.",
-    },
-    crazy8s: {
-      label: "Crazy 8s",
-      target: 100,
-      winMode: "high",
-      teams: false,
-      notes:
-        "Standard scoring: you score points from opponents’ remaining cards. First to 100+ wins.",
-    },
-  };
-  const PRESET_BACKGROUNDS = {
-    uno: "./img/Uno.png",
-    phase10: "./img/Phase 10.png",
-    crazy8s: "./img/Crazy8s.png",
-    skyjo: "./img/SkyJo.png",
-    hearts: "./img/Hearts.png",
-    spades: "./img/Spades.png",
-  };
-  const PRESET_TINT_OVERRIDES = {
-    // Spades image tends to sample too light; use a stable slate-blue tint.
-    spades: [70, 90, 120],
-  };
 
   const $ = (id) => document.getElementById(id);
 
@@ -107,11 +50,11 @@
 
     targetPill: $("targetPill"),
     roundPill: $("roundPill"),
-    roundInputs: $("roundInputs"),
     roundPreview: $("roundPreview"),
     roundPreviewBody: $("roundPreviewBody"),
     roundHelperBar: $("roundHelperBar"),
     roundHelperButtons: $("roundHelperButtons"),
+    roundHelperForm: $("roundHelperForm"),
 
     winnerBanner: $("winnerBanner"),
     winnerText: $("winnerText"),
@@ -168,6 +111,7 @@
     teams: null, // null | [{ id, name, members:[playerId]}]
     rounds: [], // { n, scores: { [playerId]: number }, ts }
     lastRoundScores: {}, // for display only
+    currentRoundScores: {}, // in-progress round entry values
     winnerId: null, // playerId or teamId (depending on mode)
     sortByTotal: false,
     savedExists: false,
@@ -179,7 +123,48 @@
 
     // Spades partner picker: partner for Player 1 is Player 2|3|4 (default: 2)
     spadesPartnerIndex: 2,
+    activeRoundHelper: null,
   };
+
+  const roundEntry = createRoundEntryController({
+    state,
+    els,
+    isPhase10,
+    showMsg,
+    setLive,
+    escapeHtml,
+    $,
+    onAddRound: () => addRound(),
+  });
+  const history = createHistoryController({
+    state,
+    els,
+    isPhase10,
+    showMsg,
+    setLive,
+    applyPhase10UiText,
+    save,
+    renderAll: () => renderAll(),
+    validateRoundScores,
+    totalsByPlayerId,
+    totalsByTeamId,
+    determineWinnerFromTotals,
+  });
+  const scoreboard = createScoreboardController({
+    state,
+    els,
+    PRESETS,
+    PRESET_BACKGROUNDS,
+    PRESET_TINT_OVERRIDES,
+    isPhase10,
+    escapeHtml,
+    totalsByPlayerId,
+    totalsByTeamId,
+    leaderIdFromTotals,
+    phase10CurrentPhase,
+    entityName,
+    renderHistoryTable: () => history.renderHistoryTable(),
+  });
 
   const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -281,12 +266,12 @@
       state.lastRoundScores = state.rounds.length
         ? state.rounds[state.rounds.length - 1].scores || {}
         : {};
+      state.currentRoundScores = Object.fromEntries(
+        state.players.map((p) => [p.id, 0]),
+      );
       state.bannerDismissed = false;
       state.historyEditingRoundN = null;
-
-      // IMPORTANT: force round inputs to rebuild for the loaded player IDs
-      // (prevents "stale IDs" causing Add Round to fail)
-      els.roundInputs.innerHTML = "";
+      state.activeRoundHelper = null;
 
       state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex)
         ? payload.spadesPartnerIndex
@@ -318,10 +303,12 @@
     state.teams = null;
     state.rounds = [];
     state.lastRoundScores = {};
+    state.currentRoundScores = {};
     state.winnerId = null;
     state.sortByTotal = false;
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
+    state.activeRoundHelper = null;
     state.presetNote = "";
     state.spadesPartnerIndex = 2;
 
@@ -370,15 +357,16 @@
     // Reset score state
     state.rounds = [];
     state.lastRoundScores = {};
+    state.currentRoundScores = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
     state.winnerId = null;
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
+    state.activeRoundHelper = null;
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
-
-    // Force fresh round inputs for new IDs
-    els.roundInputs.innerHTML = "";
 
     save();
     applyPhase10UiText();
@@ -386,7 +374,7 @@
     setLive("New game started with same players.");
   }
 
-function normalizeName(name) {
+  function normalizeName(name) {
     return String(name || "").trim();
   }
 
@@ -658,35 +646,22 @@ function normalizeName(name) {
 
     state.rounds = [];
     state.lastRoundScores = {};
+    state.currentRoundScores = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
     state.winnerId = null;
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
+    state.activeRoundHelper = null;
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
-
-    // Force fresh round inputs for fresh player IDs
-    els.roundInputs.innerHTML = "";
 
     save();
     applyPhase10UiText();
     renderAll();
     setLive("Game started.");
   }
-  // Ensure the DOM round inputs match current players (prevents “stale IDs” scoring bug)
-  function roundInputsMatchPlayers() {
-    const inputs = Array.from(document.querySelectorAll("[data-round-score]"));
-    if (inputs.length !== state.players.length) return false;
-
-    const domIds = inputs.map((el) => el.getAttribute("data-round-score"));
-    const stateIds = state.players.map((p) => p.id);
-
-    for (let i = 0; i < stateIds.length; i++) {
-      if (domIds[i] !== stateIds[i]) return false;
-    }
-    return true;
-  }
-
   function totalsByPlayerId() {
     const totals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
     for (const r of state.rounds) {
@@ -755,299 +730,6 @@ function normalizeName(name) {
     return state.players.find((p) => p.id === id)?.name ?? "Unknown";
   }
 
-  function renderRoundInputs() {
-    els.roundInputs.innerHTML = "";
-
-    for (const p of state.players) {
-      const field = document.createElement("div");
-      field.className = "field";
-      field.style.minWidth = "180px";
-
-      const label = document.createElement("label");
-      label.setAttribute("for", `score_${p.id}`);
-      label.textContent = isPhase10()
-        ? `${p.name} (Phase completed this round?)`
-        : `${p.name} (this round)`;
-
-      let input;
-      if (isPhase10()) {
-        input = document.createElement("select");
-        input.id = `score_${p.id}`;
-        input.setAttribute("data-round-score", p.id);
-        input.innerHTML = `
-          <option value="0">No</option>
-          <option value="1">Yes</option>
-        `;
-      } else {
-        input = document.createElement("input");
-        input.type = "number";
-        input.inputMode = "numeric";
-        input.id = `score_${p.id}`;
-        input.setAttribute("data-round-score", p.id);
-        input.step = "1";
-        input.value = "0";
-      }
-
-      const selectAll = () => setTimeout(() => input.select(), 0);
-      if (!isPhase10()) {
-        input.addEventListener("focus", selectAll);
-        input.addEventListener("click", selectAll);
-        input.addEventListener("touchstart", selectAll, { passive: true });
-      }
-
-      input.addEventListener("input", () => showMsg(els.roundMsg, ""));
-      input.addEventListener("change", () => showMsg(els.roundMsg, ""));
-      input.addEventListener("input", renderRoundPreview);
-      input.addEventListener("change", renderRoundPreview);
-
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          const ids = state.players.map((x) => x.id);
-          const lastId = ids[ids.length - 1];
-          if (p.id === lastId) {
-            e.preventDefault();
-            addRound();
-          }
-        }
-      });
-
-      field.appendChild(label);
-      field.appendChild(input);
-      els.roundInputs.appendChild(field);
-    }
-
-    renderRoundPreview();
-  }
-
-  function readRoundScores() {
-
-    // Seed defaults so missing/stale DOM inputs can't produce undefined scores
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-
-    document.querySelectorAll("[data-round-score]").forEach((inp) => {
-      const id = inp.getAttribute("data-round-score");
-      if (!id) return;
-
-      const raw = String(inp.value ?? "").trim();
-      if (raw === "") {
-        scores[id] = 0;
-        return;
-      }
-
-      const n = Number.parseInt(raw, 10);
-      let val = Number.isNaN(n) ? 0 : n;
-
-      if (isPhase10()) {
-        val = val <= 0 ? 0 : 1; // clamp to 0/1
-      }
-
-      scores[id] = val;
-    });
-
-    return scores;
-  }
-
-  function setRoundScoreInputValue(playerId, value) {
-    const input = els.roundInputs.querySelector(
-      `[data-round-score="${playerId}"]`,
-    );
-    if (!input) return;
-
-    if (isPhase10()) {
-      input.value = Number(value) > 0 ? "1" : "0";
-    } else {
-      const n = Number.parseInt(value, 10);
-      input.value = String(Number.isNaN(n) ? 0 : n);
-    }
-
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-
-  function applyRoundScores(scoresByPlayerId) {
-    for (const p of state.players) {
-      if (!(p.id in scoresByPlayerId)) continue;
-      setRoundScoreInputValue(p.id, scoresByPlayerId[p.id]);
-    }
-  }
-
-  function promptForPlayerId(titleText) {
-    if (!state.players.length) return null;
-    const list = state.players
-      .map((p, i) => `${i + 1}. ${p.name}`)
-      .join("\n");
-    const raw = window.prompt(
-      `${titleText}\n${list}\nType player number or full name:`,
-      "1",
-    );
-    if (!raw) return null;
-
-    const text = raw.trim();
-    const idx = Number.parseInt(text, 10);
-    if (Number.isInteger(idx) && idx >= 1 && idx <= state.players.length) {
-      return state.players[idx - 1].id;
-    }
-
-    const lowered = text.toLowerCase();
-    const exact = state.players.find((p) => p.name.toLowerCase() === lowered);
-    if (exact) return exact.id;
-
-    showMsg(els.roundMsg, "Player not found.");
-    return null;
-  }
-
-  function roundActionRepeatLast() {
-    if (!state.rounds.length) {
-      showMsg(els.roundMsg, "No previous round to repeat.");
-      return;
-    }
-    applyRoundScores(state.rounds[state.rounds.length - 1].scores || {});
-    showMsg(els.roundMsg, "");
-    setLive("Loaded previous round scores.");
-  }
-
-  function roundActionSetAll() {
-    const label = isPhase10() ? "No (0) or Yes (1)" : "a whole number";
-    const raw = window.prompt(`Set all players to ${label}:`, "0");
-    if (raw === null) return;
-    const n = Number.parseInt(raw, 10);
-    if (!Number.isInteger(n)) {
-      showMsg(els.roundMsg, "Enter a whole number.");
-      return;
-    }
-    const val = isPhase10() ? (n <= 0 ? 0 : 1) : n;
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, val]));
-    applyRoundScores(scores);
-    showMsg(els.roundMsg, "");
-    setLive("Applied score to all players.");
-  }
-
-  function roundActionZeroAll() {
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-    applyRoundScores(scores);
-    showMsg(els.roundMsg, "");
-    setLive("Cleared round scores.");
-  }
-
-  function roundActionHeartsShootMoon() {
-    const shooterId = promptForPlayerId("Who shot the moon?");
-    if (!shooterId) return;
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 26]));
-    scores[shooterId] = 0;
-    applyRoundScores(scores);
-    showMsg(els.roundMsg, "");
-    // One-click flow: apply scores and immediately add the round.
-    addRound();
-  }
-
-  function roundActionWinnerRoundPoints() {
-    const winnerId = promptForPlayerId("Who won the round?");
-    if (!winnerId) return;
-
-    const raw = window.prompt("Winner points for this round:", "0");
-    if (raw === null) return;
-    const points = Number.parseInt(raw, 10);
-    if (!Number.isInteger(points) || points < 0) {
-      showMsg(els.roundMsg, "Winner points must be 0 or more.");
-      return;
-    }
-
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-    scores[winnerId] = points;
-    applyRoundScores(scores);
-    showMsg(els.roundMsg, "");
-    setLive("Applied winner-only round points.");
-  }
-
-  function renderRoundHelpers() {
-    const playing = state.mode === "playing" || state.mode === "finished";
-    if (!playing || !state.players.length) {
-      els.roundHelperBar.style.display = "none";
-      els.roundHelperButtons.innerHTML = "";
-      return;
-    }
-
-    const actions = [
-      { key: "repeat_last", label: "🔁 Repeat Last" },
-      { key: "set_all", label: "🧮 Set All..." },
-      { key: "zero_all", label: "🧹 Zero All" },
-    ];
-
-    if (state.presetKey === "hearts") {
-      actions.push({ key: "hearts_moon", label: "🌙 Shoot Moon..." });
-    }
-    if (state.presetKey === "uno" || state.presetKey === "crazy8s") {
-      actions.push({ key: "winner_round", label: "🏆 Set Winner Round..." });
-    }
-
-    els.roundHelperButtons.innerHTML = actions
-      .map(
-        (a) =>
-          `<button type="button" class="round-helper-btn" data-round-helper="${a.key}">${escapeHtml(a.label)}</button>`,
-      )
-      .join("");
-    els.roundHelperBar.style.display = "block";
-  }
-
-  function renderRoundPreview() {
-    if (!state.players.length) {
-      els.roundPreview.style.display = "none";
-      els.roundPreviewBody.innerHTML = "";
-      return;
-    }
-
-    els.roundPreview.style.display = "block";
-    const scores = readRoundScores();
-    const valueLabel = isPhase10() ? "Phase Completed" : "Score";
-
-    const rows = state.players
-      .map((p) => {
-        const rawVal = Number(scores[p.id] ?? 0);
-        const val = Number.isFinite(rawVal) ? rawVal : 0;
-        const displayVal = isPhase10() ? (val > 0 ? "Yes" : "No") : "";
-        const actions = isPhase10()
-          ? `
-            <button type="button" class="round-preview-btn ${val <= 0 ? "active" : ""}" data-preview-action="set" data-player-id="${p.id}" data-value="0">No</button>
-            <button type="button" class="round-preview-btn ${val > 0 ? "active" : ""}" data-preview-action="set" data-player-id="${p.id}" data-value="1">Yes</button>
-          `
-          : `
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5">-5</button>
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1">-1</button>
-            <input type="number" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" />
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1">+1</button>
-            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5">+5</button>
-          `;
-
-        return `
-          <div class="round-preview-item">
-            <span class="round-preview-name">${escapeHtml(p.name)}</span>
-            <span class="round-preview-right">
-              <span class="round-preview-value">${displayVal}</span>
-              <span class="round-preview-actions">${actions}</span>
-            </span>
-          </div>
-        `;
-      })
-      .join("");
-
-    els.roundPreviewBody.innerHTML = `
-      <div class="round-preview-cols">
-        <span>Player</span>
-        <span>${valueLabel}</span>
-      </div>
-      ${rows}
-    `;
-    renderRoundHelpers();
-  }
-
-  function clearRoundInputs() {
-    const inputs = document.querySelectorAll("[data-round-score]");
-    inputs.forEach((inp) => (inp.value = "0"));
-    const first = inputs[0];
-    if (first) first.focus();
-    renderRoundPreview();
-  }
-
   function validateRoundScores(scores, opts = {}) {
     const { contextLabel = "round" } = opts;
 
@@ -1110,7 +792,7 @@ function normalizeName(name) {
   function addRound() {
     if (state.mode !== "playing") return;
 
-    const scores = readRoundScores();
+    const scores = roundEntry.readRoundScores();
     const validation = validateRoundScores(scores, { contextLabel: "round" });
     if (!validation.ok) {
       showMsg(els.roundMsg, validation.error || "Invalid scores.");
@@ -1125,7 +807,11 @@ function normalizeName(name) {
     const round = { n: nextN, scores, ts: Date.now() };
     state.rounds.push(round);
     state.lastRoundScores = scores;
+    state.currentRoundScores = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
     state.historyEditingRoundN = null;
+    state.activeRoundHelper = null;
 
     const playerTotals = totalsByPlayerId();
     let entries = [];
@@ -1158,7 +844,7 @@ function normalizeName(name) {
     renderAll();
 
     if (state.mode === "playing") {
-      clearRoundInputs();
+      roundEntry.clearRoundInputs();
     }
   }
 
@@ -1168,425 +854,19 @@ function normalizeName(name) {
     state.lastRoundScores = state.rounds.length
       ? state.rounds[state.rounds.length - 1].scores || {}
       : {};
+    state.currentRoundScores = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
     state.winnerId = null;
     state.mode = state.players.length ? "playing" : "setup";
     state.bannerDismissed = true;
     state.historyEditingRoundN = null;
+    state.activeRoundHelper = null;
 
     save();
     applyPhase10UiText();
     renderAll();
     setLive("Last round undone.");
-  }
-
-  function recalcAfterHistoryChange(liveText) {
-    state.rounds.forEach((r, i) => {
-      r.n = i + 1;
-    });
-
-    state.lastRoundScores = state.rounds.length
-      ? state.rounds[state.rounds.length - 1].scores || {}
-      : {};
-
-    const playerTotals = totalsByPlayerId();
-    let entries = [];
-    if (state.teams) {
-      const teamTotals = totalsByTeamId(playerTotals);
-      entries = state.teams.map((t) => ({
-        id: t.id,
-        total: teamTotals[t.id] ?? 0,
-      }));
-    } else {
-      entries = state.players.map((p) => ({
-        id: p.id,
-        total: playerTotals[p.id] ?? 0,
-      }));
-    }
-
-    const winner = determineWinnerFromTotals(entries);
-    if (winner) {
-      state.winnerId = winner;
-      state.mode = "finished";
-    } else {
-      state.winnerId = null;
-      state.mode = state.players.length ? "playing" : "setup";
-    }
-
-    state.bannerDismissed = true;
-    state.historyEditingRoundN = null;
-
-    save();
-    applyPhase10UiText();
-    renderAll();
-    if (liveText) setLive(liveText);
-  }
-
-  function beginHistoryEdit(roundN) {
-    if (!Number.isInteger(roundN) || roundN < 1) return;
-    state.historyEditingRoundN = roundN;
-    renderHistoryTable();
-  }
-
-  function cancelHistoryEdit() {
-    if (state.historyEditingRoundN === null) return;
-    state.historyEditingRoundN = null;
-    renderHistoryTable();
-    showMsg(els.roundMsg, "");
-    setLive("History edit canceled.");
-  }
-
-  function readHistoryEditScores(roundN) {
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-    for (const p of state.players) {
-      const selector =
-        `[data-history-edit-round="${roundN}"]` +
-        `[data-history-edit-score="${p.id}"]`;
-      const inp = els.historyTable.querySelector(selector);
-      if (!inp) return null;
-
-      const raw = String(inp.value ?? "").trim();
-      const n = raw === "" ? 0 : Number.parseInt(raw, 10);
-      if (Number.isNaN(n)) return null;
-      scores[p.id] = isPhase10() ? (n <= 0 ? 0 : 1) : n;
-    }
-    return scores;
-  }
-
-  function saveHistoryEdit(roundN) {
-    const idx = state.rounds.findIndex((r) => r.n === roundN);
-    if (idx < 0) return;
-
-    const scores = readHistoryEditScores(roundN);
-    if (!scores) {
-      showMsg(els.roundMsg, "Round scores must be whole numbers.");
-      return;
-    }
-    const validation = validateRoundScores(scores, {
-      contextLabel: `round ${roundN}`,
-    });
-    if (!validation.ok) {
-      showMsg(els.roundMsg, validation.error || "Invalid scores.");
-      return;
-    }
-    if (validation.warning) {
-      const proceed = window.confirm(
-        `${validation.warning} Save changes anyway?`,
-      );
-      if (!proceed) return;
-    }
-
-    state.rounds[idx].scores = scores;
-    state.rounds[idx].ts = Date.now();
-    showMsg(els.roundMsg, "");
-    recalcAfterHistoryChange(`Round ${roundN} updated.`);
-  }
-
-  function deleteHistoryRound(roundN) {
-    const idx = state.rounds.findIndex((r) => r.n === roundN);
-    if (idx < 0) return;
-
-    if (!window.confirm(`Delete round ${roundN}? This cannot be undone.`)) return;
-
-    state.rounds.splice(idx, 1);
-    showMsg(els.roundMsg, "");
-    recalcAfterHistoryChange(`Round ${roundN} deleted.`);
-  }
-
-  function renderHistoryTable() {
-    const cols = state.players.map((p) => p.id);
-    const tbl = els.historyTable;
-    tbl.innerHTML = "";
-
-    const thead = document.createElement("thead");
-    const trh = document.createElement("tr");
-    const th0 = document.createElement("th");
-    th0.textContent = "Round";
-    trh.appendChild(th0);
-
-    for (const pid of cols) {
-      const th = document.createElement("th");
-      th.textContent =
-        state.players.find((p) => p.id === pid)?.name ?? "Player";
-      trh.appendChild(th);
-    }
-    const thActions = document.createElement("th");
-    thActions.textContent = "Actions";
-    trh.appendChild(thActions);
-    thead.appendChild(trh);
-    tbl.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-    for (const r of state.rounds) {
-      const editing = state.historyEditingRoundN === r.n;
-      const tr = document.createElement("tr");
-      const td0 = document.createElement("td");
-      td0.textContent = String(r.n);
-      tr.appendChild(td0);
-
-      for (const pid of cols) {
-        const td = document.createElement("td");
-        const v = Number(r.scores?.[pid] ?? 0);
-        if (editing) {
-          let input;
-          if (isPhase10()) {
-            input = document.createElement("select");
-            input.className = "history-edit-input";
-            input.innerHTML = `
-              <option value="0">No</option>
-              <option value="1">Yes</option>
-            `;
-            input.value = String(v <= 0 ? 0 : 1);
-          } else {
-            input = document.createElement("input");
-            input.type = "number";
-            input.inputMode = "numeric";
-            input.className = "history-edit-input";
-            input.value = String(Number.isFinite(v) ? v : 0);
-          }
-          input.setAttribute("data-history-edit-round", String(r.n));
-          input.setAttribute("data-history-edit-score", pid);
-          td.appendChild(input);
-        } else {
-          td.textContent = isPhase10()
-            ? v > 0
-              ? "Yes"
-              : "No"
-            : String(Number.isFinite(v) ? v : 0);
-        }
-        tr.appendChild(td);
-      }
-
-      const tdActions = document.createElement("td");
-      tdActions.className = "history-actions";
-      if (editing) {
-        tdActions.innerHTML = `
-          <button type="button" class="history-action-btn" data-history-action="save" data-round-n="${r.n}">Save</button>
-          <button type="button" class="history-action-btn" data-history-action="cancel" data-round-n="${r.n}">Cancel</button>
-        `;
-      } else {
-        tdActions.innerHTML = `
-          <button type="button" class="history-action-btn" data-history-action="edit" data-round-n="${r.n}">Edit</button>
-          <button type="button" class="history-action-btn danger" data-history-action="delete" data-round-n="${r.n}">Delete</button>
-        `;
-      }
-      tr.appendChild(tdActions);
-      tbody.appendChild(tr);
-    }
-    tbl.appendChild(tbody);
-
-    els.historySummaryText.textContent = state.rounds.length
-      ? `Round History (${state.rounds.length})`
-      : "Round History (0)";
-  }
-
-  function renderScoreboard() {
-    const playerTotals = totalsByPlayerId();
-
-    let entries = [];
-    const thisRoundById = {};
-
-    if (state.teams) {
-      const teamTotals = totalsByTeamId(playerTotals);
-      entries = state.teams.map((t) => ({
-        id: t.id,
-        name: t.name,
-        total: teamTotals[t.id] ?? 0,
-      }));
-
-      for (const t of state.teams) {
-        thisRoundById[t.id] = t.members.reduce(
-          (sum, pid) => sum + Number(state.lastRoundScores?.[pid] ?? 0),
-          0,
-        );
-      }
-
-      els.colHeadEntity.textContent = "Team";
-    } else {
-      entries = state.players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        total: playerTotals[p.id] ?? 0,
-      }));
-      for (const p of state.players) {
-        thisRoundById[p.id] = Number(state.lastRoundScores?.[p.id] ?? 0);
-      }
-      els.colHeadEntity.textContent = "Player";
-    }
-
-    const leader = leaderIdFromTotals(
-      entries.map((e) => ({ id: e.id, total: e.total })),
-    );
-    const winner = state.winnerId;
-
-    let entriesToShow = [...entries];
-    if (state.sortByTotal) {
-      entriesToShow.sort((a, b) =>
-        state.winMode === "low" ? a.total - b.total : b.total - a.total,
-      );
-    }
-
-    els.scoreboardBody.innerHTML = "";
-    for (const e of entriesToShow) {
-      const tr = document.createElement("tr");
-      if (e.id === winner) tr.classList.add("winner");
-      else if (e.id === leader) tr.classList.add("leader");
-
-      const tdName = document.createElement("td");
-      if (isPhase10() && !state.teams) {
-        const current = phase10CurrentPhase(e.total);
-        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div><div class="sub">Current phase: ${current}</div>`;
-      } else {
-        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div>`;
-      }
-
-      const tdTotal = document.createElement("td");
-      tdTotal.innerHTML = `<div class="total">${e.total}</div>`;
-
-      const tdThis = document.createElement("td");
-      tdThis.textContent = String(thisRoundById[e.id] ?? 0);
-
-      tr.appendChild(tdName);
-      tr.appendChild(tdTotal);
-      tr.appendChild(tdThis);
-      els.scoreboardBody.appendChild(tr);
-    }
-
-    renderHistoryTable();
-  }
-
-  function renderWinnerBanner() {
-    const playerTotals = totalsByPlayerId();
-    let winnerTotal = 0;
-
-    if (state.winnerId) {
-      if (state.teams) {
-        const teamTotals = totalsByTeamId(playerTotals);
-        winnerTotal = teamTotals[state.winnerId] ?? 0;
-      } else {
-        winnerTotal = playerTotals[state.winnerId] ?? 0;
-      }
-    }
-
-    if (state.mode === "finished" && state.winnerId && !state.bannerDismissed) {
-      const name = entityName(state.winnerId);
-      els.winnerText.textContent = `Winner: ${name} (${winnerTotal})`;
-
-      els.winnerSub.textContent =
-        state.winMode === "low"
-          ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
-          : `Target was ${state.target}. First to reach the target wins.`;
-
-      els.winnerBanner.classList.add("show");
-    } else {
-      els.winnerBanner.classList.remove("show");
-    }
-  }
-
-  function updateScoreboardTitle() {
-    const playing = state.mode === "playing" || state.mode === "finished";
-    const presetLabel = PRESETS[state.presetKey]?.label || "";
-    const showGameLabel = playing && state.presetKey !== "custom" && presetLabel;
-    els.scoreboardTitle.textContent = showGameLabel
-      ? `${presetLabel} Scoreboard`
-      : "Scoreboard";
-  }
-
-  function setScoreboardTint(rgb) {
-    if (!Array.isArray(rgb) || rgb.length !== 3) {
-      els.scoreboardCard.style.removeProperty("--scoreboard-tint-rgb");
-      return;
-    }
-    const [r, g, b] = rgb.map((x) => Math.max(0, Math.min(255, Number(x) || 0)));
-    els.scoreboardCard.style.setProperty("--scoreboard-tint-rgb", `${r}, ${g}, ${b}`);
-  }
-
-  function dominantColorFromImage(img) {
-    if (!img || !img.naturalWidth || !img.naturalHeight) return null;
-
-    const maxSide = 64;
-    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.max(1, Math.round(img.naturalWidth * scale));
-    const h = Math.max(1, Math.round(img.naturalHeight * scale));
-
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return null;
-
-    ctx.drawImage(img, 0, 0, w, h);
-    const pixels = ctx.getImageData(0, 0, w, h).data;
-
-    const bins = new Map();
-    for (let i = 0; i < pixels.length; i += 4) {
-      const r = pixels[i];
-      const g = pixels[i + 1];
-      const b = pixels[i + 2];
-      const a = pixels[i + 3] / 255;
-      if (a < 0.15) continue;
-
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      const sat = max === 0 ? 0 : (max - min) / max;
-      const light = (max + min) / 510;
-      if (light > 0.97 || light < 0.03) continue;
-
-      const qr = Math.round(r / 24) * 24;
-      const qg = Math.round(g / 24) * 24;
-      const qb = Math.round(b / 24) * 24;
-      const key = `${qr},${qg},${qb}`;
-      const score = a * (0.7 + sat * 1.4);
-
-      bins.set(key, (bins.get(key) || 0) + score);
-    }
-
-    let bestKey = null;
-    let bestScore = -1;
-    for (const [key, score] of bins.entries()) {
-      if (score > bestScore) {
-        bestScore = score;
-        bestKey = key;
-      }
-    }
-    if (!bestKey) return null;
-    return bestKey.split(",").map((x) => Number.parseInt(x, 10));
-  }
-
-  function refreshScoreboardTintFromImage() {
-    const override = PRESET_TINT_OVERRIDES[state.presetKey];
-    if (override) {
-      setScoreboardTint(override);
-      return;
-    }
-
-    try {
-      const rgb = dominantColorFromImage(els.scoreboardBgImage);
-      setScoreboardTint(rgb);
-    } catch {
-      setScoreboardTint(null);
-    }
-  }
-
-  function hideScoreboardBackgroundImage() {
-    els.scoreboardBgImage.hidden = true;
-    els.scoreboardBgImage.removeAttribute("src");
-  }
-
-  function updateScoreboardBackground() {
-    const playing = state.mode === "playing" || state.mode === "finished";
-    const bgSrc = playing ? PRESET_BACKGROUNDS[state.presetKey] : null;
-    if (bgSrc) {
-      els.scoreboardBgImage.src = bgSrc;
-      els.scoreboardBgImage.hidden = false;
-      els.scoreboardCard.classList.add("has-bg");
-      if (els.scoreboardBgImage.complete && els.scoreboardBgImage.naturalWidth > 0) {
-        refreshScoreboardTintFromImage();
-      }
-    } else {
-      hideScoreboardBackgroundImage();
-      els.scoreboardCard.classList.remove("has-bg");
-      setScoreboardTint(null);
-    }
   }
 
   function renderMode() {
@@ -1618,21 +898,19 @@ function normalizeName(name) {
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
     if (playing && state.players.length) {
-      // Rebuild if empty OR stale bindings (players changed)
-      if (els.roundInputs.childElementCount === 0 || !roundInputsMatchPlayers()) {
-        renderRoundInputs();
-      }
+      roundEntry.ensureCurrentRoundScores();
+      roundEntry.renderRoundPreview();
     }
 
-    updateScoreboardTitle();
-    updateScoreboardBackground();
-    renderWinnerBanner();
+    scoreboard.updateScoreboardTitle();
+    scoreboard.updateScoreboardBackground();
+    scoreboard.renderWinnerBanner();
   }
 
   function renderAll() {
     renderMode();
     if (state.players.length) {
-      renderScoreboard();
+      scoreboard.renderScoreboard();
     }
     if (state.mode === "setup") {
       updateStartButtonState();
@@ -1687,19 +965,19 @@ function normalizeName(name) {
   });
 
   if (els.btnNewSame) {
-  els.btnNewSame.addEventListener("click", (e) => {
-    e?.preventDefault?.();
-    e?.stopPropagation?.();
-    newGameSamePlayers();
-  });
+    els.btnNewSame.addEventListener("click", (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      newGameSamePlayers();
+    });
   }
 
   if (els.btnNewSame2) {
-  els.btnNewSame2.addEventListener("click", (e) => {
-    e?.preventDefault?.();
-    e?.stopPropagation?.();
-    newGameSamePlayers();
-  });
+    els.btnNewSame2.addEventListener("click", (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      newGameSamePlayers();
+    });
   }
 
   els.btnKeepGoing.addEventListener("click", () => {
@@ -1733,93 +1011,9 @@ function normalizeName(name) {
     save();
   });
 
-  els.historyTable.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-history-action]");
-    if (!btn) return;
-    const action = btn.getAttribute("data-history-action");
-    const roundN = Number.parseInt(btn.getAttribute("data-round-n"), 10);
-    if (!Number.isInteger(roundN) || roundN < 1) return;
-
-    if (action === "edit") beginHistoryEdit(roundN);
-    if (action === "cancel") cancelHistoryEdit();
-    if (action === "save") saveHistoryEdit(roundN);
-    if (action === "delete") deleteHistoryRound(roundN);
-  });
-
-  els.historyTable.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    const roundN = Number.parseInt(
-      target.getAttribute("data-history-edit-round"),
-      10,
-    );
-    if (!Number.isInteger(roundN) || roundN < 1) return;
-    e.preventDefault();
-    saveHistoryEdit(roundN);
-  });
-
-  els.roundPreviewBody.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-preview-action]");
-    if (!btn) return;
-
-    const action = btn.getAttribute("data-preview-action");
-    const playerId = btn.getAttribute("data-player-id");
-    if (!playerId) return;
-
-    if (action === "set") {
-      const raw = Number.parseInt(btn.getAttribute("data-value"), 10);
-      const val = Number.isNaN(raw) ? 0 : raw;
-      setRoundScoreInputValue(playerId, val);
-      return;
-    }
-
-    if (action === "add") {
-      const deltaRaw = Number.parseInt(btn.getAttribute("data-delta"), 10);
-      const delta = Number.isNaN(deltaRaw) ? 0 : deltaRaw;
-      const scores = readRoundScores();
-      const current = Number(scores[playerId] ?? 0);
-      setRoundScoreInputValue(playerId, current + delta);
-    }
-  });
-
-  els.roundPreviewBody.addEventListener("change", (e) => {
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    if (target.getAttribute("data-preview-action") !== "input") return;
-    const playerId = target.getAttribute("data-player-id");
-    if (!playerId) return;
-    setRoundScoreInputValue(playerId, target.value);
-  });
-
-  els.roundPreviewBody.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    if (target.getAttribute("data-preview-action") !== "input") return;
-    e.preventDefault();
-    addRound();
-  });
-
-  els.roundHelperButtons.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-round-helper]");
-    if (!btn) return;
-    const action = btn.getAttribute("data-round-helper");
-    if (!action) return;
-
-    if (action === "repeat_last") roundActionRepeatLast();
-    if (action === "set_all") roundActionSetAll();
-    if (action === "zero_all") roundActionZeroAll();
-    if (action === "hearts_moon") roundActionHeartsShootMoon();
-    if (action === "winner_round") roundActionWinnerRoundPoints();
-  });
-
-  els.scoreboardBgImage.addEventListener("load", refreshScoreboardTintFromImage);
-  els.scoreboardBgImage.addEventListener("error", () => {
-    hideScoreboardBackgroundImage();
-    els.scoreboardCard.classList.remove("has-bg");
-    setScoreboardTint(null);
-  });
+  history.bindEvents();
+  roundEntry.bindEvents();
+  scoreboard.bindEvents();
 
   // Boot
   detectSaved();
