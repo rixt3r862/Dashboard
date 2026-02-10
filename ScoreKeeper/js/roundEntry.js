@@ -28,6 +28,13 @@ export function createRoundEntryController(deps) {
     return { ...state.currentRoundScores };
   }
 
+  function selectInputValue(input) {
+    if (!(input instanceof HTMLInputElement)) return;
+    requestAnimationFrame(() => {
+      input.select();
+    });
+  }
+
   function closeRoundHelperForm() {
     state.activeRoundHelper = null;
     els.roundHelperForm.innerHTML = "";
@@ -252,7 +259,7 @@ export function createRoundEntryController(deps) {
           : `
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5">-5</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1">-1</button>
-            <input type="number" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" />
+            <input type="number" inputmode="numeric" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" />
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1">+1</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5">+5</button>
           `;
@@ -318,6 +325,20 @@ export function createRoundEntryController(deps) {
       const playerId = target.getAttribute("data-player-id");
       if (!playerId) return;
       setRoundScoreInputValue(playerId, target.value);
+    });
+
+    els.roundPreviewBody.addEventListener("focusin", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.getAttribute("data-preview-action") !== "input") return;
+      selectInputValue(target);
+    });
+
+    els.roundPreviewBody.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.getAttribute("data-preview-action") !== "input") return;
+      selectInputValue(target);
     });
 
     els.roundPreviewBody.addEventListener("keydown", (e) => {
@@ -394,6 +415,20 @@ export function createRoundEntryController(deps) {
         const points = $("helperWinnerPoints")?.value ?? "";
         roundActionWinnerRoundPoints(winnerId, points);
       }
+    });
+
+    els.roundHelperForm.addEventListener("focusin", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.classList.contains("round-helper-input")) return;
+      selectInputValue(target);
+    });
+
+    els.roundHelperForm.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.classList.contains("round-helper-input")) return;
+      selectInputValue(target);
     });
   }
 

@@ -14,6 +14,13 @@ export function createHistoryController(deps) {
     determineWinnerFromTotals,
   } = deps;
 
+  function selectInputValue(input) {
+    if (!(input instanceof HTMLInputElement)) return;
+    requestAnimationFrame(() => {
+      input.select();
+    });
+  }
+
   function recalcAfterHistoryChange(liveText) {
     state.rounds.forEach((r, i) => {
       r.n = i + 1;
@@ -243,6 +250,20 @@ export function createHistoryController(deps) {
       if (!Number.isInteger(roundN) || roundN < 1) return;
       e.preventDefault();
       saveHistoryEdit(roundN);
+    });
+
+    els.historyTable.addEventListener("focusin", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.classList.contains("history-edit-input")) return;
+      selectInputValue(target);
+    });
+
+    els.historyTable.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.classList.contains("history-edit-input")) return;
+      selectInputValue(target);
     });
   }
 
