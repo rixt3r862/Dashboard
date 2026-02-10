@@ -348,6 +348,34 @@ summary::-webkit-details-marker{ display:none; }
   white-space:nowrap;
 }
 .history-table tr:last-child td{ border-bottom:none; }
+.history-actions{
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.history-action-btn{
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.history-action-btn:hover{
+  border-color: rgba(37,99,235,.35);
+}
+.history-action-btn.danger{
+  color: var(--bad);
+  border-color: rgba(220,38,38,.35);
+}
+.history-edit-input{
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: var(--fs-sm);
+}
 
 .msg{
   margin-top: 10px;
