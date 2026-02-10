@@ -108,6 +108,8 @@
     targetPill: $("targetPill"),
     roundPill: $("roundPill"),
     roundInputs: $("roundInputs"),
+    roundPreview: $("roundPreview"),
+    roundPreviewBody: $("roundPreviewBody"),
 
     winnerBanner: $("winnerBanner"),
     winnerText: $("winnerText"),
@@ -761,27 +763,40 @@ function normalizeName(name) {
 
       const label = document.createElement("label");
       label.setAttribute("for", `score_${p.id}`);
-      label.textContent = isPhase10() ? `${p.name} (completed this round: 0 or 1)` : `${p.name} (this round)`;
+      label.textContent = isPhase10()
+        ? `${p.name} (Phase completed this round?)`
+        : `${p.name} (this round)`;
 
-      const input = document.createElement("input");
-      input.type = "number";
-      input.inputMode = "numeric";
-      input.id = `score_${p.id}`;
-      input.setAttribute("data-round-score", p.id);
-      input.step = "1";
-      input.value = "0";
+      let input;
       if (isPhase10()) {
-        input.min = "0";
-        input.max = "1";
-        input.placeholder = "0 or 1";
+        input = document.createElement("select");
+        input.id = `score_${p.id}`;
+        input.setAttribute("data-round-score", p.id);
+        input.innerHTML = `
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        `;
+      } else {
+        input = document.createElement("input");
+        input.type = "number";
+        input.inputMode = "numeric";
+        input.id = `score_${p.id}`;
+        input.setAttribute("data-round-score", p.id);
+        input.step = "1";
+        input.value = "0";
       }
 
       const selectAll = () => setTimeout(() => input.select(), 0);
-      input.addEventListener("focus", selectAll);
-      input.addEventListener("click", selectAll);
-      input.addEventListener("touchstart", selectAll, { passive: true });
+      if (!isPhase10()) {
+        input.addEventListener("focus", selectAll);
+        input.addEventListener("click", selectAll);
+        input.addEventListener("touchstart", selectAll, { passive: true });
+      }
 
       input.addEventListener("input", () => showMsg(els.roundMsg, ""));
+      input.addEventListener("change", () => showMsg(els.roundMsg, ""));
+      input.addEventListener("input", renderRoundPreview);
+      input.addEventListener("change", renderRoundPreview);
 
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
@@ -798,6 +813,8 @@ function normalizeName(name) {
       field.appendChild(input);
       els.roundInputs.appendChild(field);
     }
+
+    renderRoundPreview();
   }
 
   function readRoundScores() {
@@ -828,23 +845,140 @@ function normalizeName(name) {
     return scores;
   }
 
+  function setRoundScoreInputValue(playerId, value) {
+    const input = els.roundInputs.querySelector(
+      `[data-round-score="${playerId}"]`,
+    );
+    if (!input) return;
+
+    if (isPhase10()) {
+      input.value = Number(value) > 0 ? "1" : "0";
+    } else {
+      const n = Number.parseInt(value, 10);
+      input.value = String(Number.isNaN(n) ? 0 : n);
+    }
+
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function renderRoundPreview() {
+    if (!state.players.length) {
+      els.roundPreview.style.display = "none";
+      els.roundPreviewBody.innerHTML = "";
+      return;
+    }
+
+    els.roundPreview.style.display = "block";
+    const scores = readRoundScores();
+
+    els.roundPreviewBody.innerHTML = state.players
+      .map((p) => {
+        const rawVal = Number(scores[p.id] ?? 0);
+        const val = Number.isFinite(rawVal) ? rawVal : 0;
+        const displayVal = isPhase10() ? (val > 0 ? "Yes" : "No") : "";
+        const actions = isPhase10()
+          ? `
+            <button type="button" class="round-preview-btn ${val <= 0 ? "active" : ""}" data-preview-action="set" data-player-id="${p.id}" data-value="0">No</button>
+            <button type="button" class="round-preview-btn ${val > 0 ? "active" : ""}" data-preview-action="set" data-player-id="${p.id}" data-value="1">Yes</button>
+          `
+          : `
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5">-5</button>
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1">-1</button>
+            <input type="number" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" />
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1">+1</button>
+            <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5">+5</button>
+          `;
+
+        return `
+          <div class="round-preview-item">
+            <span class="round-preview-name">${escapeHtml(p.name)}</span>
+            <span class="round-preview-right">
+              <span class="round-preview-value">${displayVal}</span>
+              <span class="round-preview-actions">${actions}</span>
+            </span>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
   function clearRoundInputs() {
     const inputs = document.querySelectorAll("[data-round-score]");
     inputs.forEach((inp) => (inp.value = "0"));
     const first = inputs[0];
     if (first) first.focus();
+    renderRoundPreview();
+  }
+
+  function validateRoundScores(scores, opts = {}) {
+    const { contextLabel = "round" } = opts;
+
+    for (const p of state.players) {
+      const v = scores[p.id];
+      if (!Number.isInteger(v)) {
+        return {
+          ok: false,
+          error: "Scores must be whole numbers.",
+        };
+      }
+
+      // Guard against obvious typo values.
+      if (v < -10000 || v > 10000) {
+        return {
+          ok: false,
+          error: `Score for ${p.name} looks out of range (${v}).`,
+        };
+      }
+    }
+
+    if (isPhase10()) {
+      for (const p of state.players) {
+        const v = Number(scores[p.id] ?? 0);
+        if (v !== 0 && v !== 1) {
+          return {
+            ok: false,
+            error: "Phase 10 scores must be Yes/No only.",
+          };
+        }
+      }
+    }
+
+    const warnings = [];
+    if (state.presetKey === "hearts") {
+      const total = state.players.reduce(
+        (sum, p) => sum + Number(scores[p.id] ?? 0),
+        0,
+      );
+      if (total !== 26) {
+        warnings.push(
+          `Hearts ${contextLabel} total is ${total} (typical is 26).`,
+        );
+      }
+    }
+
+    if (warnings.length) {
+      return {
+        ok: true,
+        warning: warnings.join(" "),
+      };
+    }
+
+    return { ok: true };
   }
 
   function addRound() {
     if (state.mode !== "playing") return;
 
     const scores = readRoundScores();
-    for (const p of state.players) {
-      const v = scores[p.id];
-      if (!Number.isInteger(v)) {
-        showMsg(els.roundMsg, "Scores must be whole numbers.");
-        return;
-      }
+    const validation = validateRoundScores(scores, { contextLabel: "round" });
+    if (!validation.ok) {
+      showMsg(els.roundMsg, validation.error || "Invalid scores.");
+      return;
+    }
+    if (validation.warning) {
+      const proceed = window.confirm(`${validation.warning} Add round anyway?`);
+      if (!proceed) return;
     }
 
     const nextN = state.rounds.length + 1;
@@ -987,6 +1121,19 @@ function normalizeName(name) {
       showMsg(els.roundMsg, "Round scores must be whole numbers.");
       return;
     }
+    const validation = validateRoundScores(scores, {
+      contextLabel: `round ${roundN}`,
+    });
+    if (!validation.ok) {
+      showMsg(els.roundMsg, validation.error || "Invalid scores.");
+      return;
+    }
+    if (validation.warning) {
+      const proceed = window.confirm(
+        `${validation.warning} Save changes anyway?`,
+      );
+      if (!proceed) return;
+    }
 
     state.rounds[idx].scores = scores;
     state.rounds[idx].ts = Date.now();
@@ -1040,21 +1187,31 @@ function normalizeName(name) {
         const td = document.createElement("td");
         const v = Number(r.scores?.[pid] ?? 0);
         if (editing) {
-          const input = document.createElement("input");
-          input.type = "number";
-          input.inputMode = "numeric";
-          input.className = "history-edit-input";
-          input.value = String(Number.isFinite(v) ? v : 0);
+          let input;
+          if (isPhase10()) {
+            input = document.createElement("select");
+            input.className = "history-edit-input";
+            input.innerHTML = `
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            `;
+            input.value = String(v <= 0 ? 0 : 1);
+          } else {
+            input = document.createElement("input");
+            input.type = "number";
+            input.inputMode = "numeric";
+            input.className = "history-edit-input";
+            input.value = String(Number.isFinite(v) ? v : 0);
+          }
           input.setAttribute("data-history-edit-round", String(r.n));
           input.setAttribute("data-history-edit-score", pid);
-          if (isPhase10()) {
-            input.min = "0";
-            input.max = "1";
-            input.placeholder = "0 or 1";
-          }
           td.appendChild(input);
         } else {
-          td.textContent = String(Number.isFinite(v) ? v : 0);
+          td.textContent = isPhase10()
+            ? v > 0
+              ? "Yes"
+              : "No"
+            : String(Number.isFinite(v) ? v : 0);
         }
         tr.appendChild(td);
       }
@@ -1460,6 +1617,48 @@ function normalizeName(name) {
     if (!Number.isInteger(roundN) || roundN < 1) return;
     e.preventDefault();
     saveHistoryEdit(roundN);
+  });
+
+  els.roundPreviewBody.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-preview-action]");
+    if (!btn) return;
+
+    const action = btn.getAttribute("data-preview-action");
+    const playerId = btn.getAttribute("data-player-id");
+    if (!playerId) return;
+
+    if (action === "set") {
+      const raw = Number.parseInt(btn.getAttribute("data-value"), 10);
+      const val = Number.isNaN(raw) ? 0 : raw;
+      setRoundScoreInputValue(playerId, val);
+      return;
+    }
+
+    if (action === "add") {
+      const deltaRaw = Number.parseInt(btn.getAttribute("data-delta"), 10);
+      const delta = Number.isNaN(deltaRaw) ? 0 : deltaRaw;
+      const scores = readRoundScores();
+      const current = Number(scores[playerId] ?? 0);
+      setRoundScoreInputValue(playerId, current + delta);
+    }
+  });
+
+  els.roundPreviewBody.addEventListener("change", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.getAttribute("data-preview-action") !== "input") return;
+    const playerId = target.getAttribute("data-player-id");
+    if (!playerId) return;
+    setRoundScoreInputValue(playerId, target.value);
+  });
+
+  els.roundPreviewBody.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.getAttribute("data-preview-action") !== "input") return;
+    e.preventDefault();
+    addRound();
   });
 
   els.scoreboardBgImage.addEventListener("load", refreshScoreboardTintFromImage);
