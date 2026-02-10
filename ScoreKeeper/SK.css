@@ -57,6 +57,17 @@ h1{
   font-size: var(--fs-xl);
   letter-spacing:-.02em;
 }
+.brand-title{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-icon{
+  width: clamp(28px, 2.3vw + 18px, 40px);
+  height: clamp(28px, 2.3vw + 18px, 40px);
+  object-fit: contain;
+  border-radius: 8px;
+}
 .sub{
   color: var(--muted);
   font-size: var(--fs-sm);
