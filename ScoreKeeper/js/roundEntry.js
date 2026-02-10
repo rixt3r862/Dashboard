@@ -118,11 +118,21 @@ export function createRoundEntryController(deps) {
   function openRoundHelperForm(action) {
     state.activeRoundHelper = action;
     if (action === "set_all") {
+      if (isPhase10()) {
+        els.roundHelperForm.innerHTML = `
+          <div class="round-helper-form-row">
+            <button type="button" class="round-helper-btn" data-helper-form-action="apply_set_all" data-set-all-value="0">No</button>
+            <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_set_all" data-set-all-value="1">Yes</button>
+            <button type="button" class="round-helper-btn" data-helper-form-action="cancel">Cancel</button>
+          </div>
+        `;
+        els.roundHelperForm.style.display = "block";
+        return;
+      }
+
       els.roundHelperForm.innerHTML = `
         <div class="round-helper-form-row">
-          <input id="helperSetAllValue" class="round-helper-input" type="number" inputmode="numeric" placeholder="${
-            isPhase10() ? "0 or 1" : "Score"
-          }" />
+          <input id="helperSetAllValue" class="round-helper-input" type="number" inputmode="numeric" placeholder="Score" />
           <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_set_all">Apply</button>
           <button type="button" class="round-helper-btn" data-helper-form-action="cancel">Cancel</button>
         </div>
@@ -343,7 +353,10 @@ export function createRoundEntryController(deps) {
         return;
       }
       if (action === "apply_set_all") {
-        const v = $("helperSetAllValue")?.value ?? "";
+        const v =
+          btn.getAttribute("data-set-all-value") ??
+          $("helperSetAllValue")?.value ??
+          "";
         roundActionSetAll(v);
         return;
       }
