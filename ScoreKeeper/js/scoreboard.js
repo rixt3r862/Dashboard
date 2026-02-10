@@ -15,6 +15,22 @@ export function createScoreboardController(deps) {
     renderHistoryTable,
   } = deps;
 
+  function winnerCongratsLine(name) {
+    const lines = [
+      `Great game, ${name}!`,
+      `${name}, you crushed it.`,
+      `${name} takes the win.`,
+      `Nice finish, ${name}.`,
+      `${name} on top. Well played.`,
+    ];
+    const seed = `${state.winnerId || ""}-${state.rounds.length}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    return lines[hash % lines.length];
+  }
+
   function renderScoreboard() {
     const playerTotals = totalsByPlayerId();
 
@@ -105,12 +121,13 @@ export function createScoreboardController(deps) {
 
     if (state.mode === "finished" && state.winnerId && !state.bannerDismissed) {
       const name = entityName(state.winnerId);
-      els.winnerText.textContent = `Winner: ${name} (${winnerTotal})`;
+      els.winnerText.textContent = `🏆 Winner: ${name} (${winnerTotal})`;
 
-      els.winnerSub.textContent =
+      const rulesLine =
         state.winMode === "low"
           ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
           : `Target was ${state.target}. First to reach the target wins.`;
+      els.winnerSub.textContent = `🎉 ${winnerCongratsLine(name)} ${rulesLine}`;
 
       els.winnerBanner.classList.add("show");
     } else {

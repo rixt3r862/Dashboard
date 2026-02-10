@@ -305,20 +305,66 @@ tr:last-child td{ border-bottom:none; }
   z-index: 5;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(22,163,74,.35);
-  background: linear-gradient(180deg, rgba(22,163,74,.10), rgba(22,163,74,.05));
+  border: 1px solid rgba(202,138,4,.42);
+  background: linear-gradient(180deg, rgba(245,158,11,.16), rgba(202,138,4,.08));
   box-shadow: var(--shadow);
   margin-bottom: 14px;
+  transform-origin: top center;
+  overflow: hidden;
+  isolation: isolate;
 }
-.banner.show{ display:block; }
+.banner::before,
+.banner::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+}
+.banner::before{
+  background:
+    linear-gradient(110deg,
+      transparent 0%,
+      rgba(255,255,255,.18) 38%,
+      rgba(255,255,255,.34) 50%,
+      rgba(255,255,255,.18) 62%,
+      transparent 100%);
+  transform: translateX(-130%);
+}
+.banner::after{
+  background-image:
+    radial-gradient(circle at 10% 30%, rgba(255,255,255,.75) 0 2px, transparent 3px),
+    radial-gradient(circle at 24% 68%, rgba(255,215,0,.75) 0 2px, transparent 3px),
+    radial-gradient(circle at 56% 24%, rgba(255,255,255,.7) 0 2px, transparent 3px),
+    radial-gradient(circle at 72% 62%, rgba(147,197,253,.7) 0 2px, transparent 3px),
+    radial-gradient(circle at 88% 34%, rgba(255,255,255,.7) 0 2px, transparent 3px);
+  opacity: 0;
+}
+.banner.show{
+  display:block;
+  animation:
+    winnerBannerIn .42s ease-out both,
+    winnerBannerGlow 2.6s ease-in-out .2s infinite;
+}
+.banner.show::before{ animation: winnerShimmer 1.3s ease-out .08s 1; }
+.banner.show::after{ animation: winnerSparkles 1.6s ease-in-out .12s 1; }
 .banner .big{
   font-size: var(--fs-lg);
   font-weight: 850;
+  letter-spacing: -.01em;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 0 rgba(255,255,255,.35), 0 6px 20px rgba(202,138,4,.24);
+  animation:
+    winnerTitlePop .48s cubic-bezier(.16,.86,.36,1.24) .08s both,
+    winnerTitlePulse 1.8s ease-in-out .48s 1;
 }
 .banner .small{
   color: var(--muted);
   font-size: var(--fs-sm);
   margin-top: 2px;
+  position: relative;
+  z-index: 1;
 }
 .banner .actions{
   margin-top: 10px;
@@ -326,6 +372,68 @@ tr:last-child td{ border-bottom:none; }
   gap:10px;
   flex-wrap:wrap;
   align-items:center;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes winnerBannerIn{
+  0%{
+    opacity: 0;
+    transform: translateY(-8px) scale(.985);
+  }
+  100%{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes winnerTitlePulse{
+  0%,100%{
+    transform: scale(1);
+  }
+  35%{
+    transform: scale(1.02);
+  }
+}
+@keyframes winnerTitlePop{
+  0%{
+    opacity: .3;
+    transform: translateY(8px) scale(.94);
+  }
+  100%{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes winnerShimmer{
+  0%{ transform: translateX(-130%); }
+  100%{ transform: translateX(130%); }
+}
+@keyframes winnerSparkles{
+  0%{ opacity: 0; transform: scale(.9); }
+  35%{ opacity: .9; transform: scale(1.03); }
+  100%{ opacity: 0; transform: scale(1.08); }
+}
+@keyframes winnerBannerGlow{
+  0%,100%{
+    box-shadow: var(--shadow);
+    border-color: rgba(202,138,4,.42);
+  }
+  50%{
+    box-shadow: 0 14px 36px rgba(202,138,4,.28);
+    border-color: rgba(202,138,4,.62);
+  }
+}
+@media (prefers-reduced-motion: reduce){
+  .banner.show{
+    animation: none;
+  }
+  .banner .big{
+    animation: none;
+  }
+  .banner.show::before,
+  .banner.show::after{
+    animation: none;
+  }
 }
 
 details{
