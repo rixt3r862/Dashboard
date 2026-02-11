@@ -36,6 +36,12 @@
         margin-bottom: 0.75rem;
       }
 
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
       h1 {
         margin: 0;
         font-size: clamp(1.1rem, 2.2vw, 1.4rem);
@@ -105,7 +111,10 @@
     <main class="app">
       <div class="topbar">
         <h1>Notepad</h1>
-        <div>
+        <div class="topbar-actions">
+          <button class="btn" id="spellToggle" type="button">
+            Spellcheck: On
+          </button>
           <a class="btn" href="./index.html">Back to Dashboard</a>
         </div>
       </div>
@@ -115,8 +124,27 @@
         id="pad"
         placeholder="Start typing..."
         autofocus
-        spellcheck="false"
+        spellcheck="true"
+        autocapitalize="sentences"
+        autocomplete="on"
+        autocorrect="on"
       ></textarea>
     </main>
+    <script>
+      const pad = document.getElementById("pad");
+      const spellToggle = document.getElementById("spellToggle");
+
+      function syncSpellToggleLabel() {
+        spellToggle.textContent = `Spellcheck: ${pad.spellcheck ? "On" : "Off"}`;
+      }
+
+      spellToggle.addEventListener("click", () => {
+        pad.spellcheck = !pad.spellcheck;
+        syncSpellToggleLabel();
+        pad.focus();
+      });
+
+      syncSpellToggleLabel();
+    </script>
   </body>
 </html>
