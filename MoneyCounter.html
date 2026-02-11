@@ -40,6 +40,20 @@
         clamp(12px, 3vw, 24px)
         calc(var(--safe-bottom) + clamp(12px, 3vw, 24px));
     }
+    .back-link{
+      position: fixed;
+      top: max(12px, calc(var(--safe-top) + 8px));
+      left: 12px;
+      z-index: 10;
+      padding: .45rem .75rem;
+      border-radius: .6rem;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      text-decoration: none;
+      font-size: .9rem;
+    }
+    .back-link:hover{ filter: brightness(.98); }
 
     .card{
       width:min(100%, var(--w));
@@ -277,6 +291,7 @@
   </style>
 </head>
 <body>
+  <a class="back-link" href="./index.html">Back to Dashboard</a>
   <main class="card">
     <header class="header">
       <div class="logo">¢$</div>

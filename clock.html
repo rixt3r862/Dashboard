@@ -87,9 +87,24 @@
         margin-left: .15em;
         letter-spacing: .04em;
       }
+      .back-link {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 10;
+        padding: .45rem .75rem;
+        border-radius: .6rem;
+        border: 1px solid rgba(255,255,255,.25);
+        color: var(--fg);
+        text-decoration: none;
+        background: rgba(0,0,0,.18);
+        font-size: .9rem;
+      }
+      .back-link:hover { background: rgba(0,0,0,.3); }
     </style>
   </head>
   <body>
+    <a class="back-link" href="./index.html">Back to Dashboard</a>
     <!-- Controls -->
     <div class="controls" role="group" aria-label="Time display options">
       <label><input id="toggle-24h" type="checkbox" /> 24-hour time</label>

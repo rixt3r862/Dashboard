@@ -94,9 +94,28 @@
       color: var(--muted);
       text-align: center;
     }
+
+    .back-link {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      padding: 0.45rem 0.75rem;
+      border-radius: 0.6rem;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .back-link:hover {
+      background: #f8fafc;
+    }
   </style>
 </head>
 <body>
+  <a class="back-link" href="./index.html">Back to Dashboard</a>
 
   <div class="card">
     <h2>24 2 12 Time Converter</h2>

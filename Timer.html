@@ -117,12 +117,27 @@
     .presets{display:flex; gap:8px; flex-wrap:wrap}
     .preset{background:#162236; color:#b7c9eb; border:1px solid #24344f; padding:8px 10px; border-radius:10px; font-size:13px; cursor:pointer}
     .preset:hover{border-color:#35507d}
+    .back-link{
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      padding: .45rem .75rem;
+      border-radius: .6rem;
+      border: 1px solid rgba(255,255,255,.14);
+      background: #1a2333;
+      color: #e6eefb;
+      text-decoration: none;
+      font-size: .9rem;
+    }
+    .back-link:hover{ background:#223049; }
     
     footer{margin-top:16px; color:var(--muted); font-size:12px; text-align:center}
     a { color:#90c2ff }
   </style>
 </head>
 <body>
+  <a class="back-link" href="./index.html">Back to Dashboard</a>
   <div class="app" role="application" aria-label="Progress bar timer">
     <header>
       <div>
