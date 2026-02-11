@@ -27,14 +27,30 @@
       align-items: center;
       justify-content: center;
       color: var(--text);
+      margin: 0;
+      padding: 1rem;
     }
 
     .card {
       background: var(--card);
       padding: 2rem;
-      width: 360px;
+      width: min(100%, 420px);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 0;
+      }
+
+      .card {
+        width: 100vw;
+        min-height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 1.25rem 1rem;
+      }
     }
 
     h2 {
@@ -123,6 +139,7 @@
     <input
       type="text"
       placeholder="17.17 · 17:17 · 1717"
+      inputmode="numeric"
       oninput="convertTime(this.value)"
       onkeydown="handleEnter(event)"
       aria-label="24 hour time input"
