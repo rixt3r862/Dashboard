@@ -26,7 +26,11 @@
       color:var(--text);
       display:grid;
       place-items:center;
-      padding:24px;
+      min-height: 100dvh;
+      padding:
+        calc(env(safe-area-inset-top, 0px) + 56px)
+        24px
+        max(24px, env(safe-area-inset-bottom, 0px));
     }
     .app{
       width:min(760px, 100%);
@@ -119,7 +123,7 @@
     .preset:hover{border-color:#35507d}
     .back-link{
       position: fixed;
-      top: 12px;
+      top: max(12px, env(safe-area-inset-top, 0px));
       left: 12px;
       z-index: 10;
       padding: .45rem .75rem;
