@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <title>CashBox</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <script>
+    (function () {
+      try {
+        const theme = localStorage.getItem("dash.theme");
+        if (theme === "dark" || theme === "light") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch {}
+    })();
+  </script>
   <style>
     :root{
       --bg:#f6f8fb; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e5e7eb;
@@ -21,6 +31,14 @@
         --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2; --line:#1f2a44;
         --accent:#60a5fa; --accent-2:#93c5fd; --shadow:0 10px 30px rgba(0,0,0,.35);
       }
+    }
+    :root[data-theme="light"]{
+      --bg:#f6f8fb; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e5e7eb;
+      --accent:#2563eb; --accent-2:#60a5fa; --shadow:0 8px 30px rgba(2,6,23,.08);
+    }
+    :root[data-theme="dark"]{
+      --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2; --line:#1f2a44;
+      --accent:#60a5fa; --accent-2:#93c5fd; --shadow:0 10px 30px rgba(0,0,0,.35);
     }
 
     *{ box-sizing:border-box }

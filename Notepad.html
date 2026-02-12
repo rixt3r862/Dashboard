@@ -4,6 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Notepad</title>
+    <script>
+      (function () {
+        try {
+          const theme = localStorage.getItem("dash.theme");
+          if (theme === "dark" || theme === "light") {
+            document.documentElement.setAttribute("data-theme", theme);
+          }
+        } catch {}
+      })();
+    </script>
     <style>
       :root {
         color-scheme: light dark;
@@ -104,6 +114,42 @@
           background: #1c1917;
           color: #f5f5f4;
         }
+      }
+
+      :root[data-theme="light"] body {
+        background: #f5f5f4;
+        color: #1c1917;
+      }
+      :root[data-theme="light"] .btn {
+        border-color: #d6d3d1;
+        background: #fff;
+        color: #1c1917;
+      }
+      :root[data-theme="light"] .btn:hover {
+        background: #f5f5f4;
+      }
+      :root[data-theme="light"] #pad {
+        border-color: #d6d3d1;
+        background: #fff;
+        color: #1c1917;
+      }
+
+      :root[data-theme="dark"] body {
+        background: #0c0a09;
+        color: #f5f5f4;
+      }
+      :root[data-theme="dark"] .btn {
+        border-color: #44403c;
+        background: #1c1917;
+        color: #f5f5f4;
+      }
+      :root[data-theme="dark"] .btn:hover {
+        background: #292524;
+      }
+      :root[data-theme="dark"] #pad {
+        border-color: #44403c;
+        background: #1c1917;
+        color: #f5f5f4;
       }
     </style>
   </head>

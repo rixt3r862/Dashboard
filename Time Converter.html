@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>24h → 12h Time Converter</title>
+  <script>
+    (function () {
+      try {
+        const theme = localStorage.getItem("dash.theme");
+        if (theme === "dark" || theme === "light") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch {}
+    })();
+  </script>
 
   <style>
     :root {
@@ -14,6 +24,63 @@
       --muted: #64748b;
       --radius: 16px;
       --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      --field-border: #d1d5db;
+      --field-placeholder: #9ca3af;
+      --output-bg: #f1f5f9;
+      --output-bg-hover: #e2e8f0;
+      --back-border: #d1d5db;
+      --back-bg: #ffffff;
+      --back-bg-hover: #f8fafc;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: linear-gradient(135deg, #0f172a, #111827);
+        --card: #111827;
+        --accent: #60a5fa;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        --field-border: #374151;
+        --field-placeholder: #9ca3af;
+        --output-bg: #1f2937;
+        --output-bg-hover: #273449;
+        --back-border: #374151;
+        --back-bg: #111827;
+        --back-bg-hover: #1f2937;
+      }
+    }
+
+    :root[data-theme="light"] {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --accent: #3b82f6;
+      --text: #0f172a;
+      --muted: #64748b;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      --field-border: #d1d5db;
+      --field-placeholder: #9ca3af;
+      --output-bg: #f1f5f9;
+      --output-bg-hover: #e2e8f0;
+      --back-border: #d1d5db;
+      --back-bg: #ffffff;
+      --back-bg-hover: #f8fafc;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: linear-gradient(135deg, #0f172a, #111827);
+      --card: #111827;
+      --accent: #60a5fa;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      --field-border: #374151;
+      --field-placeholder: #9ca3af;
+      --output-bg: #1f2937;
+      --output-bg-hover: #273449;
+      --back-border: #374151;
+      --back-bg: #111827;
+      --back-bg-hover: #1f2937;
     }
 
     * {
@@ -70,13 +137,15 @@
       padding: 0.75rem 0.9rem;
       font-size: 1.1rem;
       border-radius: 12px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--field-border);
       outline: none;
       transition: border 0.2s, box-shadow 0.2s;
+      background: var(--card);
+      color: var(--text);
     }
 
     input::placeholder {
-      color: #9ca3af;
+      color: var(--field-placeholder);
     }
 
     input:focus {
@@ -91,7 +160,7 @@
       font-size: 1.6rem;
       font-weight: 700;
       border-radius: 12px;
-      background: #f1f5f9;
+      background: var(--output-bg);
       cursor: pointer;
       user-select: none;
       transition: background 0.2s, transform 0.1s;
@@ -102,7 +171,7 @@
     }
 
     .output:hover {
-      background: #e2e8f0;
+      background: var(--output-bg-hover);
     }
 
     .output:active {
@@ -123,15 +192,15 @@
       z-index: 10;
       padding: 0.45rem 0.75rem;
       border-radius: 0.6rem;
-      border: 1px solid #d1d5db;
-      background: #ffffff;
+      border: 1px solid var(--back-border);
+      background: var(--back-bg);
       color: var(--text);
       text-decoration: none;
       font-size: 0.9rem;
     }
 
     .back-link:hover {
-      background: #f8fafc;
+      background: var(--back-bg-hover);
     }
   </style>
 </head>
