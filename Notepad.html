@@ -158,6 +158,8 @@
       <div class="topbar">
         <h1>Notepad</h1>
         <div class="topbar-actions">
+          <button class="btn" id="selectAllBtn" type="button">Select All</button>
+          <button class="btn" id="copyBtn" type="button">Copy</button>
           <button class="btn" id="spellToggle" type="button">
             Spellcheck: On
           </button>
@@ -178,11 +180,35 @@
     </main>
     <script>
       const pad = document.getElementById("pad");
+      const selectAllBtn = document.getElementById("selectAllBtn");
+      const copyBtn = document.getElementById("copyBtn");
       const spellToggle = document.getElementById("spellToggle");
 
       function syncSpellToggleLabel() {
         spellToggle.textContent = `Spellcheck: ${pad.spellcheck ? "On" : "Off"}`;
       }
+
+      selectAllBtn.addEventListener("click", () => {
+        pad.focus();
+        pad.select();
+      });
+
+      copyBtn.addEventListener("click", async () => {
+        const originalLabel = copyBtn.textContent;
+        try {
+          await navigator.clipboard.writeText(pad.value);
+          copyBtn.textContent = "Copied";
+        } catch {
+          pad.focus();
+          pad.select();
+          document.execCommand("copy");
+          copyBtn.textContent = "Copied";
+        } finally {
+          setTimeout(() => {
+            copyBtn.textContent = originalLabel;
+          }, 900);
+        }
+      });
 
       spellToggle.addEventListener("click", () => {
         pad.spellcheck = !pad.spellcheck;
