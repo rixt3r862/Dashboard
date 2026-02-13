@@ -971,6 +971,16 @@ import { createScoreboardController } from "./js/scoreboard.js";
   // Normalize playerCount only after commit (change/blur), not mid-typing
   els.playerCount.addEventListener("change", () => renderSetupInputs());
   els.playerCount.addEventListener("blur", () => renderSetupInputs());
+  const selectPlayerCountValue = () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement === els.playerCount) {
+        els.playerCount.select();
+      }
+    });
+  };
+  els.playerCount.addEventListener("focus", selectPlayerCountValue);
+  els.playerCount.addEventListener("click", selectPlayerCountValue);
+  els.playerCount.addEventListener("touchend", selectPlayerCountValue);
 
   els.targetPoints.addEventListener("input", () => updateStartButtonState());
 

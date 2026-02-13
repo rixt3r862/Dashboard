@@ -73,7 +73,17 @@
 
             <div class="field" style="max-width: 200px">
               <label for="playerCount">Number of players</label>
-              <input id="playerCount" type="number" inputmode="numeric" min="2" max="12" value="4" />
+              <input
+                id="playerCount"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                enterkeyhint="done"
+                autocomplete="off"
+                min="2"
+                max="12"
+                value="4"
+              />
             </div>
 
             <div class="field" style="max-width: 220px">
