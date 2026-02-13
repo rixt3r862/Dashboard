@@ -981,6 +981,16 @@ import { createScoreboardController } from "./js/scoreboard.js";
   els.playerCount.addEventListener("focus", selectPlayerCountValue);
   els.playerCount.addEventListener("click", selectPlayerCountValue);
   els.playerCount.addEventListener("touchend", selectPlayerCountValue);
+  const selectTargetValue = () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement === els.targetPoints) {
+        els.targetPoints.select();
+      }
+    });
+  };
+  els.targetPoints.addEventListener("focus", selectTargetValue);
+  els.targetPoints.addEventListener("click", selectTargetValue);
+  els.targetPoints.addEventListener("touchend", selectTargetValue);
 
   els.targetPoints.addEventListener("input", () => updateStartButtonState());
 
