@@ -149,6 +149,25 @@
         </div>
 
         <div id="roundPanel" style="display: none">
+          <div
+            id="preRoundPresetRow"
+            class="row"
+            style="display: none; margin-bottom: 8px"
+          >
+            <div class="field" style="max-width: 260px">
+              <label for="preRoundPresetSelect">Game preset<br /><em>(Can be changed before Round 1)</em></label>
+              <select id="preRoundPresetSelect">
+                <option value="custom">Custom</option>
+                <option value="uno">Uno</option>
+                <option value="phase10">Phase 10</option>
+                <option value="crazy8s">Crazy 8s</option>
+                <option value="skyjo">SkyJo</option>
+                <option value="hearts">Hearts</option>
+                <option value="spades">Spades</option>
+              </select>
+            </div>
+          </div>
+
           <div class="row" style="justify-content: space-between">
             <div class="pill">
               <strong>Target:</strong> <span id="targetPill">0</span>

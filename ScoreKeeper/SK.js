@@ -44,6 +44,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     roundMsg: $("roundMsg"),
 
     presetSelect: $("presetSelect"),
+    preRoundPresetRow: $("preRoundPresetRow"),
+    preRoundPresetSelect: $("preRoundPresetSelect"),
     winModeText: $("winModeText"),
 
     playerCount: $("playerCount"),
@@ -470,6 +472,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     if (Number.isInteger(preset.target)) {
       els.targetPoints.value = preset.target;
+    }
+    els.presetSelect.value = state.presetKey;
+    if (els.preRoundPresetSelect) {
+      els.preRoundPresetSelect.value = state.presetKey;
     }
 
     state.winMode = preset.winMode === "low" ? "low" : "high";
@@ -903,9 +909,19 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function renderMode() {
     const playing = state.mode === "playing" || state.mode === "finished";
+    const allowPreRoundPresetChange =
+      state.mode === "playing" && state.rounds.length === 0;
 
     els.setupPanel.style.display = playing ? "none" : "block";
     els.roundPanel.style.display = playing ? "block" : "none";
+    if (els.preRoundPresetRow) {
+      els.preRoundPresetRow.style.display = allowPreRoundPresetChange
+        ? "flex"
+        : "none";
+    }
+    if (allowPreRoundPresetChange && els.preRoundPresetSelect) {
+      els.preRoundPresetSelect.value = state.presetKey;
+    }
     els.leftTitle.textContent = playing ? "Round Entry" : "Game Setup";
 
     els.scoreboardEmpty.style.display = state.players.length ? "none" : "block";
@@ -967,6 +983,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
   els.presetSelect.addEventListener("change", (e) =>
     applyPreset(e.target.value),
   );
+  if (els.preRoundPresetSelect) {
+    els.preRoundPresetSelect.addEventListener("change", (e) => {
+      if (!(state.mode === "playing" && state.rounds.length === 0)) {
+        els.preRoundPresetSelect.value = state.presetKey;
+        return;
+      }
+      applyPreset(e.target.value);
+      save();
+      renderAll();
+    });
+  }
 
   // Normalize playerCount only after commit (change/blur), not mid-typing
   els.playerCount.addEventListener("change", () => renderSetupInputs());
