@@ -46,6 +46,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     presetSelect: $("presetSelect"),
     preRoundPresetRow: $("preRoundPresetRow"),
     preRoundPresetSelect: $("preRoundPresetSelect"),
+    preRoundSpadesTeamRow: $("preRoundSpadesTeamRow"),
+    preRoundSpadesPartnerLabel: $("preRoundSpadesPartnerLabel"),
+    preRoundSpadesPartner: $("preRoundSpadesPartner"),
     winModeText: $("winModeText"),
 
     playerCount: $("playerCount"),
@@ -485,6 +488,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
     showMsg(els.setupMsg, state.presetNote);
     applyPhase10UiText();
 
+    // Allow preset switching after game start only before Round 1:
+    // re-evaluate whether this game uses teams (e.g., switching to/from Spades).
+    if (state.mode === "playing" && state.rounds.length === 0) {
+      state.teams = buildTeamsIfNeeded(state.players);
+      state.winnerId = null;
+    }
+
     maybeRenderTeamPreview();
     updateStartButtonState();
   }
@@ -604,6 +614,56 @@ import { createScoreboardController } from "./js/scoreboard.js";
         members: [remaining[0].id, remaining[1].id],
       },
     ];
+  }
+
+  function syncTeamsForCurrentPreset() {
+    // Keep team state consistent with the current preset and active players.
+    if (!state.players.length) {
+      state.teams = null;
+      return;
+    }
+    state.teams = buildTeamsIfNeeded(state.players);
+  }
+
+  function renderPreRoundSpadesTeamPicker(show) {
+    if (
+      !els.preRoundSpadesTeamRow ||
+      !els.preRoundSpadesPartnerLabel ||
+      !els.preRoundSpadesPartner
+    ) {
+      return;
+    }
+
+    if (!show) {
+      els.preRoundSpadesTeamRow.style.display = "none";
+      return;
+    }
+
+    if (state.players.length !== 4) {
+      els.preRoundSpadesTeamRow.style.display = "none";
+      return;
+    }
+
+    const names = state.players.map((p, i) => p.name || `Player ${i + 1}`);
+    const p1Name = names[0] || "Player 1";
+    els.preRoundSpadesPartnerLabel.textContent = `Assign Teams (${p1Name}'s partner)`;
+
+    const current = [2, 3, 4].includes(state.spadesPartnerIndex)
+      ? state.spadesPartnerIndex
+      : 2;
+    const options = [
+      { val: 2, label: `Player 2 (${names[1]})` },
+      { val: 3, label: `Player 3 (${names[2]})` },
+      { val: 4, label: `Player 4 (${names[3]})` },
+    ];
+    els.preRoundSpadesPartner.innerHTML = options
+      .map(
+        (o) =>
+          `<option value="${o.val}" ${o.val === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`,
+      )
+      .join("");
+    els.preRoundSpadesPartner.value = String(current);
+    els.preRoundSpadesTeamRow.style.display = "flex";
   }
 
   function maybeRenderTeamPreview() {
@@ -922,6 +982,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (allowPreRoundPresetChange && els.preRoundPresetSelect) {
       els.preRoundPresetSelect.value = state.presetKey;
     }
+    renderPreRoundSpadesTeamPicker(
+      allowPreRoundPresetChange && state.presetKey === "spades",
+    );
     els.leftTitle.textContent = playing ? "Round Entry" : "Game Setup";
 
     els.scoreboardEmpty.style.display = state.players.length ? "none" : "block";
@@ -956,6 +1019,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function renderAll() {
+    syncTeamsForCurrentPreset();
     renderMode();
     if (state.players.length) {
       scoreboard.renderScoreboard();
@@ -992,6 +1056,23 @@ import { createScoreboardController } from "./js/scoreboard.js";
       applyPreset(e.target.value);
       save();
       renderAll();
+    });
+  }
+  if (els.preRoundSpadesPartner) {
+    els.preRoundSpadesPartner.addEventListener("change", () => {
+      if (
+        !(
+          state.mode === "playing" &&
+          state.rounds.length === 0 &&
+          state.presetKey === "spades"
+        )
+      ) {
+        return;
+      }
+      state.spadesPartnerIndex = Number(els.preRoundSpadesPartner.value) || 2;
+      syncTeamsForCurrentPreset();
+      renderAll();
+      save();
     });
   }
 
@@ -1086,7 +1167,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   els.spadesPartner.addEventListener("change", () => {
     state.spadesPartnerIndex = Number(els.spadesPartner.value) || 2;
+    syncTeamsForCurrentPreset();
     maybeRenderTeamPreview();
+    renderAll();
     save();
   });
 
