@@ -543,6 +543,19 @@ import { createScoreboardController } from "./js/scoreboard.js";
         maybeRenderTeamPreview(); // ✅ update partner label/options live
         showMsg(els.setupMsg, state.presetNote);
       });
+      input.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" || e.isComposing) return;
+        e.preventDefault();
+
+        if (i < count - 1) {
+          const next = document.getElementById(`pname_${i + 1}`);
+          next?.focus();
+          next?.select?.();
+          return;
+        }
+
+        startGame();
+      });
 
       field.appendChild(label);
       field.appendChild(input);
