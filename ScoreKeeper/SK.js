@@ -9,6 +9,7 @@ import {
 import {
   adjustSkyjoRoundScores,
   determineWinnerFromTotals as resolveWinnerFromTotals,
+  normalizeHeartsShootMoonScores,
   totalsByPlayerId as sumTotalsByPlayerId,
   totalsByTeamId as sumTotalsByTeamId,
   validateRoundScores as validateScoresByRules,
@@ -447,6 +448,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function applyPhase10UiText() {
+    els.scoreboardCard.classList.toggle("phase10-mode", isPhase10());
+
     if (els.targetLabel) {
       els.targetLabel.textContent = isPhase10() ? "Phases to win" : "Target";
     }
@@ -880,7 +883,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function addRound() {
     if (state.mode !== "playing") return;
 
-    const scores = roundEntry.readRoundScores();
+    let scores = roundEntry.readRoundScores();
+    if (state.presetKey === "hearts") {
+      const normalized = normalizeHeartsShootMoonScores(state.players, scores);
+      scores = normalized.scores;
+    }
     const validation = validateRoundScores(scores, { contextLabel: "round" });
     if (!validation.ok) {
       showMsg(els.roundMsg, validation.error || "Invalid scores.");

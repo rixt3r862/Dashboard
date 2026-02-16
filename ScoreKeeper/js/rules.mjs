@@ -57,6 +57,39 @@ export function determineWinnerFromTotals(entries, winMode, target) {
   return eligible[0].id;
 }
 
+export function normalizeHeartsShootMoonScores(players, scores) {
+  if (!Array.isArray(players) || !scores) {
+    return { scores, shooterId: null };
+  }
+
+  const ids = players.map((p) => p.id);
+  if (!ids.length) return { scores, shooterId: null };
+
+  const normalized = Object.fromEntries(
+    ids.map((id) => {
+      const v = Number(scores[id] ?? 0);
+      return [id, Number.isFinite(v) ? Math.trunc(v) : 0];
+    }),
+  );
+
+  const shooters = ids.filter((id) => normalized[id] === 26);
+  if (shooters.length !== 1) {
+    return { scores: normalized, shooterId: null };
+  }
+
+  const shooterId = shooters[0];
+  const othersAreZero = ids
+    .filter((id) => id !== shooterId)
+    .every((id) => normalized[id] === 0);
+  if (!othersAreZero) {
+    return { scores: normalized, shooterId: null };
+  }
+
+  const moonScores = Object.fromEntries(ids.map((id) => [id, 26]));
+  moonScores[shooterId] = 0;
+  return { scores: moonScores, shooterId };
+}
+
 export function validateRoundScores({
   scores,
   players,
