@@ -4,6 +4,7 @@ import { normalizeHeartsShootMoonScores } from "./rules.mjs";
 
 export function createHistoryController(deps) {
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const HISTORY_CARD_BREAKPOINT = 760;
   const GRAPH_LINE_COLORS = [
     "#2563eb",
     "#dc2626",
@@ -268,7 +269,9 @@ export function createHistoryController(deps) {
     for (const entry of series) {
       const points = entry.values.map((v, idx) => [xFor(idx), yFor(v)]);
       const d = points
-        .map(([x, y], idx) => `${idx === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`)
+        .map(([x, y], idx) =>
+          `${idx === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`,
+        )
         .join(" ");
 
       const path = createSvgNode("path", {
@@ -399,13 +402,21 @@ export function createHistoryController(deps) {
     setLive("History edit canceled.");
   }
 
+  function findHistoryEditInput(roundN, playerId) {
+    const selector =
+      `[data-history-edit-round="${roundN}"]` +
+      `[data-history-edit-score="${playerId}"]`;
+    return (
+      els.historyTable.querySelector(selector) ||
+      els.historyCards?.querySelector(selector) ||
+      null
+    );
+  }
+
   function readHistoryEditScores(roundN) {
     const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
     for (const p of state.players) {
-      const selector =
-        `[data-history-edit-round="${roundN}"]` +
-        `[data-history-edit-score="${p.id}"]`;
-      const inp = els.historyTable.querySelector(selector);
+      const inp = findHistoryEditInput(roundN, p.id);
       if (!inp) return null;
 
       const raw = String(inp.value ?? "").trim();
@@ -460,38 +471,21 @@ export function createHistoryController(deps) {
     recalcAfterHistoryChange(`Round ${roundN} deleted.`);
   }
 
-  function renderHistoryTable() {
-    const cols = state.players.map((p) => p.id);
-    const tbl = els.historyTable;
-    tbl.innerHTML = "";
+  function shouldUseHistoryCards() {
+    if (!els.historyCards) return false;
+    if (state.players.length < 4) return false;
+    return window.matchMedia(
+      `(max-width: ${HISTORY_CARD_BREAKPOINT}px)`,
+    ).matches;
+  }
+
+  function buildHistoryRows(cols) {
     const phaseCompletionsById = isPhase10()
       ? Object.fromEntries(cols.map((pid) => [pid, 0]))
       : null;
+    const rows = [];
 
-    const thead = document.createElement("thead");
-    const trh = document.createElement("tr");
-    const th0 = document.createElement("th");
-    th0.textContent = "Round";
-    th0.scope = "col";
-    trh.appendChild(th0);
-
-    for (const pid of cols) {
-      const th = document.createElement("th");
-      th.textContent =
-        state.players.find((p) => p.id === pid)?.name ?? "Player";
-      th.scope = "col";
-      trh.appendChild(th);
-    }
-    const thActions = document.createElement("th");
-    thActions.textContent = "Actions";
-    thActions.scope = "col";
-    trh.appendChild(thActions);
-    thead.appendChild(trh);
-    tbl.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
     for (const r of state.rounds) {
-      const editing = state.historyEditingRoundN === r.n;
       const adjustedScores =
         state.presetKey === "skyjo"
           ? adjustSkyjoRoundScores(state.players, r)
@@ -522,13 +516,7 @@ export function createHistoryController(deps) {
         }
       }
 
-      const tr = document.createElement("tr");
-      const td0 = document.createElement("td");
-      td0.textContent = String(r.n);
-      tr.appendChild(td0);
-
-      for (const pid of cols) {
-        const td = document.createElement("td");
+      const cells = cols.map((pid) => {
         const rawV = rawScoresById[pid];
         const displayV =
           state.presetKey === "skyjo"
@@ -547,88 +535,26 @@ export function createHistoryController(deps) {
           !!heartsMoonShooterId &&
           pid !== heartsMoonShooterId &&
           rawV > 0;
-        const playerName = state.players.find((p) => p.id === pid)?.name ?? "Player";
-        if (editing) {
-          let input;
-          if (isPhase10()) {
-            input = document.createElement("select");
-            input.className = "history-edit-input";
-            input.innerHTML = `
-              <option value="0">No</option>
-              <option value="1">Yes</option>
-            `;
-            input.value = String(rawV <= 0 ? 0 : 1);
-            input.setAttribute(
-              "aria-label",
-              `Round ${r.n} completion for ${playerName}`,
-            );
-          } else {
-            input = document.createElement("input");
-            input.type = "number";
-            input.inputMode = "numeric";
-            input.className = "history-edit-input";
-            input.value = String(Number.isFinite(rawV) ? rawV : 0);
-            input.setAttribute("aria-label", `Round ${r.n} score for ${playerName}`);
-          }
-          input.setAttribute("data-history-edit-round", String(r.n));
-          input.setAttribute("data-history-edit-score", pid);
-          td.appendChild(input);
-        } else {
-          if (isWentOutCell) td.classList.add("history-score-went-out");
-          if (isDoubledCell) td.classList.add("history-score-doubled");
-          if (isPhase10CompleteCell)
-            td.classList.add("history-score-phase10-complete");
-          if (isHeartsMoonShooter)
-            td.classList.add("history-score-hearts-moon");
-          if (isHeartsMoonRecipient)
-            td.classList.add("history-score-hearts-moon-plus");
-          const valueText = document.createElement("span");
-          valueText.className = "history-score-value";
-          if (isPhase10()) {
-            valueText.textContent = displayV > 0 ? "Yes" : "No";
-          } else if (isDoubledCell) {
-            const shown = Number.isFinite(displayV) ? displayV : 0;
-            const original = Number.isFinite(rawV) ? rawV : 0;
-            valueText.textContent = `${shown} (${original})`;
-          } else {
-            valueText.textContent = String(Number.isFinite(displayV) ? displayV : 0);
-          }
-          td.appendChild(valueText);
+        return {
+          pid,
+          rawV,
+          displayV,
+          playerName: state.players.find((p) => p.id === pid)?.name ?? "Player",
+          phaseN: Number(phaseNumberById[pid] ?? 0),
+          isWentOutCell,
+          isDoubledCell,
+          isPhase10CompleteCell,
+          isHeartsMoonShooter,
+          isHeartsMoonRecipient,
+        };
+      });
 
-          if (isWentOutCell) {
-            const outBadge = document.createElement("span");
-            outBadge.className = "history-score-badge out";
-            outBadge.textContent = "OUT";
-            td.appendChild(outBadge);
-          }
-          if (isDoubledCell) {
-            const doubledBadge = document.createElement("span");
-            doubledBadge.className = "history-score-badge doubled";
-            doubledBadge.textContent = "2x";
-            td.appendChild(doubledBadge);
-          }
-          if (isPhase10CompleteCell) {
-            const phaseBadge = document.createElement("span");
-            phaseBadge.className = "history-score-badge phase10";
-            const phaseN = Number(phaseNumberById[pid] ?? 0);
-            phaseBadge.textContent = `PH+ ${phaseN > 0 ? phaseN : ""}`.trim();
-            td.appendChild(phaseBadge);
-          }
-          if (isHeartsMoonShooter) {
-            const moonBadge = document.createElement("span");
-            moonBadge.className = "history-score-badge hearts-moon";
-            moonBadge.textContent = "🌙";
-            td.appendChild(moonBadge);
-          }
-          if (isHeartsMoonRecipient) {
-            const plusBadge = document.createElement("span");
-            plusBadge.className = "history-score-badge hearts-plus";
-            plusBadge.textContent = "+26";
-            td.appendChild(plusBadge);
-          }
-        }
-        tr.appendChild(td);
-      }
+      rows.push({
+        roundN: r.n,
+        editing: state.historyEditingRoundN === r.n,
+        cells,
+      });
+
       if (isPhase10() && phaseCompletionsById) {
         for (const pid of cols) {
           if (rawScoresById[pid] > 0) {
@@ -636,24 +562,213 @@ export function createHistoryController(deps) {
           }
         }
       }
-
-      const tdActions = document.createElement("td");
-      tdActions.className = "history-actions";
-      if (editing) {
-        tdActions.innerHTML = `
-          <button type="button" class="history-action-btn" data-history-action="save" data-round-n="${r.n}" aria-label="Save round ${r.n} edits">Save</button>
-          <button type="button" class="history-action-btn" data-history-action="cancel" data-round-n="${r.n}" aria-label="Cancel round ${r.n} edits">Cancel</button>
-        `;
-      } else {
-        tdActions.innerHTML = `
-          <button type="button" class="history-action-btn" data-history-action="edit" data-round-n="${r.n}" aria-label="Edit round ${r.n}">Edit</button>
-          <button type="button" class="history-action-btn danger" data-history-action="delete" data-round-n="${r.n}" aria-label="Delete round ${r.n}">Delete</button>
-        `;
-      }
-      tr.appendChild(tdActions);
-      tbody.appendChild(tr);
     }
-    tbl.appendChild(tbody);
+    return rows;
+  }
+
+  function buildEditControl(roundN, cell) {
+    let input;
+    if (isPhase10()) {
+      input = document.createElement("select");
+      input.className = "history-edit-input";
+      input.innerHTML = `
+        <option value="0">No</option>
+        <option value="1">Yes</option>
+      `;
+      input.value = String(cell.rawV <= 0 ? 0 : 1);
+      input.setAttribute(
+        "aria-label",
+        `Round ${roundN} completion for ${cell.playerName}`,
+      );
+    } else {
+      input = document.createElement("input");
+      input.type = "number";
+      input.inputMode = "numeric";
+      input.className = "history-edit-input";
+      input.value = String(Number.isFinite(cell.rawV) ? cell.rawV : 0);
+      input.setAttribute("aria-label", `Round ${roundN} score for ${cell.playerName}`);
+    }
+    input.setAttribute("data-history-edit-round", String(roundN));
+    input.setAttribute("data-history-edit-score", cell.pid);
+    return input;
+  }
+
+  function appendReadOnlyScore(parent, cell, classTarget) {
+    if (cell.isWentOutCell) classTarget.classList.add("history-score-went-out");
+    if (cell.isDoubledCell) classTarget.classList.add("history-score-doubled");
+    if (cell.isPhase10CompleteCell)
+      classTarget.classList.add("history-score-phase10-complete");
+    if (cell.isHeartsMoonShooter)
+      classTarget.classList.add("history-score-hearts-moon");
+    if (cell.isHeartsMoonRecipient)
+      classTarget.classList.add("history-score-hearts-moon-plus");
+
+    const valueText = document.createElement("span");
+    valueText.className = "history-score-value";
+    if (isPhase10()) {
+      valueText.textContent = cell.displayV > 0 ? "Yes" : "No";
+    } else if (cell.isDoubledCell) {
+      const shown = Number.isFinite(cell.displayV) ? cell.displayV : 0;
+      const original = Number.isFinite(cell.rawV) ? cell.rawV : 0;
+      valueText.textContent = `${shown} (${original})`;
+    } else {
+      valueText.textContent = String(Number.isFinite(cell.displayV) ? cell.displayV : 0);
+    }
+    parent.appendChild(valueText);
+
+    if (cell.isWentOutCell) {
+      const outBadge = document.createElement("span");
+      outBadge.className = "history-score-badge out";
+      outBadge.textContent = "OUT";
+      parent.appendChild(outBadge);
+    }
+    if (cell.isDoubledCell) {
+      const doubledBadge = document.createElement("span");
+      doubledBadge.className = "history-score-badge doubled";
+      doubledBadge.textContent = "2x";
+      parent.appendChild(doubledBadge);
+    }
+    if (cell.isPhase10CompleteCell) {
+      const phaseBadge = document.createElement("span");
+      phaseBadge.className = "history-score-badge phase10";
+      phaseBadge.textContent = `PH+ ${cell.phaseN > 0 ? cell.phaseN : ""}`.trim();
+      parent.appendChild(phaseBadge);
+    }
+    if (cell.isHeartsMoonShooter) {
+      const moonBadge = document.createElement("span");
+      moonBadge.className = "history-score-badge hearts-moon";
+      moonBadge.textContent = "🌙";
+      parent.appendChild(moonBadge);
+    }
+    if (cell.isHeartsMoonRecipient) {
+      const plusBadge = document.createElement("span");
+      plusBadge.className = "history-score-badge hearts-plus";
+      plusBadge.textContent = "+26";
+      parent.appendChild(plusBadge);
+    }
+  }
+
+  function renderHistoryTable() {
+    const cols = state.players.map((p) => p.id);
+    const tbl = els.historyTable;
+    const cards = els.historyCards;
+    const useCards = shouldUseHistoryCards();
+    const rows = buildHistoryRows(cols);
+    tbl.innerHTML = "";
+    if (cards) cards.innerHTML = "";
+
+    tbl.hidden = useCards;
+    if (cards) cards.hidden = !useCards;
+
+    if (useCards && cards) {
+      for (const row of rows) {
+        const card = document.createElement("article");
+        card.className = "history-round-card";
+
+        const head = document.createElement("div");
+        head.className = "history-round-card-head";
+        head.textContent = `Round ${row.roundN}`;
+        card.appendChild(head);
+
+        const body = document.createElement("div");
+        body.className = "history-round-card-body";
+        for (const cell of row.cells) {
+          const line = document.createElement("div");
+          line.className = "history-round-card-line";
+
+          const name = document.createElement("span");
+          name.className = "history-round-card-name";
+          name.textContent = cell.playerName;
+          line.appendChild(name);
+
+          const value = document.createElement("span");
+          value.className = "history-round-card-value";
+          if (row.editing) {
+            value.appendChild(buildEditControl(row.roundN, cell));
+          } else {
+            const score = document.createElement("span");
+            score.className = "history-card-score";
+            appendReadOnlyScore(score, cell, score);
+            value.appendChild(score);
+          }
+          line.appendChild(value);
+          body.appendChild(line);
+        }
+        card.appendChild(body);
+
+        const actions = document.createElement("div");
+        actions.className = "history-actions history-round-card-actions";
+        if (row.editing) {
+          actions.innerHTML = `
+            <button type="button" class="history-action-btn" data-history-action="save" data-round-n="${row.roundN}" aria-label="Save round ${row.roundN} edits">Save</button>
+            <button type="button" class="history-action-btn" data-history-action="cancel" data-round-n="${row.roundN}" aria-label="Cancel round ${row.roundN} edits">Cancel</button>
+          `;
+        } else {
+          actions.innerHTML = `
+            <button type="button" class="history-action-btn" data-history-action="edit" data-round-n="${row.roundN}" aria-label="Edit round ${row.roundN}">Edit</button>
+            <button type="button" class="history-action-btn danger" data-history-action="delete" data-round-n="${row.roundN}" aria-label="Delete round ${row.roundN}">Delete</button>
+          `;
+        }
+        card.appendChild(actions);
+        cards.appendChild(card);
+      }
+    } else {
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      const th0 = document.createElement("th");
+      th0.textContent = "Round";
+      th0.scope = "col";
+      trh.appendChild(th0);
+
+      for (const pid of cols) {
+        const th = document.createElement("th");
+        th.textContent =
+          state.players.find((p) => p.id === pid)?.name ?? "Player";
+        th.scope = "col";
+        trh.appendChild(th);
+      }
+      const thActions = document.createElement("th");
+      thActions.textContent = "Actions";
+      thActions.scope = "col";
+      trh.appendChild(thActions);
+      thead.appendChild(trh);
+      tbl.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        const td0 = document.createElement("td");
+        td0.textContent = String(row.roundN);
+        tr.appendChild(td0);
+
+        for (const cell of row.cells) {
+          const td = document.createElement("td");
+          if (row.editing) {
+            td.appendChild(buildEditControl(row.roundN, cell));
+          } else {
+            appendReadOnlyScore(td, cell, td);
+          }
+          tr.appendChild(td);
+        }
+
+        const tdActions = document.createElement("td");
+        tdActions.className = "history-actions";
+        if (row.editing) {
+          tdActions.innerHTML = `
+            <button type="button" class="history-action-btn" data-history-action="save" data-round-n="${row.roundN}" aria-label="Save round ${row.roundN} edits">Save</button>
+            <button type="button" class="history-action-btn" data-history-action="cancel" data-round-n="${row.roundN}" aria-label="Cancel round ${row.roundN} edits">Cancel</button>
+          `;
+        } else {
+          tdActions.innerHTML = `
+            <button type="button" class="history-action-btn" data-history-action="edit" data-round-n="${row.roundN}" aria-label="Edit round ${row.roundN}">Edit</button>
+            <button type="button" class="history-action-btn danger" data-history-action="delete" data-round-n="${row.roundN}" aria-label="Delete round ${row.roundN}">Delete</button>
+          `;
+        }
+        tr.appendChild(tdActions);
+        tbody.appendChild(tr);
+      }
+      tbl.appendChild(tbody);
+    }
 
     els.historySummaryText.textContent = state.rounds.length
       ? `Round History (${state.rounds.length})`
@@ -662,7 +777,7 @@ export function createHistoryController(deps) {
   }
 
   function bindEvents() {
-    els.historyTable.addEventListener("click", (e) => {
+    const onHistoryClick = (e) => {
       const btn = e.target.closest("[data-history-action]");
       if (!btn) return;
       const action = btn.getAttribute("data-history-action");
@@ -673,12 +788,17 @@ export function createHistoryController(deps) {
       if (action === "cancel") cancelHistoryEdit();
       if (action === "save") saveHistoryEdit(roundN);
       if (action === "delete") deleteHistoryRound(roundN);
-    });
+    };
+    els.historyTable.addEventListener("click", onHistoryClick);
+    els.historyCards?.addEventListener("click", onHistoryClick);
 
-    els.historyTable.addEventListener("keydown", (e) => {
+    const onHistoryKeydown = (e) => {
       if (e.key !== "Enter") return;
       const target = e.target;
-      if (!(target instanceof HTMLInputElement)) return;
+      if (
+        !(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)
+      )
+        return;
       const roundN = Number.parseInt(
         target.getAttribute("data-history-edit-round"),
         10,
@@ -686,12 +806,17 @@ export function createHistoryController(deps) {
       if (!Number.isInteger(roundN) || roundN < 1) return;
       e.preventDefault();
       saveHistoryEdit(roundN);
-    });
+    };
+    els.historyTable.addEventListener("keydown", onHistoryKeydown);
+    els.historyCards?.addEventListener("keydown", onHistoryKeydown);
 
     bindSelectOnFocusAndClick(els.historyTable, "input.history-edit-input");
+    if (els.historyCards) {
+      bindSelectOnFocusAndClick(els.historyCards, "input.history-edit-input");
+    }
 
     window.addEventListener("resize", () => {
-      renderHistoryGraph();
+      renderHistoryTable();
     });
   }
 

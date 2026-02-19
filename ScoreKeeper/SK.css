@@ -279,6 +279,9 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
 #scoreboardCard.hearts-mode summary,
 #scoreboardCard.hearts-mode th,
 #scoreboardCard.hearts-mode td,
+#scoreboardCard.hearts-mode .history-round-card,
+#scoreboardCard.hearts-mode .history-round-card-name,
+#scoreboardCard.hearts-mode .history-round-card-head,
 #scoreboardCard.hearts-mode td .name,
 #scoreboardCard.hearts-mode td .sub,
 #scoreboardCard.hearts-mode .phase10-ref,
@@ -530,6 +533,49 @@ summary::-webkit-details-marker{ display:none; }
   border-radius: 12px;
   border: 1px solid var(--line);
 }
+.history-cards{
+  display: grid;
+  gap: 8px;
+}
+.history-round-card{
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.75);
+  padding: 10px;
+}
+.history-round-card-head{
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.history-round-card-body{
+  display: grid;
+  gap: 6px;
+}
+.history-round-card-line{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.history-round-card-name{
+  color: var(--muted);
+  font-size: 12px;
+}
+.history-round-card-value{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.history-card-score{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 10px;
+  padding: 2px 6px;
+}
+.history-round-card-actions{
+  margin-top: 10px;
+}
 .history-graph-wrap{
   margin-top: 10px;
   border: 1px solid var(--line);
@@ -683,6 +729,9 @@ summary::-webkit-details-marker{ display:none; }
 #scoreboardCard.phase10-mode summary,
 #scoreboardCard.phase10-mode th,
 #scoreboardCard.phase10-mode td,
+#scoreboardCard.phase10-mode .history-round-card,
+#scoreboardCard.phase10-mode .history-round-card-name,
+#scoreboardCard.phase10-mode .history-round-card-head,
 #scoreboardCard.phase10-mode td .name,
 #scoreboardCard.phase10-mode td .sub,
 #scoreboardCard.phase10-mode .phase10-ref,
@@ -753,7 +802,7 @@ summary::-webkit-details-marker{ display:none; }
 .history-table .history-score-value{
   font-weight: 700;
 }
-.history-table .history-score-badge{
+.history-score-badge{
   display: inline-block;
   margin-left: 6px;
   padding: 1px 6px;
@@ -768,11 +817,23 @@ summary::-webkit-details-marker{ display:none; }
   opacity: 1;
   box-shadow: 0 0 0 1px rgba(254,202,202,.35);
 }
+#scoreboardCard.hearts-mode .history-card-score .history-score-badge{
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(254,202,202,.35);
+}
 #scoreboardCard.hearts-mode .history-table td.history-score-hearts-moon{
   background: rgba(190,24,93,.28);
   box-shadow: inset 0 0 0 1px rgba(244,114,182,.45);
 }
+#scoreboardCard.hearts-mode .history-card-score.history-score-hearts-moon{
+  background: rgba(190,24,93,.28);
+  box-shadow: inset 0 0 0 1px rgba(244,114,182,.45);
+}
 #scoreboardCard.hearts-mode .history-table td.history-score-hearts-moon-plus{
+  background: rgba(220,38,38,.18);
+  box-shadow: inset 0 0 0 1px rgba(248,113,113,.42);
+}
+#scoreboardCard.hearts-mode .history-card-score.history-score-hearts-moon-plus{
   background: rgba(220,38,38,.18);
   box-shadow: inset 0 0 0 1px rgba(248,113,113,.42);
 }
@@ -792,6 +853,10 @@ summary::-webkit-details-marker{ display:none; }
   font-weight: 900;
 }
 #scoreboardCard.phase10-mode .history-table .history-score-badge{
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.35);
+}
+#scoreboardCard.phase10-mode .history-card-score .history-score-badge{
   opacity: 1;
   box-shadow: 0 0 0 1px rgba(255,255,255,.35);
 }
@@ -832,6 +897,30 @@ summary::-webkit-details-marker{ display:none; }
   color: #1e3a8a;
   background: rgba(37,99,235,.18);
   border: 1px solid rgba(37,99,235,.4);
+}
+.history-card-score.history-score-went-out{
+  background: rgba(79,70,229,.16);
+  box-shadow: inset 0 0 0 1px rgba(79,70,229,.34);
+}
+.history-card-score.history-score-doubled{
+  background: rgba(249,115,22,.18);
+  box-shadow: inset 0 0 0 1px rgba(194,65,12,.35);
+}
+.history-card-score.history-score-went-out.history-score-doubled{
+  background: linear-gradient(135deg, rgba(79,70,229,.17), rgba(249,115,22,.2));
+  box-shadow: inset 0 0 0 1px rgba(107,58,168,.4);
+}
+.history-card-score.history-score-phase10-complete{
+  background: rgba(5,150,105,.16);
+  box-shadow: inset 0 0 0 1px rgba(5,150,105,.34);
+}
+.history-card-score.history-score-hearts-moon{
+  background: rgba(234,179,8,.2);
+  box-shadow: inset 0 0 0 1px rgba(202,138,4,.42);
+}
+.history-card-score.history-score-hearts-moon-plus{
+  background: rgba(37,99,235,.14);
+  box-shadow: inset 0 0 0 1px rgba(37,99,235,.3);
 }
 .history-actions{
   display: flex;
@@ -1239,6 +1328,9 @@ td .sub{
   .history-wrap{
     overflow: visible !important;
     border: 1px solid #cbd5e1 !important;
+  }
+  .history-cards{
+    display: none !important;
   }
 
   .history-table{
