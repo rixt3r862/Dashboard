@@ -25,6 +25,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   const els = {
     btnNewGame: $("btnNewGame"),
+    btnPrint: $("btnPrint"),
     btnNewSame: $("btnNewSame"),
     btnNewGame2: $("btnNewGame2"),
     btnNewSame2: $("btnNewSame2"),
@@ -449,6 +450,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function applyPhase10UiText() {
     els.scoreboardCard.classList.toggle("phase10-mode", isPhase10());
+    els.scoreboardCard.classList.toggle("hearts-mode", state.presetKey === "hearts");
 
     if (els.targetLabel) {
       els.targetLabel.textContent = isPhase10() ? "Phases to win" : "Target";
@@ -1011,6 +1013,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.scoreboardArea.style.display = state.players.length ? "block" : "none";
 
     els.btnToggleSort.disabled = !state.players.length;
+    els.btnPrint.disabled = !state.players.length;
     els.btnToggleSort.textContent = state.sortByTotal
       ? "Sort: Totals"
       : "Sort: Off";
@@ -1142,6 +1145,22 @@ import { createScoreboardController } from "./js/scoreboard.js";
     e?.stopPropagation?.();
     clearSaved();
     newGame();
+  });
+
+  let historyOpenBeforePrint = false;
+  window.addEventListener("beforeprint", () => {
+    historyOpenBeforePrint = !!els.historyDetails?.open;
+    if (els.historyDetails) els.historyDetails.open = true;
+  });
+  window.addEventListener("afterprint", () => {
+    if (els.historyDetails) els.historyDetails.open = historyOpenBeforePrint;
+  });
+
+  els.btnPrint.addEventListener("click", () => {
+    if (!state.players.length) return;
+    historyOpenBeforePrint = !!els.historyDetails?.open;
+    if (els.historyDetails) els.historyDetails.open = true;
+    window.print();
   });
 
   if (els.btnNewSame) {
