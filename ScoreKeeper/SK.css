@@ -546,11 +546,10 @@ summary::-webkit-details-marker{ display:none; }
   font-size: var(--fs-sm);
 }
 .history-graph-scroll{
-  overflow-x: auto;
+  overflow: hidden;
 }
 .history-graph{
   width: 100%;
-  min-width: 560px;
   height: 230px;
   display: block;
 }
@@ -601,13 +600,12 @@ summary::-webkit-details-marker{ display:none; }
 }
 .history-stats-wrap{
   margin-top: 10px;
-  overflow-x: auto;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
 }
 .history-stats-table{
   width: 100%;
-  min-width: 560px;
   border-collapse: collapse;
   border: none;
   border-radius: 0;
@@ -626,6 +624,30 @@ summary::-webkit-details-marker{ display:none; }
 }
 .history-stats-table tr:last-child td{
   border-bottom: none;
+}
+
+@media (max-width: 640px){
+  .history-graph-wrap{
+    padding: 8px;
+  }
+  .history-graph{
+    height: 200px;
+  }
+  .history-graph-label{
+    font-size: 10px;
+  }
+  .history-graph-legend{
+    gap: 6px;
+  }
+  .history-graph-legend-item{
+    font-size: 11px;
+    padding: 2px 7px;
+  }
+  .history-stats-table th,
+  .history-stats-table td{
+    padding: 7px 8px;
+    font-size: 12px;
+  }
 }
 .history-table{
   min-width: 560px;

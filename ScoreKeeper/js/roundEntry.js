@@ -11,6 +11,7 @@ export function createRoundEntryController(deps) {
     $,
     onAddRound,
     onSkyjoMarkGoOut,
+    onRoundInputsChanged,
   } = deps;
 
   function ensureCurrentRoundScores() {
@@ -242,6 +243,7 @@ export function createRoundEntryController(deps) {
     if (!state.players.length) {
       els.roundPreview.style.display = "none";
       els.roundPreviewBody.innerHTML = "";
+      onRoundInputsChanged?.();
       return;
     }
 
@@ -331,6 +333,7 @@ export function createRoundEntryController(deps) {
       `;
     }
     renderRoundHelpers();
+    onRoundInputsChanged?.();
   }
 
   function clearRoundInputs() {

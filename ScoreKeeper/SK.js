@@ -161,6 +161,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     $,
     onAddRound: () => addRound(),
     onSkyjoMarkGoOut: (playerId) => markSkyjoWentOutForCurrentRound(playerId),
+    onRoundInputsChanged: () => updateAddRoundButtonState(),
   });
   const history = createHistoryController({
     state,
@@ -289,6 +290,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
         n: Number(r.n),
         scores: r.scores || {},
         ts: r.ts || Date.now(),
+        skyjoWentOutPlayerId:
+          typeof r.skyjoWentOutPlayerId === "string"
+            ? String(r.skyjoWentOutPlayerId)
+            : null,
       }));
       state.winnerId = payload.winnerId || null;
       state.sortByTotal = !!payload.sortByTotal;
@@ -888,10 +893,46 @@ import { createScoreboardController } from "./js/scoreboard.js";
     });
   }
 
+  function addRoundBlockReason(scores = null) {
+    if (state.mode !== "playing") return "Start a game to add rounds.";
+    const roundScores = scores || roundEntry.readRoundScores();
+
+    if (
+      state.presetKey === "skyjo" &&
+      !state.skyjoCurrentRoundWentOutPlayerId
+    ) {
+      return "SkyJo: select who went out this round.";
+    }
+
+    if (state.presetKey === "hearts") {
+      const total = state.players.reduce(
+        (sum, p) => sum + Number(roundScores?.[p.id] ?? 0),
+        0,
+      );
+      const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
+      if (total !== 26 && total !== shootMoonTotal) {
+        return `Hearts: round total must be 26 (or ${shootMoonTotal} for shoot the moon).`;
+      }
+    }
+
+    return "";
+  }
+
+  function updateAddRoundButtonState() {
+    const reason = addRoundBlockReason();
+    els.btnAddRound.disabled = !!reason;
+    els.btnAddRound.title = reason || "Add this round";
+  }
+
   function addRound() {
     if (state.mode !== "playing") return;
 
     let scores = roundEntry.readRoundScores();
+    const blockReason = addRoundBlockReason(scores);
+    if (blockReason) {
+      showMsg(els.roundMsg, blockReason);
+      return;
+    }
     if (state.presetKey === "hearts") {
       const normalized = normalizeHeartsShootMoonScores(state.players, scores);
       scores = normalized.scores;
@@ -905,14 +946,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
       const proceed = window.confirm(`${validation.warning} Add round anyway?`);
       if (!proceed) return;
     }
-    if (
-      state.presetKey === "skyjo" &&
-      !state.skyjoCurrentRoundWentOutPlayerId
-    ) {
-      showMsg(els.roundMsg, "SkyJo: select who went out this round.");
-      return;
-    }
-
     const nextN = state.rounds.length + 1;
     const round = {
       n: nextN,
@@ -1041,6 +1074,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       roundEntry.ensureCurrentRoundScores();
       roundEntry.renderRoundPreview();
     }
+    updateAddRoundButtonState();
 
     scoreboard.updateScoreboardTitle();
     scoreboard.updateScoreboardBackground();
