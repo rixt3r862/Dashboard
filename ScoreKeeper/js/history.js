@@ -603,30 +603,44 @@ export function createHistoryController(deps) {
     if (cell.isHeartsMoonRecipient)
       classTarget.classList.add("history-score-hearts-moon-plus");
 
-    const valueText = document.createElement("span");
-    valueText.className = "history-score-value";
     if (isPhase10()) {
+      const valueText = document.createElement("span");
+      valueText.className = "history-score-value";
       valueText.textContent = cell.displayV > 0 ? "Yes" : "No";
+      parent.appendChild(valueText);
     } else if (cell.isDoubledCell) {
       const shown = Number.isFinite(cell.displayV) ? cell.displayV : 0;
       const original = Number.isFinite(cell.rawV) ? cell.rawV : 0;
-      valueText.textContent = `${shown} (${original})`;
+      const doubledInline = document.createElement("span");
+      doubledInline.className = "history-doubled-inline";
+
+      const originalText = document.createElement("span");
+      originalText.className = "history-score-value";
+      originalText.textContent = `(${original})`;
+      doubledInline.appendChild(originalText);
+
+      const doubledBadge = document.createElement("span");
+      doubledBadge.className = "history-score-badge doubled";
+      doubledBadge.textContent = "2x";
+      doubledInline.appendChild(doubledBadge);
+
+      const shownText = document.createElement("span");
+      shownText.className = "history-score-value";
+      shownText.textContent = String(shown);
+      doubledInline.appendChild(shownText);
+      parent.appendChild(doubledInline);
     } else {
+      const valueText = document.createElement("span");
+      valueText.className = "history-score-value";
       valueText.textContent = String(Number.isFinite(cell.displayV) ? cell.displayV : 0);
+      parent.appendChild(valueText);
     }
-    parent.appendChild(valueText);
 
     if (cell.isWentOutCell) {
       const outBadge = document.createElement("span");
       outBadge.className = "history-score-badge out";
       outBadge.textContent = "OUT";
       parent.appendChild(outBadge);
-    }
-    if (cell.isDoubledCell) {
-      const doubledBadge = document.createElement("span");
-      doubledBadge.className = "history-score-badge doubled";
-      doubledBadge.textContent = "2x";
-      parent.appendChild(doubledBadge);
     }
     if (cell.isPhase10CompleteCell) {
       const phaseBadge = document.createElement("span");

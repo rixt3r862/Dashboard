@@ -813,6 +813,14 @@ summary::-webkit-details-marker{ display:none; }
   line-height: 1.4;
   vertical-align: middle;
 }
+.history-doubled-inline{
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+.history-doubled-inline .history-score-badge{
+  margin-left: 0;
+}
 #scoreboardCard.hearts-mode .history-table .history-score-badge{
   opacity: 1;
   box-shadow: 0 0 0 1px rgba(254,202,202,.35);
