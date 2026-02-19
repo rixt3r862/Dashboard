@@ -6,8 +6,26 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Card Game Score Keeper</title>
-  <link rel="stylesheet" href="./SK.css?v=2026-02-10-1" />
-  <script type="module" src="./SK.js?v=2026-02-10-1"></script>
+  <script>
+    (() => {
+      const sessionKey = "scorekeeper.assetBuster";
+      let token = sessionStorage.getItem(sessionKey);
+      if (!token) {
+        token = String(Date.now());
+        sessionStorage.setItem(sessionKey, token);
+      }
+
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = `./SK.css?v=${encodeURIComponent(token)}`;
+      document.head.appendChild(css);
+
+      const js = document.createElement("script");
+      js.type = "module";
+      js.src = `./SK.js?v=${encodeURIComponent(token)}`;
+      document.head.appendChild(js);
+    })();
+  </script>
 </head>
 
 <body>
