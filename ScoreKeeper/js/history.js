@@ -3,6 +3,20 @@ import { adjustSkyjoRoundScores } from "./rules.mjs";
 import { normalizeHeartsShootMoonScores } from "./rules.mjs";
 
 export function createHistoryController(deps) {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const GRAPH_LINE_COLORS = [
+    "#2563eb",
+    "#dc2626",
+    "#059669",
+    "#7c3aed",
+    "#ea580c",
+    "#0891b2",
+    "#be185d",
+    "#65a30d",
+    "#0f766e",
+    "#4f46e5",
+  ];
+
   const {
     state,
     els,
@@ -61,6 +75,314 @@ export function createHistoryController(deps) {
     applyPhase10UiText();
     renderAll();
     if (liveText) setLive(liveText);
+  }
+
+  function createSvgNode(tag, attrs = {}) {
+    const node = document.createElementNS(SVG_NS, tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      node.setAttribute(k, String(v));
+    });
+    return node;
+  }
+
+  function adjustedRoundScoresForGraph(round) {
+    if (state.presetKey === "skyjo") {
+      return adjustSkyjoRoundScores(state.players, round);
+    }
+    const out = {};
+    for (const p of state.players) {
+      const raw = Number(round?.scores?.[p.id] ?? 0);
+      out[p.id] = Number.isFinite(raw) ? raw : 0;
+    }
+    return out;
+  }
+
+  function buildGraphSeries() {
+    if (!state.rounds.length || !state.players.length) return [];
+
+    if (state.teams?.length) {
+      const totalsByTeam = Object.fromEntries(state.teams.map((t) => [t.id, 0]));
+      return state.teams.map((team, idx) => {
+        const values = [];
+        for (const round of state.rounds) {
+          const adjusted = adjustedRoundScoresForGraph(round);
+          const teamRoundTotal = team.members.reduce((sum, pid) => {
+            return sum + Number(adjusted?.[pid] ?? 0);
+          }, 0);
+          totalsByTeam[team.id] += teamRoundTotal;
+          values.push(totalsByTeam[team.id]);
+        }
+        return {
+          id: team.id,
+          label: team.name || `Team ${idx + 1}`,
+          color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+          values,
+        };
+      });
+    }
+
+    const totalsByPlayer = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    return state.players.map((player, idx) => {
+      const values = [];
+      for (const round of state.rounds) {
+        const adjusted = adjustedRoundScoresForGraph(round);
+        totalsByPlayer[player.id] += Number(adjusted?.[player.id] ?? 0);
+        values.push(totalsByPlayer[player.id]);
+      }
+      return {
+        id: player.id,
+        label: player.name || `Player ${idx + 1}`,
+        color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+        values,
+      };
+    });
+  }
+
+  function renderHistoryGraph() {
+    if (
+      !els.historyGraphWrap ||
+      !els.historyGraph ||
+      !els.historyGraphLegend ||
+      !els.historyGraphMeta ||
+      !els.historyStatsTable
+    ) {
+      return;
+    }
+
+    els.historyGraph.innerHTML = "";
+    els.historyGraphLegend.innerHTML = "";
+    els.historyStatsTable.innerHTML = "";
+
+    if (isPhase10() || !state.rounds.length || !state.players.length) {
+      els.historyGraphWrap.hidden = true;
+      return;
+    }
+
+    const series = buildGraphSeries().filter(
+      (entry) => Array.isArray(entry.values) && entry.values.length,
+    );
+    if (!series.length) {
+      els.historyGraphWrap.hidden = true;
+      return;
+    }
+
+    const allValues = series.flatMap((s) =>
+      s.values.filter((v) => Number.isFinite(v)),
+    );
+    if (!allValues.length) {
+      els.historyGraphWrap.hidden = true;
+      return;
+    }
+
+    const roundsCount = state.rounds.length;
+    const width = Math.max(860, 220 + roundsCount * 64);
+    const height = 320;
+    const padLeft = 56;
+    const padRight = 16;
+    const padTop = 14;
+    const padBottom = 42;
+    const innerW = Math.max(1, width - padLeft - padRight);
+    const innerH = Math.max(1, height - padTop - padBottom);
+
+    const rawMin = Math.min(...allValues);
+    const rawMax = Math.max(...allValues);
+    const span = Math.max(1, rawMax - rawMin);
+    let yMin = rawMin - Math.max(1, Math.round(span * 0.1));
+    let yMax = rawMax + Math.max(1, Math.round(span * 0.1));
+    if (yMin > 0) yMin = 0;
+    if (yMax === yMin) yMax = yMin + 1;
+
+    const xFor = (idx) => {
+      if (roundsCount <= 1) return padLeft + innerW / 2;
+      return padLeft + (innerW * idx) / (roundsCount - 1);
+    };
+    const yFor = (value) => {
+      const t = (value - yMin) / (yMax - yMin);
+      return padTop + innerH - t * innerH;
+    };
+
+    els.historyGraph.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    els.historyGraph.setAttribute(
+      "aria-label",
+      `Round points trend graph with ${roundsCount} rounds and ${series.length} ${state.teams ? "teams" : "players"}.`,
+    );
+
+    const yTicks = 5;
+    for (let i = 0; i <= yTicks; i += 1) {
+      const ratio = i / yTicks;
+      const y = padTop + innerH - ratio * innerH;
+      const value = Math.round(yMin + ratio * (yMax - yMin));
+
+      const grid = createSvgNode("line", {
+        x1: padLeft,
+        y1: y,
+        x2: padLeft + innerW,
+        y2: y,
+        class: "history-graph-grid",
+      });
+      els.historyGraph.appendChild(grid);
+
+      const label = createSvgNode("text", {
+        x: padLeft - 8,
+        y: y + 4,
+        "text-anchor": "end",
+        class: "history-graph-label",
+      });
+      label.textContent = String(value);
+      els.historyGraph.appendChild(label);
+    }
+
+    const xAxis = createSvgNode("line", {
+      x1: padLeft,
+      y1: padTop + innerH,
+      x2: padLeft + innerW,
+      y2: padTop + innerH,
+      class: "history-graph-axis",
+    });
+    els.historyGraph.appendChild(xAxis);
+
+    const yAxis = createSvgNode("line", {
+      x1: padLeft,
+      y1: padTop,
+      x2: padLeft,
+      y2: padTop + innerH,
+      class: "history-graph-axis",
+    });
+    els.historyGraph.appendChild(yAxis);
+
+    const xLabelStep = Math.max(1, Math.ceil(roundsCount / 8));
+    for (let i = 0; i < roundsCount; i += 1) {
+      const isEdge = i === 0 || i === roundsCount - 1;
+      if (!isEdge && i % xLabelStep !== 0) continue;
+      const x = xFor(i);
+      const label = createSvgNode("text", {
+        x,
+        y: padTop + innerH + 18,
+        "text-anchor": "middle",
+        class: "history-graph-label",
+      });
+      label.textContent = String(i + 1);
+      els.historyGraph.appendChild(label);
+    }
+
+    for (const entry of series) {
+      const points = entry.values.map((v, idx) => [xFor(idx), yFor(v)]);
+      const d = points
+        .map(([x, y], idx) => `${idx === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`)
+        .join(" ");
+
+      const path = createSvgNode("path", {
+        d,
+        class: "history-graph-line",
+        stroke: entry.color,
+      });
+      els.historyGraph.appendChild(path);
+
+      for (const [x, y] of points) {
+        const point = createSvgNode("circle", {
+          cx: x.toFixed(2),
+          cy: y.toFixed(2),
+          r: 3,
+          class: "history-graph-point",
+          fill: entry.color,
+        });
+        els.historyGraph.appendChild(point);
+      }
+
+      const legendItem = document.createElement("span");
+      legendItem.className = "history-graph-legend-item";
+      const swatch = document.createElement("span");
+      swatch.className = "history-graph-legend-swatch";
+      swatch.style.background = entry.color;
+      legendItem.appendChild(swatch);
+      legendItem.append(document.createTextNode(entry.label));
+      els.historyGraphLegend.appendChild(legendItem);
+    }
+
+    els.historyGraphMeta.textContent = `X: rounds  Y: cumulative points (${state.teams ? "teams" : "players"})`;
+    renderHistoryStatsTable(series);
+    els.historyGraphWrap.hidden = false;
+  }
+
+  function formatStatValue(n) {
+    if (!Number.isFinite(n)) return "0";
+    return String(Math.round(n));
+  }
+
+  function roundScoresByEntity() {
+    const rounds = state.rounds.map((round) => adjustedRoundScoresForGraph(round));
+    if (state.teams?.length) {
+      return state.teams.map((team) => ({
+        id: team.id,
+        label: team.name || "Team",
+        rounds: rounds.map((scores) =>
+          team.members.reduce((sum, pid) => sum + Number(scores?.[pid] ?? 0), 0),
+        ),
+      }));
+    }
+    return state.players.map((player) => ({
+      id: player.id,
+      label: player.name || "Player",
+      rounds: rounds.map((scores) => Number(scores?.[player.id] ?? 0)),
+    }));
+  }
+
+  function renderHistoryStatsTable(series) {
+    const rows = roundScoresByEntity();
+    const tbl = els.historyStatsTable;
+    tbl.innerHTML = "";
+    if (!rows.length || !state.rounds.length) return;
+
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    const headers = ["Player", "Total", "Avg", "Best", "Worst"];
+    for (const header of headers) {
+      const th = document.createElement("th");
+      th.textContent = header;
+      th.scope = "col";
+      trh.appendChild(th);
+    }
+    thead.appendChild(trh);
+    tbl.appendChild(thead);
+
+    const seriesById = new Map(series.map((s) => [s.id, s]));
+    const tbody = document.createElement("tbody");
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      nameTd.textContent = row.label;
+      tr.appendChild(nameTd);
+
+      const roundValues = row.rounds.filter((v) => Number.isFinite(v));
+      const totalFromSeries = Number(seriesById.get(row.id)?.values?.at(-1) ?? 0);
+      const total = Number.isFinite(totalFromSeries)
+        ? totalFromSeries
+        : roundValues.reduce((sum, v) => sum + v, 0);
+      const avg = roundValues.length ? total / roundValues.length : 0;
+      const minRound = roundValues.length ? Math.min(...roundValues) : 0;
+      const maxRound = roundValues.length ? Math.max(...roundValues) : 0;
+      const best = state.winMode === "low" ? minRound : maxRound;
+      const worst = state.winMode === "low" ? maxRound : minRound;
+
+      const totalTd = document.createElement("td");
+      totalTd.textContent = formatStatValue(total);
+      tr.appendChild(totalTd);
+
+      const avgTd = document.createElement("td");
+      avgTd.textContent = formatStatValue(avg);
+      tr.appendChild(avgTd);
+
+      const bestTd = document.createElement("td");
+      bestTd.textContent = formatStatValue(best);
+      tr.appendChild(bestTd);
+
+      const worstTd = document.createElement("td");
+      worstTd.textContent = formatStatValue(worst);
+      tr.appendChild(worstTd);
+
+      tbody.appendChild(tr);
+    }
+    tbl.appendChild(tbody);
   }
 
   function beginHistoryEdit(roundN) {
@@ -336,6 +658,7 @@ export function createHistoryController(deps) {
     els.historySummaryText.textContent = state.rounds.length
       ? `Round History (${state.rounds.length})`
       : "Round History (0)";
+    renderHistoryGraph();
   }
 
   function bindEvents() {
@@ -366,6 +689,10 @@ export function createHistoryController(deps) {
     });
 
     bindSelectOnFocusAndClick(els.historyTable, "input.history-edit-input");
+
+    window.addEventListener("resize", () => {
+      renderHistoryGraph();
+    });
   }
 
   return {

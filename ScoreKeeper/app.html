@@ -288,6 +288,26 @@
               <div class="history-wrap" style="margin-top: 10px">
                 <table class="history-table" aria-label="Round history" id="historyTable"></table>
               </div>
+              <div id="historyGraphWrap" class="history-graph-wrap" hidden>
+                <div class="history-graph-head">
+                  <strong>Points Trend</strong>
+                  <span class="muted" id="historyGraphMeta"></span>
+                </div>
+                <div class="history-graph-scroll">
+                  <svg
+                    id="historyGraph"
+                    class="history-graph"
+                    role="img"
+                    aria-label="Round points trend graph"
+                    viewBox="0 0 860 320"
+                    preserveAspectRatio="none"
+                  ></svg>
+                </div>
+                <div id="historyGraphLegend" class="history-graph-legend" aria-label="Graph legend"></div>
+                <div class="history-stats-wrap">
+                  <table class="history-stats-table" aria-label="Round statistics" id="historyStatsTable"></table>
+                </div>
+              </div>
             </details>
           </div>
 

@@ -251,6 +251,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
 }
 #scoreboardCard.has-bg details,
 #scoreboardCard.has-bg .history-wrap,
+#scoreboardCard.has-bg .history-graph-wrap,
 #scoreboardCard.has-bg .phase10-ref{
   background: rgba(var(--scoreboard-tint-rgb, 255, 255, 255), .20);
   border-color: rgba(var(--scoreboard-tint-rgb, 229, 231, 235), .40);
@@ -267,6 +268,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
 }
 #scoreboardCard.hearts-mode.has-bg details,
 #scoreboardCard.hearts-mode.has-bg .history-wrap,
+#scoreboardCard.hearts-mode.has-bg .history-graph-wrap,
 #scoreboardCard.hearts-mode.has-bg .phase10-ref{
   background: rgba(69,10,10,.10);
   border-color: rgba(248,113,113,.45);
@@ -283,8 +285,32 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
 #scoreboardCard.hearts-mode .phase10-ref h3,
 #scoreboardCard.hearts-mode .phase10-ref ol,
 #scoreboardCard.hearts-mode .phase10-ref li,
-#scoreboardCard.hearts-mode .phase10-ref strong{
+#scoreboardCard.hearts-mode .phase10-ref strong,
+#scoreboardCard.hearts-mode .history-graph-legend-item,
+#scoreboardCard.hearts-mode .history-graph-label,
+#scoreboardCard.hearts-mode .history-stats-table th,
+#scoreboardCard.hearts-mode .history-stats-table td{
   color: #f8fafc !important;
+}
+#scoreboardCard.hearts-mode .history-stats-wrap{
+  border-color: rgba(248,113,113,.45);
+}
+#scoreboardCard.hearts-mode .history-stats-table th{
+  background: rgba(127,29,29,.88);
+  border-bottom-color: rgba(254,202,202,.38);
+}
+#scoreboardCard.hearts-mode .history-stats-table td{
+  background: rgba(69,10,10,.08);
+  border-bottom-color: rgba(248,113,113,.34);
+}
+#scoreboardCard.hearts-mode .history-graph-axis{
+  stroke: rgba(254,202,202,.7);
+}
+#scoreboardCard.hearts-mode .history-graph-grid{
+  stroke: rgba(254,202,202,.25);
+}
+#scoreboardCard.hearts-mode .history-graph-point{
+  stroke: rgba(127,29,29,.9);
 }
 #scoreboardCard.hearts-mode .history-table td{
   background: rgba(69,10,10,.08);
@@ -504,6 +530,103 @@ summary::-webkit-details-marker{ display:none; }
   border-radius: 12px;
   border: 1px solid var(--line);
 }
+.history-graph-wrap{
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255,255,255,.72);
+}
+.history-graph-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--fs-sm);
+}
+.history-graph-scroll{
+  overflow-x: auto;
+}
+.history-graph{
+  width: 100%;
+  min-width: 560px;
+  height: 230px;
+  display: block;
+}
+.history-graph-axis{
+  stroke: rgba(100,116,139,.8);
+  stroke-width: 1.2;
+}
+.history-graph-grid{
+  stroke: rgba(148,163,184,.35);
+  stroke-width: 1;
+}
+.history-graph-label{
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+.history-graph-line{
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.history-graph-point{
+  stroke: rgba(15,23,42,.7);
+  stroke-width: 1;
+}
+.history-graph-legend{
+  margin-top: 10px;
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.history-graph-legend-item{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(255,255,255,.7);
+}
+.history-graph-legend-swatch{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+.history-stats-wrap{
+  margin-top: 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.history-stats-table{
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  border: none;
+  border-radius: 0;
+}
+.history-stats-table th,
+.history-stats-table td{
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.history-stats-table th{
+  background: rgba(248,250,252,.9);
+  color: var(--muted);
+  font-weight: 700;
+}
+.history-stats-table tr:last-child td{
+  border-bottom: none;
+}
 .history-table{
   min-width: 560px;
   border: none;
@@ -527,6 +650,7 @@ summary::-webkit-details-marker{ display:none; }
 }
 #scoreboardCard.phase10-mode.has-bg details,
 #scoreboardCard.phase10-mode.has-bg .history-wrap,
+#scoreboardCard.phase10-mode.has-bg .history-graph-wrap,
 #scoreboardCard.phase10-mode.has-bg .phase10-ref{
   background: rgba(15,23,42,.10);
   border-color: rgba(148,163,184,.45);
@@ -543,8 +667,23 @@ summary::-webkit-details-marker{ display:none; }
 #scoreboardCard.phase10-mode .phase10-ref h3,
 #scoreboardCard.phase10-mode .phase10-ref ol,
 #scoreboardCard.phase10-mode .phase10-ref li,
-#scoreboardCard.phase10-mode .phase10-ref strong{
+#scoreboardCard.phase10-mode .phase10-ref strong,
+#scoreboardCard.phase10-mode .history-graph-legend-item,
+#scoreboardCard.phase10-mode .history-graph-label,
+#scoreboardCard.phase10-mode .history-stats-table th,
+#scoreboardCard.phase10-mode .history-stats-table td{
   color: #f8fafc !important;
+}
+#scoreboardCard.phase10-mode .history-stats-wrap{
+  border-color: rgba(148,163,184,.45);
+}
+#scoreboardCard.phase10-mode .history-stats-table th{
+  background: rgba(15,23,42,.75);
+  border-bottom-color: rgba(148,163,184,.45);
+}
+#scoreboardCard.phase10-mode .history-stats-table td{
+  background: rgba(15,23,42,.08);
+  border-bottom-color: rgba(148,163,184,.45);
 }
 #scoreboardCard.phase10-mode .history-table td{
   background: rgba(15,23,42,.08);
@@ -1062,6 +1201,7 @@ td .sub{
   #scoreboardCard.has-bg th,
   #scoreboardCard.has-bg details,
   #scoreboardCard.has-bg .history-wrap,
+  #scoreboardCard.has-bg .history-graph-wrap,
   #scoreboardCard.has-bg .phase10-ref{
     background: #fff !important;
   }

@@ -93,6 +93,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
     historyDetails: $("historyDetails"),
     historySummaryText: $("historySummaryText"),
     historyTable: $("historyTable"),
+    historyGraphWrap: $("historyGraphWrap"),
+    historyGraphMeta: $("historyGraphMeta"),
+    historyGraph: $("historyGraph"),
+    historyGraphLegend: $("historyGraphLegend"),
+    historyStatsTable: $("historyStatsTable"),
 
     ariaLive: $("ariaLive"),
   };
