@@ -111,6 +111,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
           "spadesPartnerLabel",
           "btnNewSame",
           "btnNewSame2",
+          "btnKeepGoing",
           "colHeadTotal",
           "colHeadThis",
           "targetLabel",
@@ -1183,16 +1184,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
       newGameSamePlayers();
     });
   }
-
-  els.btnKeepGoing.addEventListener("click", () => {
-    state.bannerDismissed = true;
-    state.mode = "playing";
-    state.winnerId = null;
-    save();
-    applyPhase10UiText();
-    renderAll();
-    setLive("Continuing score tracking.");
-  });
 
   els.btnToggleSort.addEventListener("click", () => {
     state.sortByTotal = !state.sortByTotal;
