@@ -405,7 +405,7 @@
 
   <main class="card">
     <h1>Unit Converter</h1>
-    <p class="sub">Length, weight, volume, area, speed, temperature, and color.</p>
+    <p class="sub">Length, weight, volume, cooking volume, area, speed, temperature, and color.</p>
 
     <section class="grid">
       <div>
@@ -528,6 +528,23 @@
           fluid_ounce_us: { label: "US Fluid Ounce (fl oz)", factor: 0.0295735295625 }
         }
       },
+      cooking_volume: {
+        label: "Cooking Volume",
+        base: "liter",
+        units: {
+          teaspoon_us: { label: "US Teaspoon (tsp)", factor: 0.00492892159375 },
+          tablespoon_us: { label: "US Tablespoon (tbsp)", factor: 0.01478676478125 },
+          fluid_ounce_us: { label: "US Fluid Ounce (fl oz)", factor: 0.0295735295625 },
+          cup_us: { label: "US Cup", factor: 0.2365882365 },
+          pint_us: { label: "US Pint (pt)", factor: 0.473176473 },
+          quart_us: { label: "US Quart (qt)", factor: 0.946352946 },
+          gallon_us: { label: "US Gallon (gal)", factor: 3.785411784 },
+          teaspoon_metric: { label: "Metric Teaspoon (5 mL)", factor: 0.005 },
+          tablespoon_metric: { label: "Metric Tablespoon (15 mL)", factor: 0.015 },
+          milliliter: { label: "Milliliter (mL)", factor: 0.001 },
+          liter: { label: "Liter (L)", factor: 1 }
+        }
+      },
       area: {
         label: "Area",
         units: {
@@ -625,6 +642,21 @@
     ]);
 
     const LENGTH_IMPERIAL_UNITS = new Set(["mile", "yard", "foot", "inch"]);
+    const COOKING_US_UNITS = new Set([
+      "teaspoon_us",
+      "tablespoon_us",
+      "fluid_ounce_us",
+      "cup_us",
+      "pint_us",
+      "quart_us",
+      "gallon_us"
+    ]);
+    const COOKING_METRIC_UNITS = new Set([
+      "teaspoon_metric",
+      "tablespoon_metric",
+      "milliliter",
+      "liter"
+    ]);
     const FRACTION_PRECISION_KEY = "unit.lengthFractionPrecision";
 
     const categoryEl = document.getElementById("category");
@@ -750,6 +782,11 @@
         valueEl.type = "text";
         valueEl.inputMode = "text";
         valueEl.placeholder = "Examples: 5 1/2, 3/4, 2";
+        namedColorWrapEl.classList.add("hidden");
+      } else if (categoryEl.value === "cooking_volume" && COOKING_US_UNITS.has(fromEl.value)) {
+        valueEl.type = "text";
+        valueEl.inputMode = "text";
+        valueEl.placeholder = "Examples: 1 1/2, 3/4, 2";
         namedColorWrapEl.classList.add("hidden");
       } else {
         valueEl.type = "number";
@@ -881,7 +918,7 @@
         LENGTH_IMPERIAL_UNITS.has(toKey);
     }
 
-    function parseImperialLengthInput(raw) {
+    function parseFractionalNumber(raw) {
       const text = raw.trim();
       if (!text) return null;
 
@@ -1118,14 +1155,19 @@
         return;
       }
 
-      const inputValue = (cat === CATEGORIES.length && LENGTH_IMPERIAL_UNITS.has(fromKey))
-        ? parseImperialLengthInput(raw)
+      const useFractionParser =
+        (cat === CATEGORIES.length && LENGTH_IMPERIAL_UNITS.has(fromKey)) ||
+        (cat === CATEGORIES.cooking_volume && COOKING_US_UNITS.has(fromKey));
+      const inputValue = useFractionParser
+        ? parseFractionalNumber(raw)
         : Number(raw);
       if (!Number.isFinite(inputValue)) {
         resultValueEl.textContent = "Invalid number";
-        resultMetaEl.textContent = (cat === CATEGORIES.length && LENGTH_IMPERIAL_UNITS.has(fromKey))
-          ? "Use decimal or fraction input (e.g. 5 1/2 or 3/4)."
-          : "Use a numeric value.";
+        if (useFractionParser) {
+          resultMetaEl.textContent = "Use decimal or fraction input (e.g. 1 1/2 or 3/4).";
+        } else {
+          resultMetaEl.textContent = "Use a numeric value.";
+        }
         colorSwatchEl.style.display = "none";
         clearLengthDualOutput();
         return;
@@ -1138,6 +1180,10 @@
         resultValueEl.textContent = `${rounded}\u00B0`;
         resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${rounded}\u00B0 ${cat.units[toKey].label}`;
       } else if (cat === CATEGORIES.speed) {
+        const rounded = Math.round(output);
+        resultValueEl.textContent = String(rounded);
+        resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${rounded} ${cat.units[toKey].label}`;
+      } else if (cat === CATEGORIES.cooking_volume && COOKING_METRIC_UNITS.has(toKey)) {
         const rounded = Math.round(output);
         resultValueEl.textContent = String(rounded);
         resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${rounded} ${cat.units[toKey].label}`;
