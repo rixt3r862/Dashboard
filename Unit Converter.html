@@ -201,6 +201,26 @@
       gap: 0.55rem;
     }
 
+    .dual-controls {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dual-controls label {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .dual-controls select {
+      width: auto;
+      min-width: 6rem;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.88rem;
+    }
+
     .dual-row {
       display: grid;
       grid-template-columns: auto 1fr auto;
@@ -440,6 +460,16 @@
       <div class="copy-hint" id="copyHint">Click result to copy</div>
       <div class="swatch" id="colorSwatch" aria-hidden="true"></div>
       <div class="dual-output hidden" id="lengthDualOutput">
+        <div class="dual-controls">
+          <label for="fractionPrecision">Fraction Precision</label>
+          <select id="fractionPrecision" aria-label="Fraction precision">
+            <option value="8">1/8</option>
+            <option value="16">1/16</option>
+            <option value="32">1/32</option>
+            <option value="64" selected>1/64</option>
+            <option value="128">1/128</option>
+          </select>
+        </div>
         <div class="dual-row">
           <span class="k">Decimal</span>
           <input id="lengthDecimalValue" type="text" readonly aria-label="Length decimal result" />
@@ -595,6 +625,7 @@
     ]);
 
     const LENGTH_IMPERIAL_UNITS = new Set(["mile", "yard", "foot", "inch"]);
+    const FRACTION_PRECISION_KEY = "unit.lengthFractionPrecision";
 
     const categoryEl = document.getElementById("category");
     const valueEl = document.getElementById("valueInput");
@@ -615,6 +646,27 @@
     const lengthFractionValueEl = document.getElementById("lengthFractionValue");
     const copyLengthDecimalEl = document.getElementById("copyLengthDecimal");
     const copyLengthFractionEl = document.getElementById("copyLengthFraction");
+    const fractionPrecisionEl = document.getElementById("fractionPrecision");
+
+    function getSelectedFractionPrecision() {
+      const v = Number(fractionPrecisionEl.value);
+      return [8, 16, 32, 64, 128].includes(v) ? v : 64;
+    }
+
+    function loadFractionPrecision() {
+      try {
+        const saved = Number(localStorage.getItem(FRACTION_PRECISION_KEY));
+        if ([8, 16, 32, 64, 128].includes(saved)) {
+          fractionPrecisionEl.value = String(saved);
+        }
+      } catch {}
+    }
+
+    function saveFractionPrecision() {
+      try {
+        localStorage.setItem(FRACTION_PRECISION_KEY, fractionPrecisionEl.value);
+      } catch {}
+    }
 
     async function copyToClipboard(text) {
       try {
@@ -677,6 +729,9 @@
       if (categoryEl.value === "temperature") {
         fromEl.value = "fahrenheit";
         toEl.value = "celsius";
+      } else if (categoryEl.value === "length") {
+        fromEl.value = "inch";
+        toEl.value = "millimeter";
       } else {
         fromEl.value = cat.units[existingFrom] ? existingFrom : entries[0][0];
         toEl.value = cat.units[existingTo] ? existingTo : (entries[1] ? entries[1][0] : entries[0][0]);
@@ -691,6 +746,11 @@
         valueEl.inputMode = "text";
         valueEl.placeholder = "Examples: #FF6B00, rgb(255,107,0), hsl(25,100%,50%), cmyk(0,58,100,0)";
         namedColorWrapEl.classList.remove("hidden");
+      } else if (categoryEl.value === "length" && LENGTH_IMPERIAL_UNITS.has(fromEl.value)) {
+        valueEl.type = "text";
+        valueEl.inputMode = "text";
+        valueEl.placeholder = "Examples: 5 1/2, 3/4, 2";
+        namedColorWrapEl.classList.add("hidden");
       } else {
         valueEl.type = "number";
         valueEl.inputMode = "decimal";
@@ -781,7 +841,7 @@
       return x || 1;
     }
 
-    function toFractionString(value, maxDenominator = 16) {
+    function toFractionString(value, maxDenominator = 64) {
       if (!Number.isFinite(value)) return "-";
       const sign = value < 0 ? "-" : "";
       const abs = Math.abs(value);
@@ -819,6 +879,35 @@
       return cat === CATEGORIES.length &&
         LENGTH_METRIC_UNITS.has(fromKey) &&
         LENGTH_IMPERIAL_UNITS.has(toKey);
+    }
+
+    function parseImperialLengthInput(raw) {
+      const text = raw.trim();
+      if (!text) return null;
+
+      if (/^-?\d+(\.\d+)?$/.test(text)) {
+        return Number(text);
+      }
+
+      const mixed = text.match(/^(-?\d+)\s+(\d+)\/(\d+)$/);
+      if (mixed) {
+        const whole = Number(mixed[1]);
+        const num = Number(mixed[2]);
+        const den = Number(mixed[3]);
+        if (!Number.isFinite(whole) || !Number.isFinite(num) || !Number.isFinite(den) || den === 0) return null;
+        const sign = whole < 0 ? -1 : 1;
+        return whole + sign * (num / den);
+      }
+
+      const frac = text.match(/^(-?\d+)\/(\d+)$/);
+      if (frac) {
+        const num = Number(frac[1]);
+        const den = Number(frac[2]);
+        if (!Number.isFinite(num) || !Number.isFinite(den) || den === 0) return null;
+        return num / den;
+      }
+
+      return null;
     }
 
     function parseHex(input) {
@@ -1029,10 +1118,14 @@
         return;
       }
 
-      const inputValue = Number(raw);
+      const inputValue = (cat === CATEGORIES.length && LENGTH_IMPERIAL_UNITS.has(fromKey))
+        ? parseImperialLengthInput(raw)
+        : Number(raw);
       if (!Number.isFinite(inputValue)) {
         resultValueEl.textContent = "Invalid number";
-        resultMetaEl.textContent = "Use a numeric value.";
+        resultMetaEl.textContent = (cat === CATEGORIES.length && LENGTH_IMPERIAL_UNITS.has(fromKey))
+          ? "Use decimal or fraction input (e.g. 5 1/2 or 3/4)."
+          : "Use a numeric value.";
         colorSwatchEl.style.display = "none";
         clearLengthDualOutput();
         return;
@@ -1056,7 +1149,7 @@
 
       if (isMetricToImperialLength(cat, fromKey, toKey)) {
         const decimal = formatNumber(output);
-        const fraction = toFractionString(output, 16);
+        const fraction = toFractionString(output, getSelectedFractionPrecision());
         lengthDecimalValueEl.value = decimal;
         lengthFractionValueEl.value = fraction;
         lengthDualOutputEl.classList.remove("hidden");
@@ -1081,12 +1174,16 @@
       }
 
       categoryEl.value = "length";
+      loadFractionPrecision();
       initNamedColors();
       refillUnits();
 
       categoryEl.addEventListener("change", refillUnits);
       valueEl.addEventListener("input", updateResult);
-      fromEl.addEventListener("change", updateResult);
+      fromEl.addEventListener("change", () => {
+        updateInputUi();
+        updateResult();
+      });
       toEl.addEventListener("change", updateResult);
       swapBtn.addEventListener("click", swapUnits);
       namedColorButtonEl.addEventListener("click", () => {
@@ -1144,6 +1241,10 @@
         if (!text) return;
         const ok = await copyToClipboard(text);
         flashCopyHint(ok ? "Fraction copied" : "Copy failed");
+      });
+      fractionPrecisionEl.addEventListener("change", () => {
+        saveFractionPrecision();
+        updateResult();
       });
     }
 
