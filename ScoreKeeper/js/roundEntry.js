@@ -103,20 +103,14 @@ export function createRoundEntryController(deps) {
     onAddRound();
   }
 
-  function roundActionWinnerRoundPoints(winnerId, points) {
+  function roundActionMarkWinnerZero(winnerId) {
     if (!winnerId) return;
-    const pointsN = Number.parseInt(points, 10);
-    if (!Number.isInteger(pointsN) || pointsN < 0) {
-      showMsg(els.roundMsg, "Winner points must be 0 or more.");
-      return;
-    }
-
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-    scores[winnerId] = pointsN;
+    const scores = readRoundScores();
+    scores[winnerId] = 0;
     applyRoundScores(scores);
     closeRoundHelperForm();
     showMsg(els.roundMsg, "");
-    setLive("Applied winner-only round points.");
+    setLive("Marked winner as 0 for this round.");
   }
 
   function roundActionSkyjoMarkGoOut(playerId) {
@@ -171,7 +165,7 @@ export function createRoundEntryController(deps) {
       return;
     }
 
-    if (action === "winner_round") {
+    if (action === "mark_winner_zero") {
       const options = state.players
         .map(
           (p) =>
@@ -181,14 +175,13 @@ export function createRoundEntryController(deps) {
       els.roundHelperForm.innerHTML = `
         <div class="round-helper-form-row">
           <select id="helperWinnerPlayer" class="round-helper-input" aria-label="Round winner">${options}</select>
-          <input id="helperWinnerPoints" class="round-helper-input" type="number" inputmode="numeric" placeholder="Winner points" min="0" aria-label="Winner points" />
-          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_winner_round" aria-label="Apply winner round points">Apply</button>
-          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel winner round points">Cancel</button>
+          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_mark_winner_zero" aria-label="Set winner to zero">Set Winner = 0</button>
+          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel set winner to zero">Cancel</button>
         </div>
       `;
       els.roundHelperForm.style.display = "block";
-      const inp = $("helperWinnerPoints");
-      if (inp) inp.focus();
+      const sel = $("helperWinnerPlayer");
+      if (sel) sel.focus();
       return;
     }
 
@@ -218,9 +211,9 @@ export function createRoundEntryController(deps) {
     }
     if (state.presetKey === "uno" || state.presetKey === "crazy8s") {
       actions.push({
-        key: "winner_round",
-        label: "🏆 Set Winner Round...",
-        ariaLabel: "Set winner-only round points",
+        key: "mark_winner_zero",
+        label: "🏁 Winner = 0...",
+        ariaLabel: "Mark winner as zero for this round",
       });
     }
     els.roundHelperButtons.innerHTML = actions
@@ -403,7 +396,7 @@ export function createRoundEntryController(deps) {
       if (action === "set_all") openRoundHelperForm("set_all");
       if (action === "zero_all") roundActionZeroAll();
       if (action === "hearts_moon") openRoundHelperForm("hearts_moon");
-      if (action === "winner_round") openRoundHelperForm("winner_round");
+      if (action === "mark_winner_zero") openRoundHelperForm("mark_winner_zero");
     });
 
     els.roundHelperForm.addEventListener("click", (e) => {
@@ -429,10 +422,9 @@ export function createRoundEntryController(deps) {
         roundActionHeartsShootMoon(shooterId);
         return;
       }
-      if (action === "apply_winner_round") {
+      if (action === "apply_mark_winner_zero") {
         const winnerId = $("helperWinnerPlayer")?.value ?? "";
-        const points = $("helperWinnerPoints")?.value ?? "";
-        roundActionWinnerRoundPoints(winnerId, points);
+        roundActionMarkWinnerZero(winnerId);
         return;
       }
     });
@@ -454,10 +446,9 @@ export function createRoundEntryController(deps) {
         const shooterId = $("helperMoonShooter")?.value ?? "";
         roundActionHeartsShootMoon(shooterId);
       }
-      if (state.activeRoundHelper === "winner_round") {
+      if (state.activeRoundHelper === "mark_winner_zero") {
         const winnerId = $("helperWinnerPlayer")?.value ?? "";
-        const points = $("helperWinnerPoints")?.value ?? "";
-        roundActionWinnerRoundPoints(winnerId, points);
+        roundActionMarkWinnerZero(winnerId);
       }
     });
 

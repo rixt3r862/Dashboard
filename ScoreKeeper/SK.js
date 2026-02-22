@@ -894,6 +894,38 @@ import { createScoreboardController } from "./js/scoreboard.js";
     });
   }
 
+  function normalizeWinnerOnlyScores(scores) {
+    const isWinnerOnlyPreset =
+      state.presetKey === "uno" || state.presetKey === "crazy8s";
+    if (!isWinnerOnlyPreset) {
+      return { ok: true, scores };
+    }
+
+    const zeroIds = state.players
+      .map((p) => p.id)
+      .filter((pid) => Number(scores?.[pid] ?? 0) === 0);
+    if (zeroIds.length !== 1) {
+      return {
+        ok: false,
+        error:
+          "Enter exactly one 0 score to mark the round winner for this preset.",
+      };
+    }
+
+    const winnerId = zeroIds[0];
+    const winnerPoints = state.players.reduce((sum, p) => {
+      if (p.id === winnerId) return sum;
+      return sum + Number(scores?.[p.id] ?? 0);
+    }, 0);
+    const normalized = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    normalized[winnerId] = winnerPoints;
+
+    return {
+      ok: true,
+      scores: normalized,
+    };
+  }
+
   function addRoundBlockReason(scores = null) {
     if (state.mode !== "playing") return "Start a game to add rounds.";
     const roundScores = scores || roundEntry.readRoundScores();
@@ -913,6 +945,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
       const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
       if (total !== 26 && total !== shootMoonTotal) {
         return `Hearts: round total must be 26 (or ${shootMoonTotal} for shoot the moon).`;
+      }
+    }
+
+    if (state.presetKey === "uno" || state.presetKey === "crazy8s") {
+      const zeroCount = state.players.filter(
+        (p) => Number(roundScores?.[p.id] ?? 0) === 0,
+      ).length;
+      if (zeroCount !== 1) {
+        return "UNO/Crazy 8s: exactly one player must be 0 (the round winner).";
       }
     }
 
@@ -938,6 +979,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
       const normalized = normalizeHeartsShootMoonScores(state.players, scores);
       scores = normalized.scores;
     }
+    const winnerOnlyNormalized = normalizeWinnerOnlyScores(scores);
+    if (!winnerOnlyNormalized.ok) {
+      showMsg(els.roundMsg, winnerOnlyNormalized.error || "Invalid scores.");
+      return;
+    }
+    scores = winnerOnlyNormalized.scores;
     const validation = validateRoundScores(scores, { contextLabel: "round" });
     if (!validation.ok) {
       showMsg(els.roundMsg, validation.error || "Invalid scores.");

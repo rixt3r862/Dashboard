@@ -11,7 +11,8 @@ export const PRESETS = {
     target: 500,
     winMode: "high",
     teams: false,
-    notes: "First player to 500 points wins.",
+    notes:
+      "Winner-only scoring: enter opponents' hand points and set winner to 0. App totals opponents into winner points.",
   },
   phase10: {
     label: "Phase 10",
@@ -47,7 +48,7 @@ export const PRESETS = {
     winMode: "high",
     teams: false,
     notes:
-      "Standard scoring: you score points from opponents’ remaining cards. First to 100+ wins.",
+      "Winner-only scoring: enter opponents' hand points and set winner to 0. App totals opponents into winner points.",
   },
 };
 
