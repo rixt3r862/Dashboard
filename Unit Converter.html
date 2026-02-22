@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Unit Converter</title>
+  <script>
+    (function () {
+      try {
+        const theme = localStorage.getItem("dash.theme");
+        if (theme === "dark" || theme === "light") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch {}
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --result-bg: #f1f5f9;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: linear-gradient(135deg, #0f172a, #111827);
+        --card: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --line: #374151;
+        --accent: #60a5fa;
+        --accent-soft: #1e3a8a;
+        --result-bg: #1f2937;
+        --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    :root[data-theme="light"] {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --result-bg: #f1f5f9;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    :root[data-theme="dark"] {
+      --bg: linear-gradient(135deg, #0f172a, #111827);
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #374151;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a8a;
+      --result-bg: #1f2937;
+      --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .back-link {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top, 0px));
+      left: 12px;
+      z-index: 10;
+      padding: 0.45rem 0.75rem;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .back-link:hover {
+      filter: brightness(0.98);
+    }
+
+    .card {
+      width: min(100%, 560px);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .sub {
+      margin: 0.25rem 0 1rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      font-size: 1rem;
+      padding: 0.65rem 0.75rem;
+    }
+
+    input:focus,
+    select:focus,
+    button:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+    }
+
+    .swap {
+      cursor: pointer;
+      font-weight: 600;
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+    }
+
+    .result {
+      margin-top: 0.9rem;
+      background: var(--result-bg);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.9rem;
+    }
+
+    .result .big {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      word-break: break-word;
+      cursor: pointer;
+    }
+
+    .result .small {
+      margin-top: 0.4rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      word-break: break-word;
+    }
+
+    .copy-hint {
+      margin-top: 0.45rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .label-row label {
+      margin-bottom: 0;
+    }
+
+    .mini-swatch {
+      width: 1.15rem;
+      height: 1.15rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: repeating-linear-gradient(
+        45deg,
+        #e5e7eb 0 6px,
+        #f3f4f6 6px 12px
+      );
+      flex: 0 0 auto;
+    }
+
+    :root[data-theme="dark"] .mini-swatch {
+      background: repeating-linear-gradient(
+        45deg,
+        #374151 0 6px,
+        #4b5563 6px 12px
+      );
+    }
+
+    .named-picker {
+      position: relative;
+    }
+
+    .named-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .named-trigger .caret {
+      color: var(--muted);
+      font-size: 0.85rem;
+      flex: 0 0 auto;
+    }
+
+    .named-menu {
+      position: absolute;
+      z-index: 20;
+      left: 0;
+      right: 0;
+      margin: 0.35rem 0 0;
+      padding: 0.3rem;
+      list-style: none;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .named-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      padding: 0.45rem 0.5rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      cursor: pointer;
+    }
+
+    .named-item:hover,
+    .named-item:focus {
+      outline: none;
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+
+    .item-swatch {
+      width: 0.95rem;
+      height: 0.95rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      flex: 0 0 auto;
+    }
+
+    .item-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.92rem;
+    }
+
+    .swatch {
+      margin-top: 0.7rem;
+      width: 100%;
+      height: 2.4rem;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: repeating-linear-gradient(
+        45deg,
+        #e5e7eb 0 10px,
+        #f3f4f6 10px 20px
+      );
+      display: none;
+    }
+
+    :root[data-theme="dark"] .swatch {
+      background: repeating-linear-gradient(
+        45deg,
+        #374151 0 10px,
+        #4b5563 10px 20px
+      );
+    }
+
+    @media (max-width: 640px) {
+      body {
+        min-height: 100dvh;
+        padding: 0;
+      }
+
+      .card {
+        width: 100%;
+        min-height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+        padding:
+          calc(env(safe-area-inset-top, 0px) + 3.5rem)
+          1rem
+          max(1rem, env(safe-area-inset-bottom, 0px));
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Dashboard</a>
+
+  <main class="card">
+    <h1>Unit Converter</h1>
+    <p class="sub">Length, weight, volume, area, speed, temperature, and color.</p>
+
+    <section class="grid">
+      <div>
+        <label for="category">Category</label>
+        <select id="category" aria-label="Conversion category"></select>
+      </div>
+
+      <div>
+        <label for="valueInput">Value</label>
+        <input id="valueInput" type="number" inputmode="decimal" step="any" placeholder="Enter a value" />
+      </div>
+
+      <div id="namedColorWrap" class="hidden">
+        <div class="label-row">
+          <label for="namedColorButton">Named Color</label>
+          <span class="mini-swatch" id="namedColorSwatch" aria-hidden="true"></span>
+        </div>
+        <div class="named-picker">
+          <button
+            id="namedColorButton"
+            class="named-trigger"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+          >
+            <span id="namedColorLabel">Choose a named color...</span>
+            <span class="caret" aria-hidden="true">v</span>
+          </button>
+          <ul id="namedColorMenu" class="named-menu hidden" role="listbox" aria-label="Named color options"></ul>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="fromUnit">From</label>
+          <select id="fromUnit" aria-label="From unit"></select>
+        </div>
+        <div>
+          <label for="toUnit">To</label>
+          <select id="toUnit" aria-label="To unit"></select>
+        </div>
+      </div>
+
+      <div>
+        <button class="swap" id="swapBtn" type="button">Swap Units</button>
+      </div>
+    </section>
+
+    <section class="result" aria-live="polite">
+      <div class="big" id="resultValue" role="button" tabindex="0" title="Click to copy result">-</div>
+      <div class="small" id="resultMeta">Enter a value to convert.</div>
+      <div class="copy-hint" id="copyHint">Click result to copy</div>
+      <div class="swatch" id="colorSwatch" aria-hidden="true"></div>
+    </section>
+  </main>
+
+  <script>
+    const CATEGORIES = {
+      length: {
+        label: "Length",
+        base: "meter",
+        units: {
+          micrometer: { label: "Micrometer (um)", factor: 0.000001 },
+          centimillimeter: { label: "Centimillimeter (cmm)", factor: 0.00001 },
+          decimillimeter: { label: "Decimillimeter (dmm)", factor: 0.0001 },
+          millimeter: { label: "Millimeter (mm)", factor: 0.001 },
+          centimeter: { label: "Centimeter (cm)", factor: 0.01 },
+          decimeter: { label: "Decimeter (dm)", factor: 0.1 },
+          meter: { label: "Meter (m)", factor: 1 },
+          decameter: { label: "Decameter (dam)", factor: 10 },
+          hectometer: { label: "Hectometer (hm)", factor: 100 },
+          kilometer: { label: "Kilometer (km)", factor: 1000 },
+          mile: { label: "Mile (mi)", factor: 1609.344 },
+          yard: { label: "Yard (yd)", factor: 0.9144 },
+          foot: { label: "Foot (ft)", factor: 0.3048 },
+          inch: { label: "Inch (in)", factor: 0.0254 }
+        }
+      },
+      weight: {
+        label: "Weight",
+        base: "kilogram",
+        units: {
+          kilogram: { label: "Kilogram (kg)", factor: 1 },
+          gram: { label: "Gram (g)", factor: 0.001 },
+          pound: { label: "Pound (lb)", factor: 0.45359237 },
+          ounce: { label: "Ounce (oz)", factor: 0.028349523125 }
+        }
+      },
+      volume: {
+        label: "Volume",
+        base: "liter",
+        units: {
+          liter: { label: "Liter (L)", factor: 1 },
+          milliliter: { label: "Milliliter (mL)", factor: 0.001 },
+          gallon_us: { label: "US Gallon (gal)", factor: 3.785411784 },
+          quart_us: { label: "US Quart (qt)", factor: 0.946352946 },
+          cup_us: { label: "US Cup", factor: 0.2365882365 },
+          fluid_ounce_us: { label: "US Fluid Ounce (fl oz)", factor: 0.0295735295625 }
+        }
+      },
+      area: {
+        label: "Area",
+        units: {
+          square_millimeter: { label: "Square Millimeter (mm2)", factor: 0.000001 },
+          square_centimeter: { label: "Square Centimeter (cm2)", factor: 0.0001 },
+          square_meter: { label: "Square Meter (m2)", factor: 1 },
+          square_kilometer: { label: "Square Kilometer (km2)", factor: 1000000 },
+          square_inch: { label: "Square Inch (in2)", factor: 0.00064516 },
+          square_foot: { label: "Square Foot (ft2)", factor: 0.09290304 },
+          square_yard: { label: "Square Yard (yd2)", factor: 0.83612736 },
+          acre: { label: "Acre", factor: 4046.8564224 },
+          hectare: { label: "Hectare", factor: 10000 }
+        }
+      },
+      speed: {
+        label: "Speed",
+        units: {
+          meters_per_second: { label: "Meters per Second (m/s)", factor: 1 },
+          kilometers_per_hour: { label: "Kilometers per Hour (km/h)", factor: 0.2777777778 },
+          miles_per_hour: { label: "Miles per Hour (mph)", factor: 0.44704 },
+          knots: { label: "Knots (kn)", factor: 0.5144444444 },
+          feet_per_second: { label: "Feet per Second (ft/s)", factor: 0.3048 }
+        }
+      },
+      temperature: {
+        label: "Temperature",
+        units: {
+          celsius: {
+            label: "Celsius (C)",
+            toBase: (v) => v,
+            fromBase: (v) => v
+          },
+          fahrenheit: {
+            label: "Fahrenheit (F)",
+            toBase: (v) => (v - 32) * (5 / 9),
+            fromBase: (v) => (v * 9) / 5 + 32
+          },
+          kelvin: {
+            label: "Kelvin (K)",
+            toBase: (v) => v - 273.15,
+            fromBase: (v) => v + 273.15
+          }
+        }
+      },
+      color: {
+        label: "Color",
+        units: {
+          hex: { label: "HEX" },
+          rgb: { label: "RGB" },
+          hsl: { label: "HSL" },
+          cmyk: { label: "CMYK" }
+        }
+      }
+    };
+
+    const NAMED_COLORS = [
+      { name: "Black", hex: "#000000" },
+      { name: "White", hex: "#FFFFFF" },
+      { name: "Gray", hex: "#808080" },
+      { name: "Silver", hex: "#C0C0C0" },
+      { name: "Red", hex: "#FF0000" },
+      { name: "Maroon", hex: "#800000" },
+      { name: "Orange", hex: "#FFA500" },
+      { name: "Yellow", hex: "#FFFF00" },
+      { name: "Olive", hex: "#808000" },
+      { name: "Lime", hex: "#00FF00" },
+      { name: "Green", hex: "#008000" },
+      { name: "Teal", hex: "#008080" },
+      { name: "Aqua", hex: "#00FFFF" },
+      { name: "Turquoise", hex: "#40E0D0" },
+      { name: "Navy", hex: "#000080" },
+      { name: "Blue", hex: "#0000FF" },
+      { name: "Purple", hex: "#800080" },
+      { name: "Fuchsia", hex: "#FF00FF" },
+      { name: "Violet", hex: "#8A2BE2" },
+      { name: "Pink", hex: "#FFC0CB" },
+      { name: "Brown", hex: "#A52A2A" },
+      { name: "Tan", hex: "#D2B48C" },
+      { name: "Gold", hex: "#FFD700" },
+      { name: "Coral", hex: "#FF7F50" },
+      { name: "Indigo", hex: "#4B0082" }
+    ];
+
+    const categoryEl = document.getElementById("category");
+    const valueEl = document.getElementById("valueInput");
+    const fromEl = document.getElementById("fromUnit");
+    const toEl = document.getElementById("toUnit");
+    const resultValueEl = document.getElementById("resultValue");
+    const resultMetaEl = document.getElementById("resultMeta");
+    const swapBtn = document.getElementById("swapBtn");
+    const colorSwatchEl = document.getElementById("colorSwatch");
+    const copyHintEl = document.getElementById("copyHint");
+    const namedColorWrapEl = document.getElementById("namedColorWrap");
+    const namedColorButtonEl = document.getElementById("namedColorButton");
+    const namedColorLabelEl = document.getElementById("namedColorLabel");
+    const namedColorMenuEl = document.getElementById("namedColorMenu");
+    const namedColorSwatchEl = document.getElementById("namedColorSwatch");
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      }
+    }
+
+    function flashCopyHint(message) {
+      const prev = copyHintEl.textContent;
+      copyHintEl.textContent = message;
+      setTimeout(() => {
+        copyHintEl.textContent = prev;
+      }, 1200);
+    }
+
+    function formatNumber(value) {
+      if (!Number.isFinite(value)) return "-";
+      const abs = Math.abs(value);
+      if (abs >= 1e9 || (abs > 0 && abs < 1e-6)) return value.toExponential(6);
+      return value.toLocaleString(undefined, { maximumFractionDigits: 8 });
+    }
+
+    function currentCategory() {
+      return CATEGORIES[categoryEl.value];
+    }
+
+    function refillUnits() {
+      const cat = currentCategory();
+      const entries = Object.entries(cat.units);
+      const existingFrom = fromEl.value;
+      const existingTo = toEl.value;
+
+      fromEl.innerHTML = "";
+      toEl.innerHTML = "";
+
+      for (const [key, def] of entries) {
+        const optA = document.createElement("option");
+        optA.value = key;
+        optA.textContent = def.label;
+        fromEl.appendChild(optA);
+
+        const optB = document.createElement("option");
+        optB.value = key;
+        optB.textContent = def.label;
+        toEl.appendChild(optB);
+      }
+
+      fromEl.value = cat.units[existingFrom] ? existingFrom : entries[0][0];
+      toEl.value = cat.units[existingTo] ? existingTo : (entries[1] ? entries[1][0] : entries[0][0]);
+      updateInputUi();
+      updateResult();
+    }
+
+    function updateInputUi() {
+      if (categoryEl.value === "color") {
+        valueEl.type = "text";
+        valueEl.inputMode = "text";
+        valueEl.placeholder = "Examples: #FF6B00, rgb(255,107,0), hsl(25,100%,50%), cmyk(0,58,100,0)";
+        namedColorWrapEl.classList.remove("hidden");
+      } else {
+        valueEl.type = "number";
+        valueEl.inputMode = "decimal";
+        valueEl.placeholder = "Enter a value";
+        namedColorWrapEl.classList.add("hidden");
+      }
+    }
+
+    function initNamedColors() {
+      for (const item of NAMED_COLORS) {
+        const li = document.createElement("li");
+        li.setAttribute("role", "option");
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "named-item";
+        btn.dataset.hex = item.hex;
+        btn.dataset.name = item.name;
+
+        const sw = document.createElement("span");
+        sw.className = "item-swatch";
+        sw.style.background = item.hex;
+
+        const tx = document.createElement("span");
+        tx.className = "item-text";
+        tx.textContent = `${item.name} (${item.hex})`;
+
+        btn.appendChild(sw);
+        btn.appendChild(tx);
+        li.appendChild(btn);
+        namedColorMenuEl.appendChild(li);
+      }
+    }
+
+    function setNamedSwatch(hexValue) {
+      if (!hexValue) {
+        namedColorSwatchEl.style.background = "";
+        return;
+      }
+      namedColorSwatchEl.style.background = hexValue;
+    }
+
+    function setNamedLabel(text) {
+      namedColorLabelEl.textContent = text || "Choose a named color...";
+    }
+
+    function closeNamedColorMenu() {
+      namedColorMenuEl.classList.add("hidden");
+      namedColorButtonEl.setAttribute("aria-expanded", "false");
+    }
+
+    function toggleNamedColorMenu() {
+      const open = !namedColorMenuEl.classList.contains("hidden");
+      if (open) {
+        closeNamedColorMenu();
+        return;
+      }
+      namedColorMenuEl.classList.remove("hidden");
+      namedColorButtonEl.setAttribute("aria-expanded", "true");
+    }
+
+    function clearNamedColor() {
+      setNamedLabel("");
+      setNamedSwatch("");
+    }
+
+    function applyNamedColor(hexValue, colorName) {
+      if (!hexValue) return;
+      valueEl.value = hexValue;
+      fromEl.value = "hex";
+      setNamedLabel(`${colorName} (${hexValue})`);
+      setNamedSwatch(hexValue);
+      updateResult();
+    }
+
+    function clamp(v, min, max) {
+      return Math.min(Math.max(v, min), max);
+    }
+
+    function parseHex(input) {
+      const trimmed = input.trim();
+      const m = trimmed.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+      if (!m) return null;
+      let raw = m[1];
+      if (raw.length === 3) raw = raw.split("").map((c) => c + c).join("");
+      const r = parseInt(raw.slice(0, 2), 16);
+      const g = parseInt(raw.slice(2, 4), 16);
+      const b = parseInt(raw.slice(4, 6), 16);
+      return { r, g, b };
+    }
+
+    function parseRgb(input) {
+      const trimmed = input.trim();
+      const cleaned = trimmed
+        .replace(/^rgb\s*\(/i, "")
+        .replace(/\)$/, "");
+      const parts = cleaned.split(",").map((p) => p.trim());
+      if (parts.length !== 3) return null;
+      const nums = parts.map(Number);
+      if (nums.some((n) => !Number.isFinite(n))) return null;
+      const [r, g, b] = nums.map((n) => clamp(Math.round(n), 0, 255));
+      return { r, g, b };
+    }
+
+    function hslToRgb(h, s, l) {
+      const hue = ((h % 360) + 360) % 360;
+      const sat = clamp(s, 0, 100) / 100;
+      const lig = clamp(l, 0, 100) / 100;
+
+      const c = (1 - Math.abs(2 * lig - 1)) * sat;
+      const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+      const m = lig - c / 2;
+
+      let r1 = 0;
+      let g1 = 0;
+      let b1 = 0;
+
+      if (hue < 60) [r1, g1, b1] = [c, x, 0];
+      else if (hue < 120) [r1, g1, b1] = [x, c, 0];
+      else if (hue < 180) [r1, g1, b1] = [0, c, x];
+      else if (hue < 240) [r1, g1, b1] = [0, x, c];
+      else if (hue < 300) [r1, g1, b1] = [x, 0, c];
+      else [r1, g1, b1] = [c, 0, x];
+
+      return {
+        r: Math.round((r1 + m) * 255),
+        g: Math.round((g1 + m) * 255),
+        b: Math.round((b1 + m) * 255)
+      };
+    }
+
+    function parseHsl(input) {
+      const trimmed = input.trim();
+      const cleaned = trimmed
+        .replace(/^hsl\s*\(/i, "")
+        .replace(/\)$/, "")
+        .replace(/%/g, "");
+      const parts = cleaned.split(",").map((p) => p.trim());
+      if (parts.length !== 3) return null;
+      const h = Number(parts[0]);
+      const s = Number(parts[1]);
+      const l = Number(parts[2]);
+      if (![h, s, l].every(Number.isFinite)) return null;
+      return hslToRgb(h, s, l);
+    }
+
+    function parseCmyk(input) {
+      const trimmed = input.trim();
+      const cleaned = trimmed
+        .replace(/^cmyk\s*\(/i, "")
+        .replace(/\)$/, "")
+        .replace(/%/g, "");
+      const parts = cleaned.split(",").map((p) => p.trim());
+      if (parts.length !== 4) return null;
+      const nums = parts.map(Number);
+      if (nums.some((n) => !Number.isFinite(n))) return null;
+      const [c, m, y, k] = nums.map((n) => clamp(n, 0, 100) / 100);
+      return {
+        r: Math.round(255 * (1 - c) * (1 - k)),
+        g: Math.round(255 * (1 - m) * (1 - k)),
+        b: Math.round(255 * (1 - y) * (1 - k))
+      };
+    }
+
+    function rgbToHex({ r, g, b }) {
+      const hex = [r, g, b]
+        .map((v) => clamp(v, 0, 255).toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+      return `#${hex}`;
+    }
+
+    function rgbToHsl({ r, g, b }) {
+      const rn = r / 255;
+      const gn = g / 255;
+      const bn = b / 255;
+      const max = Math.max(rn, gn, bn);
+      const min = Math.min(rn, gn, bn);
+      const delta = max - min;
+      const l = (max + min) / 2;
+      let h = 0;
+      let s = 0;
+
+      if (delta !== 0) {
+        s = delta / (1 - Math.abs(2 * l - 1));
+        if (max === rn) h = ((gn - bn) / delta) % 6;
+        else if (max === gn) h = (bn - rn) / delta + 2;
+        else h = (rn - gn) / delta + 4;
+        h *= 60;
+      }
+      if (h < 0) h += 360;
+
+      return {
+        h: Math.round(h),
+        s: Math.round(s * 100),
+        l: Math.round(l * 100)
+      };
+    }
+
+    function rgbToCmyk({ r, g, b }) {
+      const rn = r / 255;
+      const gn = g / 255;
+      const bn = b / 255;
+      const k = 1 - Math.max(rn, gn, bn);
+      if (k >= 1) {
+        return { c: 0, m: 0, y: 0, k: 100 };
+      }
+      const c = (1 - rn - k) / (1 - k);
+      const m = (1 - gn - k) / (1 - k);
+      const y = (1 - bn - k) / (1 - k);
+      return {
+        c: Math.round(c * 100),
+        m: Math.round(m * 100),
+        y: Math.round(y * 100),
+        k: Math.round(k * 100)
+      };
+    }
+
+    function parseColorInput(raw, fromKey) {
+      if (fromKey === "hex") return parseHex(raw);
+      if (fromKey === "rgb") return parseRgb(raw);
+      if (fromKey === "hsl") return parseHsl(raw);
+      if (fromKey === "cmyk") return parseCmyk(raw);
+      return null;
+    }
+
+    function formatColorOutput(rgb, toKey) {
+      if (toKey === "hex") return rgbToHex(rgb);
+      if (toKey === "rgb") return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+      if (toKey === "cmyk") {
+        const cmyk = rgbToCmyk(rgb);
+        return `cmyk(${cmyk.c}%, ${cmyk.m}%, ${cmyk.y}%, ${cmyk.k}%)`;
+      }
+      const hsl = rgbToHsl(rgb);
+      return `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+    }
+
+    function updateColorResult(raw, fromKey, toKey) {
+      const rgb = parseColorInput(raw, fromKey);
+      if (!rgb) {
+        colorSwatchEl.style.display = "none";
+        resultValueEl.textContent = "Invalid color";
+        resultMetaEl.textContent = "Use HEX, RGB, HSL, or CMYK formats.";
+        return;
+      }
+
+      const output = formatColorOutput(rgb, toKey);
+      resultValueEl.textContent = output;
+      resultMetaEl.textContent = `Converted ${fromKey.toUpperCase()} to ${toKey.toUpperCase()}.`;
+      colorSwatchEl.style.display = "block";
+      colorSwatchEl.style.background = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+    }
+
+    function convertValue(inputValue, fromKey, toKey, cat) {
+      if (cat === CATEGORIES.temperature) {
+        const from = cat.units[fromKey];
+        const to = cat.units[toKey];
+        const baseValue = from.toBase(inputValue);
+        return to.fromBase(baseValue);
+      }
+
+      const fromFactor = cat.units[fromKey].factor;
+      const toFactor = cat.units[toKey].factor;
+      const baseValue = inputValue * fromFactor;
+      return baseValue / toFactor;
+    }
+
+    function updateResult() {
+      const raw = valueEl.value.trim();
+      if (!raw) {
+        resultValueEl.textContent = "-";
+        resultMetaEl.textContent = "Enter a value to convert.";
+        colorSwatchEl.style.display = "none";
+        return;
+      }
+
+      const cat = currentCategory();
+      const fromKey = fromEl.value;
+      const toKey = toEl.value;
+
+      if (cat === CATEGORIES.color) {
+        updateColorResult(raw, fromKey, toKey);
+        return;
+      }
+
+      const inputValue = Number(raw);
+      if (!Number.isFinite(inputValue)) {
+        resultValueEl.textContent = "Invalid number";
+        resultMetaEl.textContent = "Use a numeric value.";
+        colorSwatchEl.style.display = "none";
+        return;
+      }
+
+      const output = convertValue(inputValue, fromKey, toKey, cat);
+
+      resultValueEl.textContent = formatNumber(output);
+      resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${formatNumber(output)} ${cat.units[toKey].label}`;
+      colorSwatchEl.style.display = "none";
+    }
+
+    function swapUnits() {
+      const prev = fromEl.value;
+      fromEl.value = toEl.value;
+      toEl.value = prev;
+      updateResult();
+    }
+
+    function init() {
+      for (const [key, def] of Object.entries(CATEGORIES)) {
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = def.label;
+        categoryEl.appendChild(opt);
+      }
+
+      categoryEl.value = "length";
+      initNamedColors();
+      refillUnits();
+
+      categoryEl.addEventListener("change", refillUnits);
+      valueEl.addEventListener("input", updateResult);
+      fromEl.addEventListener("change", updateResult);
+      toEl.addEventListener("change", updateResult);
+      swapBtn.addEventListener("click", swapUnits);
+      namedColorButtonEl.addEventListener("click", () => {
+        toggleNamedColorMenu();
+      });
+      namedColorMenuEl.addEventListener("click", (event) => {
+        const btn = event.target.closest("button.named-item");
+        if (!btn) return;
+        applyNamedColor(btn.dataset.hex, btn.dataset.name);
+        closeNamedColorMenu();
+      });
+      document.addEventListener("click", (event) => {
+        if (!namedColorWrapEl.contains(event.target)) closeNamedColorMenu();
+      });
+      namedColorButtonEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggleNamedColorMenu();
+        }
+        if (event.key === "Escape") closeNamedColorMenu();
+      });
+      resultValueEl.addEventListener("click", async () => {
+        const value = resultValueEl.textContent.trim();
+        if (!value || value === "-" || value === "Invalid number" || value === "Invalid color") return;
+        const ok = await copyToClipboard(value);
+        flashCopyHint(ok ? "Copied" : "Copy failed");
+      });
+      resultValueEl.addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        const value = resultValueEl.textContent.trim();
+        if (!value || value === "-" || value === "Invalid number" || value === "Invalid color") return;
+        const ok = await copyToClipboard(value);
+        flashCopyHint(ok ? "Copied" : "Copy failed");
+      });
+      valueEl.addEventListener("input", () => {
+        if (categoryEl.value === "color") {
+          clearNamedColor();
+        }
+      });
+      categoryEl.addEventListener("change", () => {
+        if (categoryEl.value !== "color") {
+          closeNamedColorMenu();
+          clearNamedColor();
+        }
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
