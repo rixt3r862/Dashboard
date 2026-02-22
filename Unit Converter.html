@@ -193,6 +193,41 @@
       font-size: 0.8rem;
     }
 
+    .dual-output {
+      margin-top: 0.8rem;
+      border-top: 1px solid var(--line);
+      padding-top: 0.8rem;
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .dual-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dual-row .k {
+      font-size: 0.84rem;
+      color: var(--muted);
+      min-width: 4rem;
+    }
+
+    .dual-row input {
+      font-variant-numeric: tabular-nums;
+      padding: 0.45rem 0.6rem;
+    }
+
+    .copy-mini {
+      width: auto;
+      padding: 0.45rem 0.7rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+    }
+
     .hidden {
       display: none;
     }
@@ -404,6 +439,18 @@
       <div class="small" id="resultMeta">Enter a value to convert.</div>
       <div class="copy-hint" id="copyHint">Click result to copy</div>
       <div class="swatch" id="colorSwatch" aria-hidden="true"></div>
+      <div class="dual-output hidden" id="lengthDualOutput">
+        <div class="dual-row">
+          <span class="k">Decimal</span>
+          <input id="lengthDecimalValue" type="text" readonly aria-label="Length decimal result" />
+          <button id="copyLengthDecimal" class="copy-mini" type="button">Copy</button>
+        </div>
+        <div class="dual-row">
+          <span class="k">Fraction</span>
+          <input id="lengthFractionValue" type="text" readonly aria-label="Length fraction result" />
+          <button id="copyLengthFraction" class="copy-mini" type="button">Copy</button>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -534,6 +581,21 @@
       { name: "Indigo", hex: "#4B0082" }
     ];
 
+    const LENGTH_METRIC_UNITS = new Set([
+      "micrometer",
+      "centimillimeter",
+      "decimillimeter",
+      "millimeter",
+      "centimeter",
+      "decimeter",
+      "meter",
+      "decameter",
+      "hectometer",
+      "kilometer"
+    ]);
+
+    const LENGTH_IMPERIAL_UNITS = new Set(["mile", "yard", "foot", "inch"]);
+
     const categoryEl = document.getElementById("category");
     const valueEl = document.getElementById("valueInput");
     const fromEl = document.getElementById("fromUnit");
@@ -548,6 +610,11 @@
     const namedColorLabelEl = document.getElementById("namedColorLabel");
     const namedColorMenuEl = document.getElementById("namedColorMenu");
     const namedColorSwatchEl = document.getElementById("namedColorSwatch");
+    const lengthDualOutputEl = document.getElementById("lengthDualOutput");
+    const lengthDecimalValueEl = document.getElementById("lengthDecimalValue");
+    const lengthFractionValueEl = document.getElementById("lengthFractionValue");
+    const copyLengthDecimalEl = document.getElementById("copyLengthDecimal");
+    const copyLengthFractionEl = document.getElementById("copyLengthFraction");
 
     async function copyToClipboard(text) {
       try {
@@ -607,8 +674,13 @@
         toEl.appendChild(optB);
       }
 
-      fromEl.value = cat.units[existingFrom] ? existingFrom : entries[0][0];
-      toEl.value = cat.units[existingTo] ? existingTo : (entries[1] ? entries[1][0] : entries[0][0]);
+      if (categoryEl.value === "temperature") {
+        fromEl.value = "fahrenheit";
+        toEl.value = "celsius";
+      } else {
+        fromEl.value = cat.units[existingFrom] ? existingFrom : entries[0][0];
+        toEl.value = cat.units[existingTo] ? existingTo : (entries[1] ? entries[1][0] : entries[0][0]);
+      }
       updateInputUi();
       updateResult();
     }
@@ -696,6 +768,57 @@
 
     function clamp(v, min, max) {
       return Math.min(Math.max(v, min), max);
+    }
+
+    function gcd(a, b) {
+      let x = Math.abs(a);
+      let y = Math.abs(b);
+      while (y) {
+        const t = y;
+        y = x % y;
+        x = t;
+      }
+      return x || 1;
+    }
+
+    function toFractionString(value, maxDenominator = 16) {
+      if (!Number.isFinite(value)) return "-";
+      const sign = value < 0 ? "-" : "";
+      const abs = Math.abs(value);
+      let whole = Math.floor(abs);
+      const frac = abs - whole;
+
+      if (frac < 1e-10) return `${sign}${whole}`;
+
+      let numerator = Math.round(frac * maxDenominator);
+      let denominator = maxDenominator;
+
+      if (numerator === 0) return `${sign}${whole}`;
+      if (numerator === denominator) {
+        whole += 1;
+        numerator = 0;
+      }
+
+      if (numerator === 0) return `${sign}${whole}`;
+
+      const d = gcd(numerator, denominator);
+      numerator /= d;
+      denominator /= d;
+
+      if (whole === 0) return `${sign}${numerator}/${denominator}`;
+      return `${sign}${whole} ${numerator}/${denominator}`;
+    }
+
+    function clearLengthDualOutput() {
+      lengthDualOutputEl.classList.add("hidden");
+      lengthDecimalValueEl.value = "";
+      lengthFractionValueEl.value = "";
+    }
+
+    function isMetricToImperialLength(cat, fromKey, toKey) {
+      return cat === CATEGORIES.length &&
+        LENGTH_METRIC_UNITS.has(fromKey) &&
+        LENGTH_IMPERIAL_UNITS.has(toKey);
     }
 
     function parseHex(input) {
@@ -892,6 +1015,7 @@
         resultValueEl.textContent = "-";
         resultMetaEl.textContent = "Enter a value to convert.";
         colorSwatchEl.style.display = "none";
+        clearLengthDualOutput();
         return;
       }
 
@@ -901,6 +1025,7 @@
 
       if (cat === CATEGORIES.color) {
         updateColorResult(raw, fromKey, toKey);
+        clearLengthDualOutput();
         return;
       }
 
@@ -909,14 +1034,35 @@
         resultValueEl.textContent = "Invalid number";
         resultMetaEl.textContent = "Use a numeric value.";
         colorSwatchEl.style.display = "none";
+        clearLengthDualOutput();
         return;
       }
 
       const output = convertValue(inputValue, fromKey, toKey, cat);
 
-      resultValueEl.textContent = formatNumber(output);
-      resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${formatNumber(output)} ${cat.units[toKey].label}`;
+      if (cat === CATEGORIES.temperature) {
+        const rounded = Math.round(output);
+        resultValueEl.textContent = `${rounded}\u00B0`;
+        resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${rounded}\u00B0 ${cat.units[toKey].label}`;
+      } else if (cat === CATEGORIES.speed) {
+        const rounded = Math.round(output);
+        resultValueEl.textContent = String(rounded);
+        resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${rounded} ${cat.units[toKey].label}`;
+      } else {
+        resultValueEl.textContent = formatNumber(output);
+        resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${formatNumber(output)} ${cat.units[toKey].label}`;
+      }
       colorSwatchEl.style.display = "none";
+
+      if (isMetricToImperialLength(cat, fromKey, toKey)) {
+        const decimal = formatNumber(output);
+        const fraction = toFractionString(output, 16);
+        lengthDecimalValueEl.value = decimal;
+        lengthFractionValueEl.value = fraction;
+        lengthDualOutputEl.classList.remove("hidden");
+      } else {
+        clearLengthDualOutput();
+      }
     }
 
     function swapUnits() {
@@ -986,6 +1132,18 @@
           closeNamedColorMenu();
           clearNamedColor();
         }
+      });
+      copyLengthDecimalEl.addEventListener("click", async () => {
+        const text = lengthDecimalValueEl.value.trim();
+        if (!text) return;
+        const ok = await copyToClipboard(text);
+        flashCopyHint(ok ? "Decimal copied" : "Copy failed");
+      });
+      copyLengthFractionEl.addEventListener("click", async () => {
+        const text = lengthFractionValueEl.value.trim();
+        if (!text) return;
+        const ok = await copyToClipboard(text);
+        flashCopyHint(ok ? "Fraction copied" : "Copy failed");
       });
     }
 
