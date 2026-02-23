@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Date Math Tool</title>
+  <script>
+    (function () {
+      try {
+        const theme = localStorage.getItem("dash.theme");
+        if (theme === "dark" || theme === "light") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch {}
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --result-bg: #f1f5f9;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: linear-gradient(135deg, #0f172a, #111827);
+        --card: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --line: #374151;
+        --accent: #60a5fa;
+        --accent-soft: #1e3a8a;
+        --result-bg: #1f2937;
+        --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    :root[data-theme="light"] {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --result-bg: #f1f5f9;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    :root[data-theme="dark"] {
+      --bg: linear-gradient(135deg, #0f172a, #111827);
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #374151;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a8a;
+      --result-bg: #1f2937;
+      --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .back-link {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top, 0px));
+      left: 12px;
+      z-index: 10;
+      padding: 0.45rem 0.75rem;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      width: min(100%, 920px);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 1.1rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .sub {
+      margin: 0.2rem 0 1rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.9rem;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.8rem;
+      background: var(--result-bg);
+    }
+
+    .panel h2 {
+      margin: 0 0 0.7rem;
+      font-size: 1rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.55rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .date-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.45rem;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      font-size: 0.96rem;
+      padding: 0.6rem 0.7rem;
+    }
+
+    input:focus,
+    select:focus,
+    button:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+    }
+
+    .actions {
+      margin-top: 0.45rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+    }
+
+    .accent {
+      cursor: pointer;
+      font-weight: 600;
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+    }
+
+    .pick-btn {
+      width: auto;
+      min-width: 4.6rem;
+      cursor: pointer;
+      padding: 0.6rem 0.7rem;
+      background: var(--card);
+    }
+
+    .result {
+      margin-top: 0.65rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.65rem;
+      background: var(--card);
+    }
+
+    .result .big {
+      font-size: 1.24rem;
+      font-weight: 700;
+      word-break: break-word;
+      line-height: 1.25;
+    }
+
+    .result .small {
+      margin-top: 0.3rem;
+      color: var(--muted);
+      font-size: 0.84rem;
+      word-break: break-word;
+    }
+
+    .status {
+      margin-top: 0.45rem;
+      color: var(--muted);
+      font-size: 0.84rem;
+      min-height: 1.1rem;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        min-height: 100dvh;
+        padding: 0;
+      }
+
+      .card {
+        width: 100%;
+        min-height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+        padding:
+          calc(env(safe-area-inset-top, 0px) + 3.5rem)
+          1rem
+          max(1rem, env(safe-area-inset-bottom, 0px));
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Dashboard</a>
+
+  <main class="card">
+    <h1>Date Math Tool</h1>
+    <p class="sub">Add/subtract days, weeks, months, or years and calculate days between dates.</p>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Add / Subtract</h2>
+        <div>
+          <label for="baseDate">Base Date</label>
+          <div class="date-row">
+            <input id="baseDate" type="date" />
+            <button id="pickBaseDateBtn" class="pick-btn" type="button">Pick</button>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="amount">Amount</label>
+            <input id="amount" type="number" step="1" value="1" />
+          </div>
+          <div>
+            <label for="unit">Unit</label>
+            <select id="unit">
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label for="direction">Direction</label>
+          <select id="direction">
+            <option value="add">Add</option>
+            <option value="subtract">Subtract</option>
+          </select>
+        </div>
+        <div>
+          <label for="resultFormat">Result Format</label>
+          <select id="resultFormat">
+            <option value="iso">YYYY-MM-DD</option>
+            <option value="us">MM/DD/YYYY</option>
+            <option value="eu">DD/MM/YYYY</option>
+            <option value="long">Long (weekday, month day, year)</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button id="calcShiftBtn" class="accent" type="button">Calculate</button>
+          <button id="copyShiftBtn" type="button">Copy Result</button>
+        </div>
+        <div class="result">
+          <div class="big" id="shiftResult">-</div>
+          <div class="small" id="shiftMeta">Select a date and calculate.</div>
+        </div>
+        <div class="status" id="shiftStatus"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Days Between</h2>
+        <div class="row">
+          <div>
+            <label for="fromDate">From</label>
+            <div class="date-row">
+              <input id="fromDate" type="date" />
+              <button id="pickFromDateBtn" class="pick-btn" type="button">Pick</button>
+            </div>
+          </div>
+          <div>
+            <label for="toDate">To</label>
+            <div class="date-row">
+              <input id="toDate" type="date" />
+              <button id="pickToDateBtn" class="pick-btn" type="button">Pick</button>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="calcDiffBtn" class="accent" type="button">Calculate</button>
+          <button id="copyDiffBtn" type="button">Copy Result</button>
+        </div>
+        <div class="result">
+          <div class="big" id="diffResult">-</div>
+          <div class="small" id="diffMeta">Choose two dates and calculate.</div>
+        </div>
+        <div class="status" id="diffStatus"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const baseDateEl = document.getElementById("baseDate");
+    const amountEl = document.getElementById("amount");
+    const unitEl = document.getElementById("unit");
+    const directionEl = document.getElementById("direction");
+    const resultFormatEl = document.getElementById("resultFormat");
+    const pickBaseDateBtnEl = document.getElementById("pickBaseDateBtn");
+    const calcShiftBtnEl = document.getElementById("calcShiftBtn");
+    const copyShiftBtnEl = document.getElementById("copyShiftBtn");
+    const shiftResultEl = document.getElementById("shiftResult");
+    const shiftMetaEl = document.getElementById("shiftMeta");
+    const shiftStatusEl = document.getElementById("shiftStatus");
+
+    const fromDateEl = document.getElementById("fromDate");
+    const toDateEl = document.getElementById("toDate");
+    const pickFromDateBtnEl = document.getElementById("pickFromDateBtn");
+    const pickToDateBtnEl = document.getElementById("pickToDateBtn");
+    const calcDiffBtnEl = document.getElementById("calcDiffBtn");
+    const copyDiffBtnEl = document.getElementById("copyDiffBtn");
+    const diffResultEl = document.getElementById("diffResult");
+    const diffMetaEl = document.getElementById("diffMeta");
+    const diffStatusEl = document.getElementById("diffStatus");
+
+    function parseDateInput(value) {
+      if (!value) return null;
+      const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      const year = Number(m[1]);
+      const monthIndex = Number(m[2]) - 1;
+      const day = Number(m[3]);
+      const d = new Date(Date.UTC(year, monthIndex, day));
+      if (
+        d.getUTCFullYear() !== year ||
+        d.getUTCMonth() !== monthIndex ||
+        d.getUTCDate() !== day
+      ) return null;
+      return d;
+    }
+
+    function formatDateUtc(date) {
+      const y = date.getUTCFullYear();
+      const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(date.getUTCDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatDateLong(date) {
+      return new Intl.DateTimeFormat(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "short",
+        timeZone: "UTC"
+      }).format(date);
+    }
+
+    function formatDateByChoice(date) {
+      const mode = resultFormatEl.value;
+      const y = date.getUTCFullYear();
+      const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(date.getUTCDate()).padStart(2, "0");
+      if (mode === "iso") return `${y}-${m}-${d}`;
+      if (mode === "us") return `${m}/${d}/${y}`;
+      if (mode === "eu") return `${d}/${m}/${y}`;
+      return formatDateLong(date);
+    }
+
+    function openDatePicker(inputEl) {
+      if (typeof inputEl.showPicker === "function") {
+        inputEl.showPicker();
+        return;
+      }
+      inputEl.focus();
+      inputEl.click();
+    }
+
+    function daysInUtcMonth(year, monthIndex) {
+      return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+    }
+
+    function addMonthsUtc(date, months) {
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth();
+      const day = date.getUTCDate();
+
+      const targetMonthIndex = month + months;
+      const targetYear = year + Math.floor(targetMonthIndex / 12);
+      const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+      const dim = daysInUtcMonth(targetYear, targetMonth);
+      const clampedDay = Math.min(day, dim);
+      return new Date(Date.UTC(targetYear, targetMonth, clampedDay));
+    }
+
+    function shiftDate(baseDate, amount, unit, direction) {
+      const signed = direction === "subtract" ? -amount : amount;
+      const d = new Date(baseDate.getTime());
+      if (unit === "days") {
+        d.setUTCDate(d.getUTCDate() + signed);
+        return d;
+      }
+      if (unit === "weeks") {
+        d.setUTCDate(d.getUTCDate() + signed * 7);
+        return d;
+      }
+      if (unit === "months") {
+        return addMonthsUtc(d, signed);
+      }
+      return addMonthsUtc(d, signed * 12);
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      }
+    }
+
+    function setTodayDefaults() {
+      const now = new Date();
+      const todayUtc = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
+      ));
+      const iso = formatDateUtc(todayUtc);
+      baseDateEl.value = iso;
+      fromDateEl.value = iso;
+      toDateEl.value = iso;
+    }
+
+    function calculateShift() {
+      const base = parseDateInput(baseDateEl.value);
+      const amount = Number(amountEl.value);
+      const unit = unitEl.value;
+      const direction = directionEl.value;
+
+      if (!base || !Number.isFinite(amount)) {
+        shiftResultEl.textContent = "Invalid input";
+        shiftMetaEl.textContent = "Choose a valid date and amount.";
+        return null;
+      }
+
+      const result = shiftDate(base, amount, unit, direction);
+      const formatted = formatDateByChoice(result);
+      shiftResultEl.textContent = formatted;
+      shiftMetaEl.textContent = formatDateLong(result);
+      shiftStatusEl.textContent = "";
+      return formatted;
+    }
+
+    function calculateDiff() {
+      const from = parseDateInput(fromDateEl.value);
+      const to = parseDateInput(toDateEl.value);
+      if (!from || !to) {
+        diffResultEl.textContent = "Invalid input";
+        diffMetaEl.textContent = "Choose two valid dates.";
+        return null;
+      }
+
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const deltaDays = Math.round((to.getTime() - from.getTime()) / msPerDay);
+      const absDays = Math.abs(deltaDays);
+      diffResultEl.textContent = `${absDays} day${absDays === 1 ? "" : "s"}`;
+      const fromFmt = formatDateByChoice(from);
+      const toFmt = formatDateByChoice(to);
+      if (deltaDays === 0) {
+        diffMetaEl.textContent = `Both dates are the same day (${fromFmt}).`;
+      } else if (deltaDays > 0) {
+        diffMetaEl.textContent = `From ${fromFmt} to ${toFmt}. To date is after From date.`;
+      } else {
+        diffMetaEl.textContent = `From ${fromFmt} to ${toFmt}. To date is before From date.`;
+      }
+      diffStatusEl.textContent = "";
+      return `${absDays} day${absDays === 1 ? "" : "s"}`;
+    }
+
+    calcShiftBtnEl.addEventListener("click", calculateShift);
+    calcDiffBtnEl.addEventListener("click", calculateDiff);
+    resultFormatEl.addEventListener("change", () => {
+      calculateShift();
+      calculateDiff();
+    });
+    pickBaseDateBtnEl.addEventListener("click", () => openDatePicker(baseDateEl));
+    pickFromDateBtnEl.addEventListener("click", () => openDatePicker(fromDateEl));
+    pickToDateBtnEl.addEventListener("click", () => openDatePicker(toDateEl));
+
+    copyShiftBtnEl.addEventListener("click", async () => {
+      const text = shiftResultEl.textContent.trim();
+      if (!text || text === "-" || text === "Invalid input") {
+        shiftStatusEl.textContent = "Nothing to copy yet.";
+        return;
+      }
+      const ok = await copyToClipboard(text);
+      shiftStatusEl.textContent = ok ? "Result copied." : "Copy failed.";
+    });
+
+    copyDiffBtnEl.addEventListener("click", async () => {
+      const text = diffResultEl.textContent.trim();
+      if (!text || text === "-" || text === "Invalid input") {
+        diffStatusEl.textContent = "Nothing to copy yet.";
+        return;
+      }
+      const ok = await copyToClipboard(text);
+      diffStatusEl.textContent = ok ? "Result copied." : "Copy failed.";
+    });
+
+    setTodayDefaults();
+    calculateShift();
+    calculateDiff();
+  </script>
+</body>
+</html>
