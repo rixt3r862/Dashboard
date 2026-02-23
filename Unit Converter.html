@@ -628,19 +628,6 @@
       { name: "Indigo", hex: "#4B0082" }
     ];
 
-    const LENGTH_METRIC_UNITS = new Set([
-      "micrometer",
-      "centimillimeter",
-      "decimillimeter",
-      "millimeter",
-      "centimeter",
-      "decimeter",
-      "meter",
-      "decameter",
-      "hectometer",
-      "kilometer"
-    ]);
-
     const LENGTH_IMPERIAL_UNITS = new Set(["mile", "yard", "foot", "inch"]);
     const COOKING_US_UNITS = new Set([
       "teaspoon_us",
@@ -912,10 +899,8 @@
       lengthFractionValueEl.value = "";
     }
 
-    function isMetricToImperialLength(cat, fromKey, toKey) {
-      return cat === CATEGORIES.length &&
-        LENGTH_METRIC_UNITS.has(fromKey) &&
-        LENGTH_IMPERIAL_UNITS.has(toKey);
+    function shouldShowImperialLengthDualOutput(cat, toKey) {
+      return cat === CATEGORIES.length && LENGTH_IMPERIAL_UNITS.has(toKey);
     }
 
     function parseFractionalNumber(raw) {
@@ -1193,7 +1178,7 @@
       }
       colorSwatchEl.style.display = "none";
 
-      if (isMetricToImperialLength(cat, fromKey, toKey)) {
+      if (shouldShowImperialLengthDualOutput(cat, toKey)) {
         const decimal = formatNumber(output);
         const fraction = toFractionString(output, getSelectedFractionPrecision());
         lengthDecimalValueEl.value = decimal;
