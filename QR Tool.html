@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>QR Generator + Scanner</title>
+  <script>
+    (function () {
+      try {
+        const theme = localStorage.getItem("dash.theme");
+        if (theme === "dark" || theme === "light") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch {}
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --result-bg: #f1f5f9;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: linear-gradient(135deg, #0f172a, #111827);
+        --card: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --line: #374151;
+        --accent: #60a5fa;
+        --accent-soft: #1e3a8a;
+        --result-bg: #1f2937;
+        --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    :root[data-theme="light"] {
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --result-bg: #f1f5f9;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    :root[data-theme="dark"] {
+      --bg: linear-gradient(135deg, #0f172a, #111827);
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #374151;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a8a;
+      --result-bg: #1f2937;
+      --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .back-link {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top, 0px));
+      left: 12px;
+      z-index: 10;
+      padding: 0.45rem 0.75rem;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      width: min(100%, 860px);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 1.1rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .sub {
+      margin: 0.2rem 0 1rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 0.9rem;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.8rem;
+      background: var(--result-bg);
+    }
+
+    .panel h2 {
+      margin: 0 0 0.6rem;
+      font-size: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    textarea,
+    input,
+    button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      font-size: 0.96rem;
+      padding: 0.6rem 0.7rem;
+    }
+
+    textarea {
+      min-height: 7.5rem;
+      resize: vertical;
+    }
+
+    textarea:focus,
+    input:focus,
+    button:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+    }
+
+    .actions {
+      margin-top: 0.55rem;
+      display: grid;
+      gap: 0.45rem;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .accent {
+      cursor: pointer;
+      font-weight: 600;
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+    }
+
+    .qr-preview {
+      margin-top: 0.8rem;
+      min-height: 220px;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    #qrcode canvas,
+    #qrcode img {
+      width: 220px;
+      height: 220px;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .hint {
+      margin-top: 0.45rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .result {
+      margin-top: 0.75rem;
+    }
+
+    .result textarea {
+      min-height: 6rem;
+    }
+
+    .status {
+      margin-top: 0.45rem;
+      color: var(--muted);
+      font-size: 0.84rem;
+      min-height: 1.1rem;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        min-height: 100dvh;
+        padding: 0;
+      }
+
+      .card {
+        width: 100%;
+        min-height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+        padding:
+          calc(env(safe-area-inset-top, 0px) + 3.5rem)
+          1rem
+          max(1rem, env(safe-area-inset-bottom, 0px));
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Dashboard</a>
+
+  <main class="card">
+    <h1>QR Generator + Scanner</h1>
+    <p class="sub">Generate QR codes from text/URLs and scan QR images from files.</p>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Generate</h2>
+        <label for="qrInput">Text or URL</label>
+        <textarea id="qrInput" placeholder="Type text or paste a URL..."></textarea>
+        <div class="actions">
+          <button id="generateBtn" class="accent" type="button">Generate QR</button>
+          <button id="downloadBtn" type="button">Download PNG</button>
+        </div>
+        <div class="qr-preview">
+          <div id="qrcode">QR preview appears here</div>
+        </div>
+        <div class="hint">Tip: Keep text short for denser, easier-to-scan codes.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Scan</h2>
+        <label for="qrFile">Upload QR image</label>
+        <input id="qrFile" type="file" accept="image/*" />
+        <div class="actions">
+          <button id="scanBtn" class="accent" type="button">Scan Image</button>
+          <button id="copyBtn" type="button">Copy Decoded Text</button>
+        </div>
+        <div class="result">
+          <label for="scanOutput">Decoded result</label>
+          <textarea id="scanOutput" readonly placeholder="Scan result appears here..."></textarea>
+        </div>
+        <div id="scanStatus" class="status"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script>
+    const qrInputEl = document.getElementById("qrInput");
+    const generateBtnEl = document.getElementById("generateBtn");
+    const downloadBtnEl = document.getElementById("downloadBtn");
+    const qrcodeEl = document.getElementById("qrcode");
+    const qrFileEl = document.getElementById("qrFile");
+    const scanBtnEl = document.getElementById("scanBtn");
+    const copyBtnEl = document.getElementById("copyBtn");
+    const scanOutputEl = document.getElementById("scanOutput");
+    const scanStatusEl = document.getElementById("scanStatus");
+
+    let qrInstance = null;
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      }
+    }
+
+    function setScanStatus(message) {
+      scanStatusEl.textContent = message;
+    }
+
+    function generateQr() {
+      const value = qrInputEl.value.trim();
+      if (!value) return;
+
+      qrcodeEl.innerHTML = "";
+      qrInstance = new QRCode(qrcodeEl, {
+        text: value,
+        width: 220,
+        height: 220,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    function downloadQrPng() {
+      const canvas = qrcodeEl.querySelector("canvas");
+      const img = qrcodeEl.querySelector("img");
+      if (!canvas && !img) return;
+
+      const link = document.createElement("a");
+      link.download = "qr-code.png";
+      link.href = canvas ? canvas.toDataURL("image/png") : img.src;
+      link.click();
+    }
+
+    function readFileAsImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error("Unable to load image."));
+          image.src = reader.result;
+        };
+        reader.onerror = () => reject(new Error("Unable to read file."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function scanFile() {
+      const file = qrFileEl.files && qrFileEl.files[0];
+      if (!file) {
+        setScanStatus("Choose an image file first.");
+        return;
+      }
+
+      try {
+        setScanStatus("Scanning...");
+        const image = await readFileAsImage(file);
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        canvas.width = image.naturalWidth || image.width;
+        canvas.height = image.naturalHeight || image.height;
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (!code || !code.data) {
+          scanOutputEl.value = "";
+          setScanStatus("No QR code detected in that image.");
+          return;
+        }
+
+        scanOutputEl.value = code.data;
+        setScanStatus("QR code detected.");
+      } catch (err) {
+        scanOutputEl.value = "";
+        setScanStatus(err && err.message ? err.message : "Scan failed.");
+      }
+    }
+
+    generateBtnEl.addEventListener("click", generateQr);
+    qrInputEl.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        generateQr();
+      }
+    });
+    downloadBtnEl.addEventListener("click", downloadQrPng);
+    scanBtnEl.addEventListener("click", scanFile);
+    copyBtnEl.addEventListener("click", async () => {
+      const value = scanOutputEl.value.trim();
+      if (!value) {
+        setScanStatus("Nothing to copy yet.");
+        return;
+      }
+      const ok = await copyToClipboard(value);
+      setScanStatus(ok ? "Decoded text copied." : "Copy failed.");
+    });
+
+    qrInputEl.value = "https://example.com";
+    generateQr();
+  </script>
+</body>
+</html>
