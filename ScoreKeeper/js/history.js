@@ -297,6 +297,7 @@ export function createHistoryController(deps) {
       const swatch = document.createElement("span");
       swatch.className = "history-graph-legend-swatch";
       swatch.style.background = entry.color;
+      swatch.style.borderColor = entry.color;
       legendItem.appendChild(swatch);
       legendItem.append(document.createTextNode(entry.label));
       els.historyGraphLegend.appendChild(legendItem);

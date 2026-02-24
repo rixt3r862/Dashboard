@@ -309,6 +309,9 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
 #scoreboardCard.hearts-mode .history-graph-axis{
   stroke: rgba(254,202,202,.7);
 }
+#scoreboardCard.hearts-mode .history-graph-legend-item{
+  color: #000 !important;
+}
 #scoreboardCard.hearts-mode .history-graph-grid{
   stroke: rgba(254,202,202,.25);
 }
@@ -643,6 +646,7 @@ summary::-webkit-details-marker{ display:none; }
   width: 10px;
   height: 10px;
   border-radius: 999px;
+  border: 1px solid transparent;
 }
 .history-stats-wrap{
   margin-top: 10px;
@@ -755,6 +759,9 @@ summary::-webkit-details-marker{ display:none; }
 #scoreboardCard.phase10-mode .history-stats-table td{
   background: rgba(15,23,42,.08);
   border-bottom-color: rgba(148,163,184,.45);
+}
+#scoreboardCard.phase10-mode .history-graph-legend-item{
+  color: #000 !important;
 }
 #scoreboardCard.phase10-mode .history-table td{
   background: rgba(15,23,42,.08);
@@ -1343,6 +1350,36 @@ td .sub{
 
   .history-table{
     min-width: 0 !important;
+  }
+
+  #scoreboardCard,
+  #scoreboardCard *{
+    color: #000 !important;
+    text-shadow: none !important;
+  }
+  #scoreboardCard .history-graph-label{
+    fill: #000 !important;
+  }
+  #scoreboardCard .history-graph-legend-item,
+  #scoreboardCard .history-stats-table th,
+  #scoreboardCard .history-stats-table td{
+    color: #000 !important;
+  }
+  #scoreboardCard .history-stats-table th,
+  #scoreboardCard .history-stats-table td,
+  #scoreboardCard .history-graph-legend-item{
+    background: #fff !important;
+    border-color: #cbd5e1 !important;
+  }
+  #scoreboardCard .history-graph-axis{
+    stroke: #334155 !important;
+  }
+  #scoreboardCard .history-graph-grid{
+    stroke: #cbd5e1 !important;
+  }
+  #scoreboardCard .history-graph-legend-swatch{
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   th, td{
