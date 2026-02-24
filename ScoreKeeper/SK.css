@@ -1355,7 +1355,17 @@ td .sub{
   #scoreboardCard,
   #scoreboardCard *{
     color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
     text-shadow: none !important;
+  }
+  #scoreboardCard .name,
+  #scoreboardCard .sub,
+  #scoreboardCard .history-round-card-name,
+  #scoreboardCard .history-round-card-head,
+  #scoreboardCard .history-table th,
+  #scoreboardCard .history-table td{
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
   }
   #scoreboardCard .history-graph-label{
     fill: #000 !important;
