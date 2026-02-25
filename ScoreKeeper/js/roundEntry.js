@@ -374,7 +374,8 @@ export function createRoundEntryController(deps) {
       if (previewAction !== "input") return;
       const playerId = target.getAttribute("data-player-id");
       if (!playerId) return;
-      setRoundScoreInputValue(playerId, target.value);
+      setRoundScoreInputValue(playerId, target.value, { silent: true });
+      onRoundInputsChanged?.();
     });
 
     els.roundPreviewBody.addEventListener("keydown", (e) => {
@@ -383,6 +384,26 @@ export function createRoundEntryController(deps) {
       if (!(target instanceof HTMLInputElement)) return;
       if (target.getAttribute("data-preview-action") !== "input") return;
       e.preventDefault();
+      const playerId = target.getAttribute("data-player-id");
+      if (playerId) {
+        setRoundScoreInputValue(playerId, target.value, { silent: true });
+      }
+
+      const inputs = Array.from(
+        els.roundPreviewBody.querySelectorAll(
+          'input[data-preview-action="input"]',
+        ),
+      );
+      const currentIdx = inputs.indexOf(target);
+      if (currentIdx < 0) return;
+
+      const nextInput = inputs[currentIdx + 1];
+      if (nextInput instanceof HTMLInputElement) {
+        nextInput.focus();
+        nextInput.select();
+        return;
+      }
+
       onAddRound();
     });
 
