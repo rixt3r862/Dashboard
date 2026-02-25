@@ -67,6 +67,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     targetPill: $("targetPill"),
     roundPill: $("roundPill"),
     roundPreview: $("roundPreview"),
+    roundHeartsTotal: $("roundHeartsTotal"),
     roundPreviewBody: $("roundPreviewBody"),
     roundHelperBar: $("roundHelperBar"),
     roundHelperButtons: $("roundHelperButtons"),

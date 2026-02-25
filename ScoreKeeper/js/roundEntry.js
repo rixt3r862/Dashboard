@@ -38,6 +38,25 @@ export function createRoundEntryController(deps) {
     els.roundHelperForm.style.display = "none";
   }
 
+  function renderHeartsRoundTotal(scoresByPlayerId) {
+    if (!els.roundHeartsTotal) return;
+    if (!state.players.length || state.presetKey !== "hearts") {
+      els.roundHeartsTotal.hidden = true;
+      els.roundHeartsTotal.textContent = "";
+      return;
+    }
+    const total = state.players.reduce(
+      (sum, p) => sum + Number(scoresByPlayerId?.[p.id] ?? 0),
+      0,
+    );
+    const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
+    const isShootMoonTotal = shootMoonTotal > 26 && total === shootMoonTotal;
+    els.roundHeartsTotal.hidden = false;
+    els.roundHeartsTotal.textContent = isShootMoonTotal
+      ? `Round Total: ${total} (Shoot the Moon)`
+      : `Round Total: ${total} / 26`;
+  }
+
   function setRoundScoreInputValue(playerId, value, opts = {}) {
     const { silent = false } = opts;
     if (!state.players.some((p) => p.id === playerId)) return;
@@ -50,7 +69,9 @@ export function createRoundEntryController(deps) {
     if (!silent) {
       showMsg(els.roundMsg, "");
       renderRoundPreview();
+      return;
     }
+    renderHeartsRoundTotal(state.currentRoundScores);
   }
 
   function applyRoundScores(scoresByPlayerId) {
@@ -236,12 +257,14 @@ export function createRoundEntryController(deps) {
     if (!state.players.length) {
       els.roundPreview.style.display = "none";
       els.roundPreviewBody.innerHTML = "";
+      renderHeartsRoundTotal(null);
       onRoundInputsChanged?.();
       return;
     }
 
     els.roundPreview.style.display = "block";
     const scores = readRoundScores();
+    renderHeartsRoundTotal(scores);
     const isSkyjo = state.presetKey === "skyjo" && !isPhase10();
     const valueLabel = isPhase10() ? "Phase Completed" : "Score";
 
@@ -372,6 +395,16 @@ export function createRoundEntryController(deps) {
         return;
       }
       if (previewAction !== "input") return;
+      const playerId = target.getAttribute("data-player-id");
+      if (!playerId) return;
+      setRoundScoreInputValue(playerId, target.value, { silent: true });
+      onRoundInputsChanged?.();
+    });
+
+    els.roundPreviewBody.addEventListener("input", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.getAttribute("data-preview-action") !== "input") return;
       const playerId = target.getAttribute("data-player-id");
       if (!playerId) return;
       setRoundScoreInputValue(playerId, target.value, { silent: true });
