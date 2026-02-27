@@ -99,7 +99,8 @@
         {
           name: "ScoreKeeper",
           url: "./ScoreKeeper/app.html",
-          icon: "📊",
+          iconImg: "./ScoreKeeper/img/scorekeeper-favicon.svg",
+          icon: "♠️",
           desc: "Game score tracking utility",
         },
         {
@@ -270,7 +271,12 @@
         for (const item of list) {
           const node = tpl.content.firstElementChild.cloneNode(true);
           node.href = item.url;
-          node.querySelector("div .text-3xl").textContent = item.icon || "🔗";
+          const iconNode = node.querySelector("div .text-3xl");
+          if (item.iconImg) {
+            iconNode.innerHTML = `<img src="${item.iconImg}" alt="" aria-hidden="true" class="size-8 rounded-md object-contain" />`;
+          } else {
+            iconNode.textContent = item.icon || "🔗";
+          }
           node.querySelector("h2").textContent = item.name;
           node.querySelector("p.text-sm").textContent = item.desc || "";
           node.querySelector("p.text-xs").textContent = item.url;
