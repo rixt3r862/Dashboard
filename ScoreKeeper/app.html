@@ -51,9 +51,6 @@
         <button class="btn danger" id="btnNewGame" type="button" title="Start over">
           New Game
         </button>
-        <button class="btn" id="btnNewSame" type="button" title="Start a new game with the same players">
-          New Game (same players)
-        </button>
         <span class="pill" id="pillStatus"><strong>Status:</strong> Setup</span>
         <span class="pill" id="pillSaved" style="display: none"><strong>Saved:</strong> Yes</span>
       </div>
@@ -62,13 +59,52 @@
     <div class="banner" id="winnerBanner" role="status" aria-live="polite">
       <div class="big" id="winnerText">Winner:</div>
       <div class="small" id="winnerSub">Target reached.</div>
+      <ul class="winner-milestones" id="winnerMilestones" aria-label="Target winner milestones"></ul>
       <div class="actions">
+        <button class="btn" id="btnKeepGoing" type="button">
+          Continue Game
+        </button>
         <button class="btn primary" id="btnNewGame2" type="button">
           New Game
         </button>
         <button class="btn" id="btnNewSame2" type="button" title="Start a new game with the same players">
           New Game (same players)
         </button>
+      </div>
+    </div>
+
+    <div class="continue-modal" id="continueModal" hidden>
+      <div class="continue-modal-card" role="dialog" aria-modal="true" aria-labelledby="continueModalTitle">
+        <h3 id="continueModalTitle">Continue This Game</h3>
+        <p class="muted" id="continueModalContext">
+          The game has a winner. Choose how to continue.
+        </p>
+        <div class="field">
+          <label for="continueTargetPoints">New target (recommended)</label>
+          <input
+            id="continueTargetPoints"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            enterkeyhint="done"
+            autocomplete="off"
+            min="1"
+          />
+        </div>
+        <div class="continue-modal-actions">
+          <button class="btn primary" id="btnContinueRaiseTarget" type="button">
+            Raise target and continue
+          </button>
+          <button class="btn" id="btnContinueFreePlay" type="button">
+            Free play (no winner)
+          </button>
+          <button class="btn danger" id="btnContinueNewGame" type="button">
+            Start new game
+          </button>
+          <button class="btn" id="btnContinueCancel" type="button">
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
 

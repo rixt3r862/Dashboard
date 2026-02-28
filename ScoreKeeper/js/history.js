@@ -59,13 +59,66 @@ export function createHistoryController(deps) {
       }));
     }
 
-    const winner = determineWinnerFromTotals(entries);
-    if (winner) {
-      state.winnerId = winner;
-      state.mode = "finished";
-    } else {
+    const winnerMarker = (winnerId) => ({
+      winnerId,
+      roundN: state.rounds.length,
+      target: state.target,
+      ts: Date.now(),
+    });
+    const syncWinnerAnchors = () => {
+      if (!Array.isArray(state.winnerMilestones) || !state.winnerMilestones.length) {
+        state.firstWinnerAt = null;
+        state.finalWinnerAt = null;
+        return;
+      }
+      state.firstWinnerAt = state.winnerMilestones[0];
+      state.finalWinnerAt = state.winnerMilestones[state.winnerMilestones.length - 1];
+    };
+    const pruneMilestones = () => {
+      state.winnerMilestones = (state.winnerMilestones || []).filter(
+        (m) => Number.isInteger(m.roundN) && m.roundN >= 1 && m.roundN <= state.rounds.length,
+      );
+      syncWinnerAnchors();
+    };
+    const appendMilestone = (marker) => {
+      const last = state.winnerMilestones?.[state.winnerMilestones.length - 1];
+      if (
+        last &&
+        last.winnerId === marker.winnerId &&
+        last.roundN === marker.roundN &&
+        last.target === marker.target
+      ) {
+        return;
+      }
+      if (!Array.isArray(state.winnerMilestones)) state.winnerMilestones = [];
+      state.winnerMilestones.push(marker);
+      syncWinnerAnchors();
+    };
+    pruneMilestones();
+
+    if (state.gameState === "free_play") {
       state.winnerId = null;
       state.mode = state.players.length ? "playing" : "setup";
+    } else {
+      const winner = determineWinnerFromTotals(entries);
+      if (winner) {
+        state.winnerId = winner;
+        state.mode = "finished";
+        appendMilestone(winnerMarker(winner));
+        if (state.gameState !== "extended") {
+          state.gameState = "completed";
+        }
+      } else {
+        state.winnerId = null;
+        state.mode = state.players.length ? "playing" : "setup";
+        if (state.gameState === "extended") {
+          if (!state.winnerMilestones?.length) state.gameState = "in_progress";
+        } else {
+          state.gameState = "in_progress";
+          state.winnerMilestones = [];
+          syncWinnerAnchors();
+        }
+      }
     }
 
     state.bannerDismissed = true;
@@ -785,9 +838,23 @@ export function createHistoryController(deps) {
       tbl.appendChild(tbody);
     }
 
-    els.historySummaryText.textContent = state.rounds.length
+    const baseSummary = state.rounds.length
       ? `Round History (${state.rounds.length})`
       : "Round History (0)";
+    const winsCount = Array.isArray(state.winnerMilestones)
+      ? state.winnerMilestones.length
+      : 0;
+    if (state.gameState === "free_play") {
+      els.historySummaryText.textContent =
+        winsCount > 0
+          ? `${baseSummary} • Free Play • ${winsCount} target wins`
+          : `${baseSummary} • Free Play`;
+    } else if (winsCount > 0) {
+      const last = state.winnerMilestones[winsCount - 1];
+      els.historySummaryText.textContent = `${baseSummary} • ${winsCount} target wins • Last R${last.roundN}`;
+    } else {
+      els.historySummaryText.textContent = baseSummary;
+    }
     renderHistoryGraph();
   }
 

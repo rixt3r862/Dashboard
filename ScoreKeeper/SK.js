@@ -26,7 +26,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
   const els = {
     btnNewGame: $("btnNewGame"),
     btnPrint: $("btnPrint"),
-    btnNewSame: $("btnNewSame"),
     btnNewGame2: $("btnNewGame2"),
     btnNewSame2: $("btnNewSame2"),
     btnKeepGoing: $("btnKeepGoing"),
@@ -76,6 +75,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
     winnerBanner: $("winnerBanner"),
     winnerText: $("winnerText"),
     winnerSub: $("winnerSub"),
+    winnerMilestones: $("winnerMilestones"),
+    continueModal: $("continueModal"),
+    continueModalContext: $("continueModalContext"),
+    continueTargetPoints: $("continueTargetPoints"),
+    btnContinueRaiseTarget: $("btnContinueRaiseTarget"),
+    btnContinueFreePlay: $("btnContinueFreePlay"),
+    btnContinueNewGame: $("btnContinueNewGame"),
+    btnContinueCancel: $("btnContinueCancel"),
 
     scoreboardEmpty: $("scoreboardEmpty"),
     scoreboardArea: $("scoreboardArea"),
@@ -111,7 +118,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
         ![
           "teamPickerRow",
           "spadesPartnerLabel",
-          "btnNewSame",
           "btnNewSame2",
           "btnKeepGoing",
           "colHeadTotal",
@@ -137,6 +143,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     lastRoundScores: {}, // for display only
     currentRoundScores: {}, // in-progress round entry values
     winnerId: null, // playerId or teamId (depending on mode)
+    gameState: "in_progress", // in_progress | completed | extended | free_play
+    firstWinnerAt: null, // { winnerId, roundN, target, ts }
+    finalWinnerAt: null, // { winnerId, roundN, target, ts }
+    winnerMilestones: [], // [{ winnerId, roundN, target, ts }]
     sortByTotal: false,
     savedExists: false,
     bannerDismissed: false,
@@ -207,6 +217,208 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return Math.min(max, Math.max(min, n));
   }
 
+  function normalizeWinnerMarker(marker) {
+    if (!marker || typeof marker !== "object") return null;
+    const winnerId = typeof marker.winnerId === "string" ? marker.winnerId : null;
+    const roundN = Number.parseInt(marker.roundN, 10);
+    const target = Number.parseInt(marker.target, 10);
+    const ts = Number.parseInt(marker.ts, 10);
+    if (!winnerId || !Number.isInteger(roundN) || roundN < 1) return null;
+    return {
+      winnerId,
+      roundN,
+      target: Number.isInteger(target) && target > 0 ? target : state.target,
+      ts: Number.isInteger(ts) && ts > 0 ? ts : Date.now(),
+    };
+  }
+
+  function normalizeWinnerMilestones(list) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map(normalizeWinnerMarker)
+      .filter(Boolean)
+      .sort((a, b) => (a.roundN - b.roundN) || (a.ts - b.ts));
+  }
+
+  function syncWinnerAnchorsFromMilestones() {
+    if (!state.winnerMilestones.length) {
+      state.firstWinnerAt = null;
+      state.finalWinnerAt = null;
+      return;
+    }
+    state.firstWinnerAt = state.winnerMilestones[0];
+    state.finalWinnerAt = state.winnerMilestones[state.winnerMilestones.length - 1];
+  }
+
+  function pruneWinnerMilestonesByRound() {
+    state.winnerMilestones = state.winnerMilestones.filter(
+      (m) => Number.isInteger(m.roundN) && m.roundN >= 1 && m.roundN <= state.rounds.length,
+    );
+    syncWinnerAnchorsFromMilestones();
+  }
+
+  function appendWinnerMilestone(marker) {
+    const normalized = normalizeWinnerMarker(marker);
+    if (!normalized) return;
+    const last = state.winnerMilestones[state.winnerMilestones.length - 1];
+    if (
+      last &&
+      last.winnerId === normalized.winnerId &&
+      last.roundN === normalized.roundN &&
+      last.target === normalized.target
+    ) {
+      return;
+    }
+    state.winnerMilestones.push(normalized);
+    syncWinnerAnchorsFromMilestones();
+  }
+
+  function clearWinnerLifecycle() {
+    state.winnerId = null;
+    state.winnerMilestones = [];
+    syncWinnerAnchorsFromMilestones();
+    state.gameState = "in_progress";
+  }
+
+  function makeWinnerMarker(winnerId) {
+    return {
+      winnerId,
+      roundN: state.rounds.length,
+      target: state.target,
+      ts: Date.now(),
+    };
+  }
+
+  function buildWinnerEntries(playerTotals) {
+    if (state.teams) {
+      const teamTotals = totalsByTeamId(playerTotals);
+      return state.teams.map((t) => ({
+        id: t.id,
+        total: teamTotals[t.id] ?? 0,
+      }));
+    }
+    return state.players.map((p) => ({
+      id: p.id,
+      total: playerTotals[p.id] ?? 0,
+    }));
+  }
+
+  function suggestedContinueTarget() {
+    const playerTotals = totalsByPlayerId();
+    const entries = buildWinnerEntries(playerTotals);
+    const maxTotal = entries.reduce(
+      (max, e) => Math.max(max, Number(e.total) || 0),
+      0,
+    );
+    const bump = Math.max(1, Math.ceil((state.target || 0) * 0.1));
+    return Math.max(state.target + bump, maxTotal + 1);
+  }
+
+  function syncWinnerLifecycleAfterLoad() {
+    if (!state.players.length) {
+      clearWinnerLifecycle();
+      return;
+    }
+    pruneWinnerMilestonesByRound();
+
+    if (state.gameState === "free_play") {
+      state.mode = state.players.length ? "playing" : "setup";
+      state.winnerId = null;
+      return;
+    }
+
+    const playerTotals = totalsByPlayerId();
+    const entries = buildWinnerEntries(playerTotals);
+    const resolvedWinner = determineWinnerFromTotals(entries);
+
+    if (resolvedWinner) {
+      state.winnerId = resolvedWinner;
+      state.mode = "finished";
+      const marker = makeWinnerMarker(resolvedWinner);
+      appendWinnerMilestone(marker);
+      if (state.gameState !== "extended") {
+        state.gameState = "completed";
+      }
+      return;
+    }
+
+    state.winnerId = null;
+    state.mode = state.players.length ? "playing" : "setup";
+    if (state.gameState !== "extended") {
+      state.gameState = "in_progress";
+      state.winnerMilestones = [];
+      syncWinnerAnchorsFromMilestones();
+    } else {
+      if (!state.winnerMilestones.length) {
+        state.gameState = "in_progress";
+      }
+    }
+  }
+
+  function openContinueModal() {
+    if (state.mode !== "finished" || !state.winnerId || !els.continueModal) return;
+    const suggestedTarget = suggestedContinueTarget();
+    els.continueTargetPoints.value = String(suggestedTarget);
+    if (els.continueModalContext) {
+      const firstRound = state.firstWinnerAt?.roundN;
+      const firstTarget = state.firstWinnerAt?.target;
+      const firstLine =
+        firstRound && firstTarget
+          ? `Original winner declared in round ${firstRound} at target ${firstTarget}.`
+          : "A winner has already been declared.";
+      els.continueModalContext.textContent = `${firstLine} Choose how to continue.`;
+    }
+    els.continueModal.hidden = false;
+    els.continueModal.classList.add("is-open");
+    els.continueTargetPoints.focus();
+    els.continueTargetPoints.select?.();
+  }
+
+  function closeContinueModal() {
+    if (!els.continueModal) return;
+    els.continueModal.classList.remove("is-open");
+    els.continueModal.hidden = true;
+  }
+
+  function continueWithRaisedTarget() {
+    const nextTarget = clampInt(
+      els.continueTargetPoints.value,
+      APP_LIMITS.targetMin,
+      APP_LIMITS.targetMax,
+    );
+    if (!Number.isInteger(nextTarget) || nextTarget <= state.target) {
+      showMsg(
+        els.roundMsg,
+        `New target must be greater than current target (${state.target}).`,
+      );
+      return;
+    }
+    state.target = nextTarget;
+    state.mode = "playing";
+    state.winnerId = null;
+    state.gameState = "extended";
+    state.bannerDismissed = true;
+    closeContinueModal();
+    roundEntry.clearRoundInputs();
+    save();
+    applyPhase10UiText();
+    renderAll();
+    setLive(`Continuing game with new target ${nextTarget}.`);
+  }
+
+  function continueWithFreePlay() {
+    state.mode = "playing";
+    state.winnerId = null;
+    state.gameState = "free_play";
+    state.bannerDismissed = true;
+    closeContinueModal();
+    roundEntry.clearRoundInputs();
+    save();
+    applyPhase10UiText();
+    renderAll();
+    setLive("Continuing game in free-play mode.");
+  }
+
   function showMsg(el, text) {
     el.textContent = text;
     el.classList.toggle("show", !!text);
@@ -234,6 +446,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
         teams: state.teams,
         rounds: state.rounds,
         winnerId: state.winnerId,
+        gameState: state.gameState,
+        firstWinnerAt: state.firstWinnerAt,
+        finalWinnerAt: state.finalWinnerAt,
+        winnerMilestones: state.winnerMilestones,
         sortByTotal: state.sortByTotal,
         spadesPartnerIndex: state.spadesPartnerIndex,
         presetNote: state.presetNote,
@@ -298,6 +514,28 @@ import { createScoreboardController } from "./js/scoreboard.js";
             : null,
       }));
       state.winnerId = payload.winnerId || null;
+      state.gameState =
+        payload.gameState === "completed" ||
+        payload.gameState === "extended" ||
+        payload.gameState === "free_play"
+          ? payload.gameState
+          : "in_progress";
+      state.winnerMilestones = normalizeWinnerMilestones(payload.winnerMilestones);
+      if (!state.winnerMilestones.length) {
+        const first = normalizeWinnerMarker(payload.firstWinnerAt);
+        const final = normalizeWinnerMarker(payload.finalWinnerAt);
+        if (first) state.winnerMilestones.push(first);
+        if (
+          final &&
+          (!first ||
+            final.winnerId !== first.winnerId ||
+            final.roundN !== first.roundN ||
+            final.target !== first.target)
+        ) {
+          state.winnerMilestones.push(final);
+        }
+      }
+      syncWinnerAnchorsFromMilestones();
       state.sortByTotal = !!payload.sortByTotal;
 
       state.lastRoundScores = state.rounds.length
@@ -330,6 +568,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
         typeof payload.presetNote === "string"
           ? payload.presetNote
           : PRESETS[state.presetKey]?.notes || "";
+      syncWinnerLifecycleAfterLoad();
+      closeContinueModal();
 
       els.presetSelect.value = state.presetKey;
       updateWinModeText();
@@ -354,7 +594,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.rounds = [];
     state.lastRoundScores = {};
     state.currentRoundScores = {};
-    state.winnerId = null;
+    clearWinnerLifecycle();
     state.sortByTotal = false;
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
@@ -373,6 +613,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
+    closeContinueModal();
 
     renderSetupInputs(false);
     renderAll();
@@ -415,7 +656,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundScores = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
-    state.winnerId = null;
+    clearWinnerLifecycle();
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
@@ -423,6 +664,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
+    closeContinueModal();
 
     save();
     applyPhase10UiText();
@@ -510,7 +752,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     // re-evaluate whether this game uses teams (e.g., switching to/from Spades).
     if (state.mode === "playing" && state.rounds.length === 0) {
       state.teams = buildTeamsIfNeeded(state.players);
-      state.winnerId = null;
+      clearWinnerLifecycle();
     }
 
     maybeRenderTeamPreview();
@@ -796,7 +1038,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundScores = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
-    state.winnerId = null;
+    clearWinnerLifecycle();
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
@@ -804,6 +1046,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
+    closeContinueModal();
 
     save();
     applyPhase10UiText();
@@ -848,6 +1091,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function determineWinnerFromTotals(entries) {
+    if (state.gameState === "free_play") return null;
     return resolveWinnerFromTotals(entries, state.winMode, state.target);
   }
 
@@ -1015,28 +1259,25 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.skyjoCurrentRoundWentOutPlayerId = null;
 
     const playerTotals = totalsByPlayerId();
-    let entries = [];
-
-    if (state.teams) {
-      const teamTotals = totalsByTeamId(playerTotals);
-      entries = state.teams.map((t) => ({
-        id: t.id,
-        total: teamTotals[t.id] ?? 0,
-      }));
-    } else {
-      entries = state.players.map((p) => ({
-        id: p.id,
-        total: playerTotals[p.id] ?? 0,
-      }));
-    }
-
-    const w = determineWinnerFromTotals(entries);
+    const entries = buildWinnerEntries(playerTotals);
+    const w =
+      state.gameState === "free_play"
+        ? null
+        : determineWinnerFromTotals(entries);
     if (w) {
       state.winnerId = w;
       state.mode = "finished";
+      const marker = makeWinnerMarker(w);
+      appendWinnerMilestone(marker);
+      if (state.gameState !== "extended") {
+        state.gameState = "completed";
+      }
       state.bannerDismissed = false;
       setLive(`Winner declared: ${entityName(w)}.`);
     } else {
+      if (state.gameState !== "free_play" && !state.winnerMilestones.length) {
+        state.gameState = "in_progress";
+      }
       if (state.presetKey === "skyjo" && round.skyjoWentOutPlayerId) {
         setLive(
           `Round ${nextN} added. ${entityName(round.skyjoWentOutPlayerId)} went out this round.`,
@@ -1064,12 +1305,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundScores = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
-    state.winnerId = null;
-    state.mode = state.players.length ? "playing" : "setup";
+    syncWinnerLifecycleAfterLoad();
     state.bannerDismissed = true;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
     state.skyjoCurrentRoundWentOutPlayerId = null;
+    closeContinueModal();
 
     save();
     applyPhase10UiText();
@@ -1111,12 +1352,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.targetPill.textContent = String(state.target);
     els.roundPill.textContent = String(state.rounds.length + 1);
 
-    const statusText =
-      state.mode === "setup"
-        ? "Setup"
-        : state.mode === "playing"
-          ? "Playing"
-          : "Finished";
+    let statusText = "Setup";
+    if (state.mode === "playing") {
+      if (state.gameState === "free_play") statusText = "Playing (Free Play)";
+      else if (state.gameState === "extended") statusText = "Playing (Extended)";
+      else statusText = "Playing";
+    } else if (state.mode === "finished") {
+      statusText =
+        state.gameState === "extended" ? "Finished (Extended)" : "Finished";
+    }
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
 
     if (playing && state.players.length) {
@@ -1236,6 +1480,61 @@ import { createScoreboardController } from "./js/scoreboard.js";
     newGame();
   });
 
+  if (els.btnKeepGoing) {
+    els.btnKeepGoing.addEventListener("click", (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      openContinueModal();
+    });
+  }
+  if (els.btnContinueRaiseTarget) {
+    els.btnContinueRaiseTarget.addEventListener("click", (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      continueWithRaisedTarget();
+    });
+  }
+  if (els.btnContinueFreePlay) {
+    els.btnContinueFreePlay.addEventListener("click", (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      continueWithFreePlay();
+    });
+  }
+  if (els.btnContinueNewGame) {
+    els.btnContinueNewGame.addEventListener("click", (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      closeContinueModal();
+      clearSaved();
+      newGame();
+    });
+  }
+  if (els.btnContinueCancel) {
+    els.btnContinueCancel.addEventListener("click", (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      closeContinueModal();
+    });
+  }
+  if (els.continueTargetPoints) {
+    els.continueTargetPoints.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.isComposing) return;
+      e.preventDefault();
+      continueWithRaisedTarget();
+    });
+  }
+  if (els.continueModal) {
+    els.continueModal.addEventListener("click", (e) => {
+      if (e.target === els.continueModal) closeContinueModal();
+    });
+  }
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && els.continueModal && !els.continueModal.hidden) {
+      closeContinueModal();
+    }
+  });
+
   let historyOpenBeforePrint = false;
   window.addEventListener("beforeprint", () => {
     historyOpenBeforePrint = !!els.historyDetails?.open;
@@ -1251,14 +1550,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (els.historyDetails) els.historyDetails.open = true;
     window.print();
   });
-
-  if (els.btnNewSame) {
-    els.btnNewSame.addEventListener("click", (e) => {
-      e?.preventDefault?.();
-      e?.stopPropagation?.();
-      newGameSamePlayers();
-    });
-  }
 
   if (els.btnNewSame2) {
     els.btnNewSame2.addEventListener("click", (e) => {

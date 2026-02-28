@@ -145,10 +145,26 @@ export function createScoreboardController(deps) {
         state.winMode === "low"
           ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
           : `Target was ${state.target}. First to reach the target wins.`;
-      els.winnerSub.textContent = `🎉 ${winnerCongratsLine(name)} ${rulesLine}`;
+      const summaryParts = [
+        `🎉 ${winnerCongratsLine(name)}`,
+        rulesLine,
+      ].filter(Boolean);
+      els.winnerSub.textContent = summaryParts.join(" ");
+      if (els.winnerMilestones) {
+        const items = (state.winnerMilestones || [])
+          .map((m) => {
+            const winnerName = entityName(m.winnerId);
+            return `<li>Target ${m.target}: ${escapeHtml(winnerName)} (Round ${m.roundN})</li>`;
+          })
+          .join("");
+        els.winnerMilestones.innerHTML = items;
+      }
 
       els.winnerBanner.classList.add("show");
     } else {
+      if (els.winnerMilestones) {
+        els.winnerMilestones.innerHTML = "";
+      }
       els.winnerBanner.classList.remove("show");
     }
   }
