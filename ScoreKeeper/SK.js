@@ -633,18 +633,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return;
     }
 
-    // Keep preset + target settings as-is (or fall back to current target input)
-    const target =
-      Number.isInteger(state.target) && state.target > 0
-        ? state.target
-        : clampInt(
-            els.targetPoints.value,
-            APP_LIMITS.targetMin,
-            APP_LIMITS.targetMax,
-          );
+    // Reset target to the original app default for a fresh same-players game.
+    const target = APP_LIMITS.defaultTarget;
 
     state.mode = "playing";
     state.target = target;
+    els.targetPoints.value = String(target);
 
     // Fresh IDs prevent “stale input bindings”
     state.players = names.map((name) => ({ id: uid(), name }));
@@ -1535,19 +1529,56 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
   });
 
+  const viewportMeta = document.querySelector('meta[name="viewport"]');
+  const viewportContentOriginal = viewportMeta?.getAttribute("content") || null;
+  let postPrintNormalizeTimer = null;
+  function normalizeAfterPrintView() {
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLSelectElement ||
+      active instanceof HTMLTextAreaElement ||
+      active instanceof HTMLButtonElement
+    ) {
+      active.blur();
+    }
+
+    // Best-effort fix for browsers that can return from print at a magnified viewport scale.
+    const scale = window.visualViewport?.scale || 1;
+    if (viewportMeta && viewportContentOriginal && scale > 1.05) {
+      viewportMeta.setAttribute(
+        "content",
+        "width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover",
+      );
+      setTimeout(() => {
+        viewportMeta.setAttribute("content", viewportContentOriginal);
+      }, 160);
+    }
+  }
+
   let historyOpenBeforePrint = false;
   window.addEventListener("beforeprint", () => {
+    if (postPrintNormalizeTimer) {
+      clearTimeout(postPrintNormalizeTimer);
+      postPrintNormalizeTimer = null;
+    }
     historyOpenBeforePrint = !!els.historyDetails?.open;
     if (els.historyDetails) els.historyDetails.open = true;
   });
   window.addEventListener("afterprint", () => {
     if (els.historyDetails) els.historyDetails.open = historyOpenBeforePrint;
+    normalizeAfterPrintView();
   });
 
   els.btnPrint.addEventListener("click", () => {
     if (!state.players.length) return;
     historyOpenBeforePrint = !!els.historyDetails?.open;
     if (els.historyDetails) els.historyDetails.open = true;
+    // Fallback for engines that skip afterprint.
+    postPrintNormalizeTimer = setTimeout(() => {
+      normalizeAfterPrintView();
+      postPrintNormalizeTimer = null;
+    }, 700);
     window.print();
   });
 
