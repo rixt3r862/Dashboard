@@ -18,14 +18,76 @@ export function createScoreboardController(deps) {
   } = deps;
 
   function winnerCongratsLine(name) {
-    const lines = [
+    const commonLines = [
       `Great game, ${name}!`,
-      `${name}, you crushed it.`,
       `${name} takes the win.`,
       `Nice finish, ${name}.`,
       `${name} on top. Well played.`,
+      `${name} came through in the clutch.`,
+      `${name} seals it. Great match.`,
+      `${name} closes it out in style.`,
+      `${name} finishes strong.`,
+      `${name} gets it done.`,
+      `${name} claims the crown.`,
+      `${name} understood the assignment.`,
+      `${name} chose chaos and it worked.`,
+      `${name} just unlocked expert mode.`,
     ];
-    const seed = `${state.winnerId || ""}-${state.rounds.length}`;
+    const playerLines = [
+      `${name}, you crushed it.`,
+      `${name} takes it at the wire.`,
+      `${name} outlasted the table.`,
+      `${name} stayed steady and took it home.`,
+      `${name} found another gear and won.`,
+      `${name} brought snacks and a winning strategy.`,
+      `${name} checked the scoreboard and took it personally.`,
+      `${name} made it look suspiciously easy.`,
+    ];
+    const teamLines = [
+      `${name} take the table together.`,
+      `${name} lock it up as a team.`,
+      `${name} close this one out together.`,
+      `${name} stayed in sync and got the win.`,
+      `${name} execute and take first.`,
+      `${name} came, saw, and high-fived.`,
+      `${name} ran this like a group project that actually worked.`,
+      `${name} proved teamwork is still overpowered.`,
+    ];
+    const lowModeLines = [
+      `${name} played it smart and wins low.`,
+      `${name} kept it clean and takes the low-score win.`,
+      `${name} managed the board and earned it.`,
+      `${name} made every point count and wins low.`,
+      `${name} stayed efficient and got it done.`,
+      `${name} won by doing less, expertly.`,
+      `${name} dodged points like a pro.`,
+    ];
+    const highModeLines = [
+      `${name} hit the mark and never looked back.`,
+      `${name} reached the target first and held on.`,
+      `${name} kept the pressure on and took it.`,
+      `${name} pushed ahead and finished first.`,
+      `${name} timed the finish perfectly.`,
+      `${name} put up numbers like it was a speedrun.`,
+      `${name} stepped on the gas and left no doubt.`,
+    ];
+    const extendedLines = [
+      `${name} hits the new target and wins again.`,
+      `${name} keeps rolling in the extended game.`,
+      `${name} takes the extra stretch too.`,
+      `${name} wins the extended run in style.`,
+      `${name} closes out the longer game.`,
+      `${name} said one more round and meant ten.`,
+      `${name} had enough stamina for overtime and then some.`,
+    ];
+
+    const lines = [
+      ...commonLines,
+      ...(state.teams ? teamLines : playerLines),
+      ...(state.winMode === "low" ? lowModeLines : highModeLines),
+      ...(state.gameState === "extended" ? extendedLines : []),
+    ];
+    const seed = `${state.winnerId || ""}-${state.rounds.length}-${state.target}-${state.winMode}-${state.gameState}-${state.teams ? "teams" : "players"}`;
     let hash = 0;
     for (let i = 0; i < seed.length; i += 1) {
       hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
