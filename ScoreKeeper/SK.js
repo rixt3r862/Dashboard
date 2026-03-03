@@ -304,14 +304,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function suggestedContinueTarget() {
-    const playerTotals = totalsByPlayerId();
-    const entries = buildWinnerEntries(playerTotals);
-    const maxTotal = entries.reduce(
-      (max, e) => Math.max(max, Number(e.total) || 0),
-      0,
-    );
-    const bump = Math.max(1, Math.ceil((state.target || 0) * 0.1));
-    return Math.max(state.target + bump, maxTotal + 1);
+    const baseTarget = Number.isInteger(state.target)
+      ? state.target
+      : APP_LIMITS.defaultTarget;
+    // Recommend the next higher 50-point milestone for continued play.
+    return Math.ceil((baseTarget + 1) / 50) * 50;
   }
 
   function syncWinnerLifecycleAfterLoad() {

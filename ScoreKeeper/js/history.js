@@ -34,6 +34,7 @@ export function createHistoryController(deps) {
   } = deps;
 
   function recalcAfterHistoryChange(liveText) {
+    // History edits can reorder/remove rounds, so reindex round numbers first.
     state.rounds.forEach((r, i) => {
       r.n = i + 1;
     });
@@ -59,6 +60,7 @@ export function createHistoryController(deps) {
       }));
     }
 
+    // Persist a target-aware winner timeline so "continue game" context stays meaningful.
     const winnerMarker = (winnerId) => ({
       winnerId,
       roundN: state.rounds.length,
@@ -96,6 +98,7 @@ export function createHistoryController(deps) {
     };
     pruneMilestones();
 
+    // Free-play keeps scoring and history, but intentionally has no active winner state.
     if (state.gameState === "free_play") {
       state.winnerId = null;
       state.mode = state.players.length ? "playing" : "setup";
@@ -140,6 +143,7 @@ export function createHistoryController(deps) {
   }
 
   function adjustedRoundScoresForGraph(round) {
+    // Graph and stats should match rules-adjusted scores (for SkyJo doubles, etc.).
     if (state.presetKey === "skyjo") {
       return adjustSkyjoRoundScores(state.players, round);
     }
@@ -155,6 +159,7 @@ export function createHistoryController(deps) {
     if (!state.rounds.length || !state.players.length) return [];
 
     if (state.teams?.length) {
+      // Team graphs are cumulative sums of member round scores.
       const totalsByTeam = Object.fromEntries(state.teams.map((t) => [t.id, 0]));
       return state.teams.map((team, idx) => {
         const values = [];
@@ -176,6 +181,7 @@ export function createHistoryController(deps) {
     }
 
     const totalsByPlayer = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    // Player graphs are cumulative per-round totals to highlight trajectory.
     return state.players.map((player, idx) => {
       const values = [];
       for (const round of state.rounds) {
@@ -367,6 +373,7 @@ export function createHistoryController(deps) {
   }
 
   function roundScoresByEntity() {
+    // Stats rows use round deltas (not cumulative totals), grouped by entity type.
     const rounds = state.rounds.map((round) => adjustedRoundScoresForGraph(round));
     if (state.teams?.length) {
       return state.teams.map((team) => ({

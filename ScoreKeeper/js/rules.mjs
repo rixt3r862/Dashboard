@@ -45,12 +45,15 @@ export function totalsByTeamId(teams, playerTotals) {
 
 export function determineWinnerFromTotals(entries, winMode, target) {
   if (winMode === "low") {
+    // "Low wins" games only end once someone reaches/passes target.
     const gameOver = entries.some((x) => (x.total ?? 0) >= target);
     if (!gameOver) return null;
+    // Once game-over is triggered, lowest cumulative score wins.
     const sorted = [...entries].sort((a, b) => (a.total ?? 0) - (b.total ?? 0));
     return sorted[0]?.id ?? null;
   }
 
+  // "High wins" games require crossing target and picking the highest eligible total.
   const eligible = entries.filter((x) => (x.total ?? 0) >= target);
   if (!eligible.length) return null;
   eligible.sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
@@ -72,6 +75,7 @@ export function normalizeHeartsShootMoonScores(players, scores) {
     }),
   );
 
+  // Apply "shoot the moon" only for a single exact 26/0...0 pattern.
   const shooters = ids.filter((id) => normalized[id] === 26);
   if (shooters.length !== 1) {
     return { scores: normalized, shooterId: null };
@@ -141,6 +145,7 @@ export function validateRoundScores({
 
   const warnings = [];
   if (presetKey === "hearts") {
+    // Hearts totals outside normal/shoot-moon expectations are warnings, not hard errors.
     const total = players.reduce((sum, p) => sum + Number(scores[p.id] ?? 0), 0);
     const normalTotal = 26;
     const shootMoonTotal = 26 * Math.max(0, players.length - 1);
