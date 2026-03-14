@@ -64,6 +64,160 @@
       html.dark p.text-xs {
         color: #a1a1aa;
       }
+
+      .app-shell {
+        position: relative;
+      }
+      .pin-btn {
+        position: absolute;
+        top: 0.9rem;
+        right: 0.9rem;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        border: 1px solid rgba(161, 161, 170, 0.35);
+        background: rgba(255, 255, 255, 0.92);
+        color: #52525b;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+      }
+      .pin-btn:hover {
+        background: #ffffff;
+        color: #18181b;
+      }
+      .pin-btn.is-pinned {
+        border-color: rgba(79, 70, 229, 0.45);
+        background: rgba(224, 231, 255, 0.96);
+        color: #3730a3;
+      }
+      html.dark .pin-btn {
+        border-color: rgba(82, 82, 91, 0.9);
+        background: rgba(24, 24, 27, 0.96);
+        color: #d4d4d8;
+        box-shadow: none;
+      }
+      html.dark .pin-btn:hover {
+        background: #09090b;
+        color: #fafafa;
+      }
+      html.dark .pin-btn.is-pinned {
+        border-color: rgba(129, 140, 248, 0.5);
+        background: rgba(49, 46, 129, 0.7);
+        color: #e0e7ff;
+      }
+      .smart-section-card {
+        color: #18181b;
+        border: 1px solid rgba(228, 228, 231, 0.8);
+        background:
+          radial-gradient(circle at top left, rgba(224, 231, 255, 0.9), transparent 42%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 244, 245, 0.86));
+      }
+      .smart-section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .smart-kicker {
+        color: #71717a;
+      }
+      .smart-title {
+        color: #18181b;
+      }
+      .smart-body,
+      .smart-empty {
+        color: #52525b;
+      }
+      .smart-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      html.dark .smart-section-card {
+        color: #f5f5f5;
+        border-color: rgba(82, 82, 91, 0.92);
+        background:
+          radial-gradient(circle at top left, rgba(99, 102, 241, 0.2), transparent 42%),
+          linear-gradient(180deg, rgba(39, 39, 42, 0.98), rgba(9, 9, 11, 0.97));
+      }
+      html.dark .smart-kicker {
+        color: #a1a1aa;
+      }
+      html.dark .smart-title {
+        color: #fafafa;
+      }
+      html.dark .smart-body,
+      html.dark .smart-empty {
+        color: #d4d4d8;
+      }
+      .smart-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        border: 1px solid rgba(99, 102, 241, 0.18);
+        background: rgba(238, 242, 255, 0.95);
+        color: #4338ca;
+        padding: 0.2rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.35;
+        text-align: center;
+        white-space: normal;
+      }
+      html.dark .smart-badge {
+        border-color: rgba(99, 102, 241, 0.3);
+        background: rgba(67, 56, 202, 0.24);
+        color: #c7d2fe;
+      }
+      @media (max-width: 640px) {
+        .dashboard-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .dashboard-head-actions {
+          width: 100%;
+        }
+        .dashboard-head-actions #themeToggle {
+          width: 100%;
+        }
+        #smartSections {
+          display: flex;
+          gap: 0.9rem;
+          overflow-x: auto;
+          padding-bottom: 0.35rem;
+          scroll-snap-type: x proximity;
+          scrollbar-width: thin;
+        }
+        .smart-section-card {
+          flex: 0 0 min(84vw, 19rem);
+          max-width: min(84vw, 19rem);
+          padding: 1rem;
+          scroll-snap-align: start;
+        }
+        .smart-section-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .smart-title {
+          font-size: 1.35rem;
+          line-height: 1.2;
+        }
+        .smart-badge {
+          max-width: 100%;
+        }
+        .smart-actions {
+          flex-direction: column;
+        }
+        .smart-actions > a,
+        .smart-actions > button {
+          width: 100%;
+        }
+      }
     </style>
   </head>
   <body
@@ -138,7 +292,7 @@
 
     <!-- Header -->
     <header class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
-      <div class="flex items-center gap-4 justify-between">
+      <div class="dashboard-head flex items-center gap-4 justify-between">
         <h1
           class="text-2xl sm:text-3xl font-semibold tracking-tight flex items-center gap-3"
         >
@@ -148,7 +302,7 @@
           >
           Rick’s Utility Dashboard
         </h1>
-        <div class="flex items-center gap-2">
+        <div class="dashboard-head-actions flex items-center gap-2">
           <button
             id="themeToggle"
             class="rounded-xl border border-zinc-300/70 dark:border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -174,6 +328,84 @@
 
     <!-- Grid -->
     <main class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
+      <section
+        id="smartSections"
+        class="mb-8 grid gap-4 lg:grid-cols-[1.1fr_1.1fr_0.9fr]"
+        aria-label="Dashboard shortcuts"
+      >
+        <article class="smart-section-card rounded-3xl p-5 shadow-sm">
+          <div class="smart-section-head">
+            <div>
+              <p class="smart-kicker text-sm font-semibold tracking-wide">
+                Pinned
+              </p>
+              <h2 class="smart-title mt-1 text-xl font-semibold tracking-tight">Keep favorites within reach</h2>
+            </div>
+            <span id="pinnedCount" class="smart-badge">0 pinned</span>
+          </div>
+          <div id="pinnedApps" class="mt-4 flex flex-wrap gap-2"></div>
+          <p
+            id="pinnedEmpty"
+            class="smart-empty mt-4 text-sm"
+          >
+            Pin apps from their cards and they’ll show up here.
+          </p>
+        </article>
+
+        <article class="smart-section-card rounded-3xl p-5 shadow-sm">
+          <div class="smart-section-head">
+            <div>
+              <p class="smart-kicker text-sm font-semibold tracking-wide">
+                Recent
+              </p>
+              <h2 class="smart-title mt-1 text-xl font-semibold tracking-tight">Jump back into what you were using</h2>
+            </div>
+            <span id="recentCount" class="smart-badge">0 recent</span>
+          </div>
+          <div id="recentApps" class="mt-4 grid gap-2"></div>
+          <p
+            id="recentEmpty"
+            class="smart-empty mt-4 text-sm"
+          >
+            Open an app from the dashboard and it will appear here.
+          </p>
+        </article>
+
+        <article class="smart-section-card rounded-3xl p-5 shadow-sm">
+          <div class="smart-section-head">
+            <div>
+              <p class="smart-kicker text-sm font-semibold tracking-wide">
+                ScoreKeeper
+              </p>
+              <h2 class="smart-title mt-1 text-xl font-semibold tracking-tight">Resume game night faster</h2>
+            </div>
+            <span id="scorekeeperBadge" class="smart-badge">Waiting</span>
+          </div>
+          <p
+            id="scorekeeperSummary"
+            class="smart-body mt-4 text-sm leading-6"
+          >
+            Start or save a game in ScoreKeeper and the dashboard will surface it here.
+          </p>
+          <div class="smart-actions mt-4">
+            <a
+              id="resumeScorekeeper"
+              href="./ScoreKeeper/index.html"
+              class="inline-flex items-center justify-center rounded-2xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
+            >
+              Open ScoreKeeper
+            </a>
+            <button
+              id="clearDashboardHistory"
+              type="button"
+              class="rounded-2xl border border-zinc-400/80 bg-white/88 px-4 py-2.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Clear Recent
+            </button>
+          </div>
+        </article>
+      </section>
+
       <div
         id="grid"
         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
@@ -184,47 +416,63 @@
     </main>
 
     <template id="cardTemplate">
-      <a
-        class="card group block rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 hover:-translate-y-0.5 hover:shadow-lg p-4 sm:p-5 focus-visible:ring-0"
-        target="_self"
-        rel="noopener"
-      >
-        <div class="flex items-start gap-4">
-          <div class="text-3xl shrink-0 leading-none">🔗</div>
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h2 class="truncate font-medium text-lg"></h2>
-              <svg
-                class="size-4 opacity-60 group-hover:opacity-100"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M10 6h8m0 0v8m0-8L6 18"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
+      <article class="app-shell">
+        <button
+          type="button"
+          class="pin-btn"
+          data-pin-button
+          aria-label="Pin app"
+          title="Pin app"
+        >
+          ★
+        </button>
+        <a
+          class="card group block rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 hover:-translate-y-0.5 hover:shadow-lg p-4 sm:p-5 focus-visible:ring-0"
+          target="_self"
+          rel="noopener"
+        >
+          <div class="flex items-start gap-4">
+            <div class="text-3xl shrink-0 leading-none">🔗</div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 pr-10">
+                <h2 class="truncate font-medium text-lg"></h2>
+                <svg
+                  class="size-4 opacity-60 group-hover:opacity-100"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M10 6h8m0 0v8m0-8L6 18"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+              <p
+                class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2"
+              ></p>
+              <p
+                class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 break-all"
+              ></p>
             </div>
-            <p
-              class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2"
-            ></p>
-            <p
-              class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 break-all"
-            ></p>
           </div>
-        </div>
-      </a>
+        </a>
+      </article>
     </template>
 
     <script>
+      const DASHBOARD_THEME_KEY = "dash.theme";
+      const DASHBOARD_PINS_KEY = "dash.pinnedApps";
+      const DASHBOARD_RECENTS_KEY = "dash.recentApps";
+      const SCOREKEEPER_AUTOSAVE_KEY = "scorekeeper.v3.autosave";
+      const SCOREKEEPER_SESSIONS_KEY = "scorekeeper.v3.sessions";
+
       // ---- Dark mode (persisted) + Shortcut
       (function initTheme() {
-        const key = "dash.theme";
-        const userPref = localStorage.getItem(key);
+        const userPref = localStorage.getItem(DASHBOARD_THEME_KEY);
         const prefersDark = window.matchMedia(
           "(prefers-color-scheme: dark)",
         ).matches;
@@ -233,7 +481,7 @@
         document.getElementById("themeToggle").addEventListener("click", () => {
           document.documentElement.classList.toggle("dark");
           localStorage.setItem(
-            key,
+            DASHBOARD_THEME_KEY,
             document.documentElement.classList.contains("dark")
               ? "dark"
               : "light",
@@ -253,38 +501,216 @@
         return LINKS;
       }
 
+      function readJson(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return fallback;
+          const parsed = JSON.parse(raw);
+          return parsed ?? fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function writeJson(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {}
+      }
+
+      function getPinnedUrls() {
+        return readJson(DASHBOARD_PINS_KEY, []).filter((value) => typeof value === "string");
+      }
+
+      function setPinnedUrls(urls) {
+        writeJson(DASHBOARD_PINS_KEY, Array.from(new Set(urls)));
+      }
+
+      function getRecentEntries() {
+        return readJson(DASHBOARD_RECENTS_KEY, []).filter(
+          (entry) =>
+            entry &&
+            typeof entry.url === "string" &&
+            Number.isFinite(Number(entry.ts)),
+        );
+      }
+
+      function setRecentEntries(entries) {
+        writeJson(DASHBOARD_RECENTS_KEY, entries.slice(0, 6));
+      }
+
+      function findLink(url) {
+        return allLinks().find((item) => item.url === url) || null;
+      }
+
+      function formatRelativeTime(ts) {
+        const diffMs = Date.now() - Number(ts || 0);
+        const minutes = Math.max(0, Math.round(diffMs / 60000));
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return `${minutes} min ago`;
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return `${hours} hr ago`;
+        const days = Math.round(hours / 24);
+        return `${days} day${days === 1 ? "" : "s"} ago`;
+      }
+
+      function trackVisit(url) {
+        const item = findLink(url);
+        if (!item) return;
+        const next = [
+          { url, ts: Date.now() },
+          ...getRecentEntries().filter((entry) => entry.url !== url),
+        ];
+        setRecentEntries(next);
+      }
+
+      function togglePinned(url) {
+        const pins = new Set(getPinnedUrls());
+        if (pins.has(url)) pins.delete(url);
+        else pins.add(url);
+        setPinnedUrls([...pins]);
+      }
+
+      function scorekeeperStatus() {
+        const autosave = readJson(SCOREKEEPER_AUTOSAVE_KEY, null);
+        const sessions = readJson(SCOREKEEPER_SESSIONS_KEY, []).filter(
+          (entry) => entry && typeof entry.id === "string",
+        );
+        return {
+          hasAutosave: !!autosave,
+          sessionCount: sessions.length,
+          latestSession: sessions[0] || null,
+        };
+      }
+
+      function createShortcutChip(item, extraClass = "") {
+        const link = document.createElement("a");
+        link.href = item.url;
+        link.className =
+          `inline-flex items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200 dark:hover:bg-zinc-800 ${extraClass}`.trim();
+        link.dataset.appUrl = item.url;
+        link.innerHTML = `<span aria-hidden="true">${item.icon || "🔗"}</span><span>${item.name}</span>`;
+        return link;
+      }
+
+      function renderSmartSections() {
+        const pins = getPinnedUrls()
+          .map(findLink)
+          .filter(Boolean);
+        const recents = getRecentEntries()
+          .map((entry) => {
+            const item = findLink(entry.url);
+            if (!item) return null;
+            return { ...item, ts: entry.ts };
+          })
+          .filter(Boolean);
+        const sk = scorekeeperStatus();
+
+        const pinnedApps = document.getElementById("pinnedApps");
+        const pinnedEmpty = document.getElementById("pinnedEmpty");
+        const pinnedCount = document.getElementById("pinnedCount");
+        pinnedApps.innerHTML = "";
+        pinnedCount.textContent = `${pins.length} pinned`;
+        pinnedEmpty.classList.toggle("hidden", pins.length > 0);
+        for (const item of pins) pinnedApps.appendChild(createShortcutChip(item));
+
+        const recentApps = document.getElementById("recentApps");
+        const recentEmpty = document.getElementById("recentEmpty");
+        const recentCount = document.getElementById("recentCount");
+        recentApps.innerHTML = "";
+        recentCount.textContent = `${recents.length} recent`;
+        recentEmpty.classList.toggle("hidden", recents.length > 0);
+        for (const item of recents) {
+          const link = document.createElement("a");
+          link.href = item.url;
+          link.dataset.appUrl = item.url;
+          link.className =
+            "flex items-center justify-between gap-4 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-3 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/70 dark:hover:bg-zinc-800";
+          link.innerHTML = `
+            <span class="min-w-0">
+              <span class="block truncate font-medium text-zinc-900 dark:text-zinc-100">${item.name}</span>
+              <span class="block truncate text-xs text-zinc-500 dark:text-zinc-400">${item.desc || item.url}</span>
+            </span>
+            <span class="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">${formatRelativeTime(item.ts)}</span>
+          `;
+          recentApps.appendChild(link);
+        }
+
+        const scorekeeperBadge = document.getElementById("scorekeeperBadge");
+        const scorekeeperSummary = document.getElementById("scorekeeperSummary");
+        const resumeScorekeeper = document.getElementById("resumeScorekeeper");
+        if (sk.hasAutosave && sk.sessionCount > 0) {
+          scorekeeperBadge.textContent = "Autosave + sessions";
+          scorekeeperSummary.textContent = `${sk.sessionCount} saved sessions on this device. Autosave is also ready if you want to jump back into the last active game.`;
+          resumeScorekeeper.textContent = "Resume ScoreKeeper";
+        } else if (sk.hasAutosave) {
+          scorekeeperBadge.textContent = "Autosave ready";
+          scorekeeperSummary.textContent = "Your last in-progress game is waiting in ScoreKeeper. Open it to continue right where you left off.";
+          resumeScorekeeper.textContent = "Resume ScoreKeeper";
+        } else if (sk.sessionCount > 0) {
+          const latestName = sk.latestSession?.name ? `"${sk.latestSession.name}"` : "a saved game";
+          scorekeeperBadge.textContent = `${sk.sessionCount} saved`;
+          scorekeeperSummary.textContent = `You have ${sk.sessionCount} saved ScoreKeeper session${sk.sessionCount === 1 ? "" : "s"} on this device, including ${latestName}.`;
+          resumeScorekeeper.textContent = "Open Saved Sessions";
+        } else {
+          scorekeeperBadge.textContent = "Waiting";
+          scorekeeperSummary.textContent = "Start or save a game in ScoreKeeper and the dashboard will surface it here.";
+          resumeScorekeeper.textContent = "Open ScoreKeeper";
+        }
+      }
+
+      function createCard(item) {
+        const tpl = document.getElementById("cardTemplate");
+        const node = tpl.content.firstElementChild.cloneNode(true);
+        const link = node.querySelector("a");
+        const pinBtn = node.querySelector("[data-pin-button]");
+        link.href = item.url;
+        link.dataset.appUrl = item.url;
+        pinBtn.dataset.appUrl = item.url;
+        const iconNode = node.querySelector("div .text-3xl");
+        if (item.iconImg) {
+          iconNode.innerHTML = `<img src="${item.iconImg}" alt="" aria-hidden="true" class="size-8 rounded-md object-contain" />`;
+        } else {
+          iconNode.textContent = item.icon || "🔗";
+        }
+        node.querySelector("h2").textContent = item.name;
+        node.querySelector("p.text-sm").textContent = item.desc || "";
+        node.querySelector("p.text-xs").textContent = item.url;
+
+        const isPinned = getPinnedUrls().includes(item.url);
+        pinBtn.classList.toggle("is-pinned", isPinned);
+        pinBtn.setAttribute("aria-pressed", isPinned ? "true" : "false");
+        pinBtn.setAttribute("aria-label", isPinned ? `Unpin ${item.name}` : `Pin ${item.name}`);
+        pinBtn.title = isPinned ? `Unpin ${item.name}` : `Pin ${item.name}`;
+        return node;
+      }
+
       // ---- Render
       const grid = document.getElementById("grid");
       const empty = document.getElementById("emptyState");
       function render(filter = "") {
-        const tpl = document.getElementById("cardTemplate");
         grid.innerHTML = "";
         const f = filter.trim().toLowerCase();
+        const pins = new Set(getPinnedUrls());
         const list = allLinks().filter(
           (l) =>
             !f ||
             l.name.toLowerCase().includes(f) ||
             l.url.toLowerCase().includes(f) ||
             (l.desc || "").toLowerCase().includes(f),
-        );
+        ).sort((a, b) => {
+          const pinnedDiff = Number(pins.has(b.url)) - Number(pins.has(a.url));
+          if (pinnedDiff !== 0) return pinnedDiff;
+          return a.name.localeCompare(b.name);
+        });
+        renderSmartSections();
         if (list.length === 0) {
           empty.classList.remove("hidden");
           return;
         }
         empty.classList.add("hidden");
         for (const item of list) {
-          const node = tpl.content.firstElementChild.cloneNode(true);
-          node.href = item.url;
-          const iconNode = node.querySelector("div .text-3xl");
-          if (item.iconImg) {
-            iconNode.innerHTML = `<img src="${item.iconImg}" alt="" aria-hidden="true" class="size-8 rounded-md object-contain" />`;
-          } else {
-            iconNode.textContent = item.icon || "🔗";
-          }
-          node.querySelector("h2").textContent = item.name;
-          node.querySelector("p.text-sm").textContent = item.desc || "";
-          node.querySelector("p.text-xs").textContent = item.url;
-          grid.appendChild(node);
+          grid.appendChild(createCard(item));
         }
       }
       render();
@@ -299,7 +725,51 @@
           const f = search.value.trim().toLowerCase();
           if (!f) return;
           const list = allLinks().filter((l) => l.name.toLowerCase() === f);
-          if (list[0]) window.location.assign(list[0].url);
+          if (list[0]) {
+            trackVisit(list[0].url);
+            renderSmartSections();
+            window.location.assign(list[0].url);
+          }
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        const pinBtn = e.target.closest("[data-pin-button]");
+        if (pinBtn) {
+          e.preventDefault();
+          const url = pinBtn.getAttribute("data-app-url");
+          if (!url) return;
+          togglePinned(url);
+          render(search.value);
+          return;
+        }
+
+        const appLink = e.target.closest("[data-app-url]");
+        if (appLink instanceof HTMLAnchorElement) {
+          const url = appLink.getAttribute("data-app-url");
+          if (!url) return;
+          trackVisit(url);
+          renderSmartSections();
+        }
+      });
+
+      document
+        .getElementById("clearDashboardHistory")
+        .addEventListener("click", () => {
+          localStorage.removeItem(DASHBOARD_RECENTS_KEY);
+          renderSmartSections();
+        });
+
+      window.addEventListener("storage", (e) => {
+        if (
+          [
+            DASHBOARD_PINS_KEY,
+            DASHBOARD_RECENTS_KEY,
+            SCOREKEEPER_AUTOSAVE_KEY,
+            SCOREKEEPER_SESSIONS_KEY,
+          ].includes(e.key)
+        ) {
+          render(search.value);
         }
       });
     </script>
