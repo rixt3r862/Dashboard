@@ -200,6 +200,51 @@
       max-height: 100%;
     }
 
+    .camera-wrap {
+      margin-top: 0.8rem;
+      position: relative;
+      min-height: 220px;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #020617;
+      display: grid;
+      place-items: center;
+    }
+
+    .camera-wrap video {
+      width: 100%;
+      min-height: 220px;
+      display: block;
+      background: #020617;
+      object-fit: cover;
+    }
+
+    .camera-placeholder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      text-align: center;
+      color: #cbd5e1;
+      font-size: 0.9rem;
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.8)),
+        radial-gradient(circle at top, rgba(37, 99, 235, 0.28), transparent 44%);
+    }
+
+    .camera-placeholder[hidden] {
+      display: none;
+    }
+
+    .scan-actions {
+      margin-top: 0.55rem;
+      display: grid;
+      gap: 0.45rem;
+      grid-template-columns: 1fr 1fr;
+    }
+
     .hint {
       margin-top: 0.45rem;
       color: var(--muted);
@@ -241,6 +286,11 @@
       .grid {
         grid-template-columns: 1fr;
       }
+
+      .scan-actions,
+      .actions {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -249,7 +299,7 @@
 
   <main class="card">
     <h1>QR Generator + Scanner</h1>
-    <p class="sub">Generate QR codes from text/URLs and scan QR images from files.</p>
+    <p class="sub">Generate QR codes from text/URLs, scan image files, or use your camera for live QR scanning.</p>
 
     <section class="grid">
       <div class="panel">
@@ -268,6 +318,17 @@
 
       <div class="panel">
         <h2>Scan</h2>
+        <div class="scan-actions">
+          <button id="startCameraBtn" class="accent" type="button">Start Camera Scan</button>
+          <button id="stopCameraBtn" type="button" disabled>Stop Camera</button>
+        </div>
+        <div class="camera-wrap">
+          <video id="cameraPreview" playsinline muted hidden></video>
+          <div id="cameraPlaceholder" class="camera-placeholder">
+            Start the camera to scan a QR code live. On phones, the rear camera is preferred.
+          </div>
+        </div>
+        <div class="hint">Tip: Live scan stops automatically when a QR code is found.</div>
         <label for="qrFile">Upload QR image</label>
         <input id="qrFile" type="file" accept="image/*" />
         <div class="actions">
@@ -293,10 +354,18 @@
     const qrFileEl = document.getElementById("qrFile");
     const scanBtnEl = document.getElementById("scanBtn");
     const copyBtnEl = document.getElementById("copyBtn");
+    const startCameraBtnEl = document.getElementById("startCameraBtn");
+    const stopCameraBtnEl = document.getElementById("stopCameraBtn");
+    const cameraPreviewEl = document.getElementById("cameraPreview");
+    const cameraPlaceholderEl = document.getElementById("cameraPlaceholder");
     const scanOutputEl = document.getElementById("scanOutput");
     const scanStatusEl = document.getElementById("scanStatus");
 
     let qrInstance = null;
+    let cameraStream = null;
+    let cameraFrameId = 0;
+    let cameraScanCanvas = null;
+    let cameraLastValue = "";
 
     async function copyToClipboard(text) {
       try {
@@ -318,6 +387,109 @@
 
     function setScanStatus(message) {
       scanStatusEl.textContent = message;
+    }
+
+    function supportsCameraScan() {
+      return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    }
+
+    function updateCameraUi(active) {
+      startCameraBtnEl.disabled = active || !supportsCameraScan();
+      stopCameraBtnEl.disabled = !active;
+      cameraPreviewEl.hidden = !active;
+      cameraPlaceholderEl.hidden = active;
+    }
+
+    async function stopCameraScan(options = {}) {
+      const { preserveStatus = false } = options;
+      if (cameraFrameId) {
+        cancelAnimationFrame(cameraFrameId);
+        cameraFrameId = 0;
+      }
+      if (cameraPreviewEl.srcObject) {
+        const tracks = cameraPreviewEl.srcObject.getTracks();
+        tracks.forEach((track) => track.stop());
+        cameraPreviewEl.srcObject = null;
+      }
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+      }
+      cameraLastValue = "";
+      updateCameraUi(false);
+      if (!preserveStatus) setScanStatus("Camera stopped.");
+    }
+
+    function scanCurrentCameraFrame() {
+      if (!cameraStream || !cameraPreviewEl.videoWidth || !cameraPreviewEl.videoHeight) {
+        cameraFrameId = requestAnimationFrame(scanCurrentCameraFrame);
+        return;
+      }
+
+      if (!cameraScanCanvas) {
+        cameraScanCanvas = document.createElement("canvas");
+      }
+
+      cameraScanCanvas.width = cameraPreviewEl.videoWidth;
+      cameraScanCanvas.height = cameraPreviewEl.videoHeight;
+      const ctx = cameraScanCanvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(cameraPreviewEl, 0, 0, cameraScanCanvas.width, cameraScanCanvas.height);
+
+      const imageData = ctx.getImageData(0, 0, cameraScanCanvas.width, cameraScanCanvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth"
+      });
+
+      if (code && code.data) {
+        if (code.data !== cameraLastValue) {
+          cameraLastValue = code.data;
+          scanOutputEl.value = code.data;
+          setScanStatus("QR code detected from camera.");
+        }
+        stopCameraScan({ preserveStatus: true });
+        return;
+      }
+
+      cameraFrameId = requestAnimationFrame(scanCurrentCameraFrame);
+    }
+
+    async function startCameraScan() {
+      if (!supportsCameraScan()) {
+        setScanStatus("Camera scanning is not supported in this browser.");
+        return;
+      }
+
+      try {
+        await stopCameraScan({ preserveStatus: true });
+        setScanStatus("Starting camera...");
+
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" }
+            },
+            audio: false
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+        }
+
+        cameraStream = stream;
+        cameraPreviewEl.srcObject = stream;
+        await cameraPreviewEl.play();
+        updateCameraUi(true);
+        setScanStatus("Camera live. Point it at a QR code.");
+        cameraFrameId = requestAnimationFrame(scanCurrentCameraFrame);
+      } catch (err) {
+        updateCameraUi(false);
+        setScanStatus(
+          err && err.message ? err.message : "Unable to access the camera.",
+        );
+      }
     }
 
     function generateQr() {
@@ -368,6 +540,7 @@
       }
 
       try {
+        await stopCameraScan({ preserveStatus: true });
         setScanStatus("Scanning...");
         const image = await readFileAsImage(file);
         const canvas = document.createElement("canvas");
@@ -377,7 +550,9 @@
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth"
+        });
         if (!code || !code.data) {
           scanOutputEl.value = "";
           setScanStatus("No QR code detected in that image.");
@@ -401,6 +576,10 @@
     });
     downloadBtnEl.addEventListener("click", downloadQrPng);
     scanBtnEl.addEventListener("click", scanFile);
+    startCameraBtnEl.addEventListener("click", startCameraScan);
+    stopCameraBtnEl.addEventListener("click", () => {
+      stopCameraScan();
+    });
     copyBtnEl.addEventListener("click", async () => {
       const value = scanOutputEl.value.trim();
       if (!value) {
@@ -412,7 +591,20 @@
     });
 
     qrInputEl.value = "https://example.com";
+    updateCameraUi(false);
+    if (!supportsCameraScan()) {
+      startCameraBtnEl.disabled = true;
+      cameraPlaceholderEl.textContent =
+        "Live camera scanning is not supported in this browser. You can still scan uploaded images.";
+    }
     generateQr();
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) stopCameraScan({ preserveStatus: true });
+    });
+    window.addEventListener("pagehide", () => {
+      stopCameraScan({ preserveStatus: true });
+    });
   </script>
 </body>
 </html>
