@@ -40,10 +40,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
     btnSaveSession: $("btnSaveSession"),
     btnExportSession: $("btnExportSession"),
     btnImportSession: $("btnImportSession"),
+    btnBrowseSessions: $("btnBrowseSessions"),
     btnLoadSession: $("btnLoadSession"),
     btnDeleteSession: $("btnDeleteSession"),
+    btnSessionModalClose: $("btnSessionModalClose"),
     importSessionFile: $("importSessionFile"),
     savedSessionSelect: $("savedSessionSelect"),
+    sessionBrowserSearch: $("sessionBrowserSearch"),
+    sessionBrowserSort: $("sessionBrowserSort"),
+    sessionBrowserList: $("sessionBrowserList"),
+    sessionBrowserSummary: $("sessionBrowserSummary"),
+    sessionBrowserEmpty: $("sessionBrowserEmpty"),
 
     pillStatus: $("pillStatus"),
     pillSaved: $("pillSaved"),
@@ -88,6 +95,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     winnerSub: $("winnerSub"),
     winnerMilestones: $("winnerMilestones"),
     continueModal: $("continueModal"),
+    sessionModal: $("sessionModal"),
     continueModalContext: $("continueModalContext"),
     continueTargetPoints: $("continueTargetPoints"),
     btnContinueRaiseTarget: $("btnContinueRaiseTarget"),
@@ -163,6 +171,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     savedSessionCount: 0,
     selectedSessionId: "",
     currentSessionId: null,
+    sessionBrowserSearch: "",
+    sessionBrowserSort: "updated",
     bannerDismissed: false,
     historyEditingRoundN: null,
 
@@ -305,9 +315,57 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return base || "scorekeeper-session";
   }
 
+  function formatSessionTimestamp(ts) {
+    const date = new Date(Number(ts) || Date.now());
+    return date.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function sessionPresetLabel(session) {
+    return PRESETS[session.payload?.presetKey]?.label || "Custom";
+  }
+
+  function sessionPlayerNames(session) {
+    return Array.isArray(session.payload?.players)
+      ? session.payload.players
+          .map((player) => normalizeName(player?.name))
+          .filter(Boolean)
+      : [];
+  }
+
+  function sessionRoundCount(session) {
+    return Array.isArray(session.payload?.rounds)
+      ? session.payload.rounds.length
+      : 0;
+  }
+
+  function sessionSearchText(session) {
+    return [
+      session.name,
+      sessionPresetLabel(session),
+      ...sessionPlayerNames(session),
+    ]
+      .join(" ")
+      .toLowerCase();
+  }
+
   function getSelectedSession() {
     if (!state.selectedSessionId) return null;
     return getStoredSessions().find((session) => session.id === state.selectedSessionId) || null;
+  }
+
+  function getSessionById(sessionId) {
+    if (!sessionId) return null;
+    return getStoredSessions().find((session) => session.id === sessionId) || null;
+  }
+
+  function selectSession(sessionId) {
+    state.selectedSessionId = sessionId || "";
+    updateSessionControls(state.selectedSessionId);
   }
 
   function setAutosavePayload(payload) {
@@ -410,7 +468,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.selectedSessionId = selectedId;
 
     if (els.savedSessionSelect) {
-      els.savedSessionSelect.innerHTML = `<option value="">Saved sessions</option>`;
+      els.savedSessionSelect.innerHTML = `<option value="">Saved sessions on this device</option>`;
       for (const session of sessions) {
         const option = document.createElement("option");
         option.value = session.id;
@@ -431,6 +489,135 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.btnExportSession.disabled = !(hasCurrent || hasSelected);
     els.btnLoadSession.disabled = !hasSelected;
     els.btnDeleteSession.disabled = !hasSelected;
+
+    renderSessionBrowser(sessions);
+  }
+
+  function filteredAndSortedSessions(sessions) {
+    const query = state.sessionBrowserSearch.trim().toLowerCase();
+    const filtered = sessions.filter((session) =>
+      !query || sessionSearchText(session).includes(query),
+    );
+
+    const sortKey = state.sessionBrowserSort;
+    filtered.sort((a, b) => {
+      if (sortKey === "name") {
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      }
+      if (sortKey === "preset") {
+        return (
+          sessionPresetLabel(a).localeCompare(sessionPresetLabel(b), undefined, {
+            sensitivity: "base",
+          }) || b.updatedAt - a.updatedAt
+        );
+      }
+      if (sortKey === "rounds") {
+        return (
+          sessionRoundCount(b) - sessionRoundCount(a) ||
+          b.updatedAt - a.updatedAt
+        );
+      }
+      return b.updatedAt - a.updatedAt;
+    });
+
+    return filtered;
+  }
+
+  function renderSessionBrowser(sessions = getStoredSessions()) {
+    if (
+      !els.sessionBrowserList ||
+      !els.sessionBrowserSummary ||
+      !els.sessionBrowserEmpty
+    ) {
+      return;
+    }
+
+    const filtered = filteredAndSortedSessions(sessions);
+    const total = sessions.length;
+    const shown = filtered.length;
+    const query = state.sessionBrowserSearch.trim();
+
+    if (els.sessionBrowserSearch) {
+      els.sessionBrowserSearch.value = state.sessionBrowserSearch;
+    }
+    if (els.sessionBrowserSort) {
+      els.sessionBrowserSort.value = state.sessionBrowserSort;
+    }
+
+    if (!total) {
+      els.sessionBrowserSummary.textContent =
+        "No saved sessions yet. Save a game snapshot to build your library.";
+    } else if (query) {
+      els.sessionBrowserSummary.textContent = `Showing ${shown} of ${total} saved sessions.`;
+    } else {
+      els.sessionBrowserSummary.textContent = `${total} saved session${total === 1 ? "" : "s"} on this device.`;
+    }
+
+    els.sessionBrowserList.innerHTML = "";
+    els.sessionBrowserEmpty.hidden = shown !== 0;
+    if (!shown) return;
+
+    for (const session of filtered) {
+      const card = document.createElement("article");
+      card.className = "session-card";
+      if (session.id === state.selectedSessionId) card.classList.add("active");
+      if (session.id === state.currentSessionId) card.classList.add("current");
+      card.setAttribute("data-session-id", session.id);
+
+      const players = sessionPlayerNames(session);
+      const rounds = sessionRoundCount(session);
+      const statusLabel =
+        session.payload?.mode === "finished"
+          ? "Finished"
+          : session.payload?.mode === "playing"
+            ? "In progress"
+            : "Setup";
+
+      card.innerHTML = `
+        <div class="session-card-head">
+          <div>
+            <h4 class="session-card-title">${escapeHtml(session.name)}</h4>
+            <div class="muted">Updated ${escapeHtml(formatSessionTimestamp(session.updatedAt))}</div>
+          </div>
+          <div class="session-card-badges">
+            <span class="session-badge">${escapeHtml(sessionPresetLabel(session))}</span>
+            <span class="session-badge">${escapeHtml(statusLabel)}</span>
+            ${
+              session.id === state.currentSessionId
+                ? '<span class="session-badge current">Current</span>'
+                : ""
+            }
+          </div>
+        </div>
+        <div class="session-card-meta">
+          <div class="session-card-stat">
+            <strong>Players</strong>
+            <span>${players.length}</span>
+          </div>
+          <div class="session-card-stat">
+            <strong>Rounds</strong>
+            <span>${rounds}</span>
+          </div>
+          <div class="session-card-stat">
+            <strong>Target</strong>
+            <span>${escapeHtml(String(session.payload?.target ?? APP_LIMITS.defaultTarget))}</span>
+          </div>
+          <div class="session-card-stat">
+            <strong>Created</strong>
+            <span>${escapeHtml(formatSessionTimestamp(session.createdAt))}</span>
+          </div>
+        </div>
+        <div class="session-card-players">${escapeHtml(players.join(", ") || "No player names saved.")}</div>
+        <div class="session-card-actions">
+          <button type="button" class="btn" data-session-action="select" data-session-id="${session.id}">Select</button>
+          <button type="button" class="btn" data-session-action="load" data-session-id="${session.id}">Load</button>
+          <button type="button" class="btn" data-session-action="rename" data-session-id="${session.id}">Rename</button>
+          <button type="button" class="btn" data-session-action="export" data-session-id="${session.id}">Export</button>
+          <button type="button" class="btn danger" data-session-action="delete" data-session-id="${session.id}">Delete</button>
+        </div>
+      `;
+      els.sessionBrowserList.appendChild(card);
+    }
   }
 
   function clampInt(val, min, max) {
@@ -597,6 +784,21 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (!els.continueModal) return;
     els.continueModal.classList.remove("is-open");
     els.continueModal.hidden = true;
+  }
+
+  function openSessionModal() {
+    if (!els.sessionModal) return;
+    renderSessionBrowser();
+    els.sessionModal.hidden = false;
+    els.sessionModal.classList.add("is-open");
+    els.sessionBrowserSearch?.focus();
+    els.sessionBrowserSearch?.select?.();
+  }
+
+  function closeSessionModal() {
+    if (!els.sessionModal) return;
+    els.sessionModal.classList.remove("is-open");
+    els.sessionModal.hidden = true;
   }
 
   function continueWithRaisedTarget() {
@@ -849,8 +1051,47 @@ import { createScoreboardController } from "./js/scoreboard.js";
     setLive(`Session saved: ${name}.`);
   }
 
+  function renameSessionById(sessionId) {
+    const session = getSessionById(sessionId);
+    if (!session) return;
+    const answer = window.prompt("Rename this saved session:", session.name);
+    if (answer === null) return;
+
+    const nextName = normalizeName(answer);
+    if (!nextName) {
+      showStatusMessage("Session name cannot be empty.");
+      return;
+    }
+
+    const nextSessions = getStoredSessions().map((entry) =>
+      entry.id === session.id
+        ? {
+            ...entry,
+            name: nextName,
+            updatedAt: Date.now(),
+          }
+        : entry,
+    );
+    if (!setStoredSessions(nextSessions)) {
+      showStatusMessage("Unable to rename that session.");
+      return;
+    }
+
+    if (state.currentSessionId === session.id) {
+      save();
+    } else {
+      updateSessionControls(session.id);
+    }
+    showStatusMessage(`Session renamed to ${nextName}.`);
+    setLive(`Session renamed to ${nextName}.`);
+  }
+
   function loadSelectedSession() {
-    const session = getSelectedSession();
+    loadSessionById(state.selectedSessionId);
+  }
+
+  function loadSessionById(sessionId) {
+    const session = getSessionById(sessionId);
     if (!session) return;
     const ok = hydrateStateFromPayload(cloneJson(session.payload), {
       currentSessionId: session.id,
@@ -862,10 +1103,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
     state.selectedSessionId = session.id;
     updateSessionControls(session.id);
+    closeSessionModal();
   }
 
   function deleteSelectedSession() {
-    const session = getSelectedSession();
+    deleteSessionById(state.selectedSessionId);
+  }
+
+  function deleteSessionById(sessionId) {
+    const session = getSessionById(sessionId);
     if (!session) return;
 
     const proceed = window.confirm(`Delete saved session "${session.name}"?`);
@@ -889,7 +1135,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
     setLive(`Deleted session: ${session.name}.`);
   }
 
-  function resolveExportSession() {
+  function resolveExportSession(sessionId = "") {
+    if (sessionId) {
+      const session = getSessionById(sessionId);
+      if (!session) return null;
+      return {
+        name: session.name,
+        id: session.id,
+        payload: cloneJson(session.payload),
+      };
+    }
+
     if (hasSnapshotData()) {
       const current = state.currentSessionId
         ? getStoredSessions().find((session) => session.id === state.currentSessionId)
@@ -910,8 +1166,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     };
   }
 
-  function exportSessionFile() {
-    const exportable = resolveExportSession();
+  function exportSessionFile(sessionId = "") {
+    const exportable = resolveExportSession(sessionId);
     if (!exportable) {
       showStatusMessage("Nothing to export yet.");
       return;
@@ -1981,6 +2237,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && els.continueModal && !els.continueModal.hidden) {
       closeContinueModal();
+      return;
+    }
+    if (e.key === "Escape" && els.sessionModal && !els.sessionModal.hidden) {
+      closeSessionModal();
     }
   });
 
@@ -2053,8 +2313,45 @@ import { createScoreboardController } from "./js/scoreboard.js";
   });
 
   els.savedSessionSelect.addEventListener("change", () => {
-    state.selectedSessionId = els.savedSessionSelect.value || "";
-    updateSessionControls(state.selectedSessionId);
+    selectSession(els.savedSessionSelect.value || "");
+  });
+
+  els.sessionBrowserSearch.addEventListener("input", () => {
+    state.sessionBrowserSearch = els.sessionBrowserSearch.value || "";
+    renderSessionBrowser();
+  });
+
+  els.sessionBrowserSort.addEventListener("change", () => {
+    state.sessionBrowserSort = els.sessionBrowserSort.value || "updated";
+    renderSessionBrowser();
+  });
+
+  els.sessionBrowserList.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-session-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-session-action");
+    const sessionId = btn.getAttribute("data-session-id") || "";
+    if (!sessionId) return;
+
+    if (action === "select") {
+      selectSession(sessionId);
+      return;
+    }
+    if (action === "load") {
+      loadSessionById(sessionId);
+      return;
+    }
+    if (action === "rename") {
+      renameSessionById(sessionId);
+      return;
+    }
+    if (action === "export") {
+      exportSessionFile(sessionId);
+      return;
+    }
+    if (action === "delete") {
+      deleteSessionById(sessionId);
+    }
   });
 
   els.btnSaveSession.addEventListener("click", () => {
@@ -2069,6 +2366,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.importSessionFile.click();
   });
 
+  els.btnBrowseSessions.addEventListener("click", () => {
+    openSessionModal();
+  });
+
   els.importSessionFile.addEventListener("change", () => {
     const file = els.importSessionFile.files?.[0];
     importSessionFile(file);
@@ -2081,6 +2382,16 @@ import { createScoreboardController } from "./js/scoreboard.js";
   els.btnDeleteSession.addEventListener("click", () => {
     deleteSelectedSession();
   });
+
+  els.btnSessionModalClose.addEventListener("click", () => {
+    closeSessionModal();
+  });
+
+  if (els.sessionModal) {
+    els.sessionModal.addEventListener("click", (e) => {
+      if (e.target === els.sessionModal) closeSessionModal();
+    });
+  }
 
   els.btnLoadSaved.addEventListener("click", () => {
     const ok = loadSaved();

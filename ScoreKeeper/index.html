@@ -57,16 +57,21 @@
         <button class="btn" id="btnImportSession" type="button" title="Import a saved ScoreKeeper session">
           Import
         </button>
+        <button class="btn" id="btnBrowseSessions" type="button" title="Browse saved ScoreKeeper sessions">
+          Browse Sessions
+        </button>
         <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
-        <select id="savedSessionSelect" class="session-select" aria-label="Saved ScoreKeeper sessions">
-          <option value="">Saved sessions on this device</option>
-        </select>
-        <button class="btn" id="btnLoadSession" type="button" title="Load the selected named session">
-          Load Session
-        </button>
-        <button class="btn danger" id="btnDeleteSession" type="button" title="Delete the selected named session">
-          Delete Session
-        </button>
+        <div class="session-hidden-controls" hidden aria-hidden="true">
+          <select id="savedSessionSelect" class="session-select" aria-label="Saved ScoreKeeper sessions">
+            <option value="">Saved sessions on this device</option>
+          </select>
+          <button class="btn" id="btnLoadSession" type="button" title="Load the selected named session">
+            Load Session
+          </button>
+          <button class="btn danger" id="btnDeleteSession" type="button" title="Delete the selected named session">
+            Delete Session
+          </button>
+        </div>
         <button class="btn" id="btnPrint" type="button" title="Print scoreboard (or save as PDF)" disabled>
           Print Scoreboard
         </button>
@@ -131,6 +136,46 @@
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+
+    <div class="continue-modal" id="sessionModal" hidden>
+      <div class="continue-modal-card session-modal-card" role="dialog" aria-modal="true" aria-labelledby="sessionModalTitle">
+        <div class="session-modal-head">
+          <div>
+            <h3 id="sessionModalTitle">Saved Sessions</h3>
+            <p class="muted" id="sessionBrowserSummary">
+              Browse sessions saved on this device.
+            </p>
+          </div>
+          <button class="btn" id="btnSessionModalClose" type="button">Close</button>
+        </div>
+        <section class="session-browser" aria-label="Saved sessions browser">
+          <div class="session-browser-controls">
+            <div class="field">
+              <label for="sessionBrowserSearch">Search sessions</label>
+              <input
+                id="sessionBrowserSearch"
+                type="text"
+                placeholder="Search by name, preset, or player"
+                autocomplete="off"
+              />
+            </div>
+            <div class="field" style="max-width: 220px">
+              <label for="sessionBrowserSort">Sort by</label>
+              <select id="sessionBrowserSort">
+                <option value="updated">Recently updated</option>
+                <option value="name">Name</option>
+                <option value="preset">Preset</option>
+                <option value="rounds">Rounds</option>
+              </select>
+            </div>
+          </div>
+          <div id="sessionBrowserList" class="session-browser-list"></div>
+          <div id="sessionBrowserEmpty" class="session-browser-empty muted" hidden>
+            No saved sessions match this filter yet.
+          </div>
+        </section>
       </div>
     </div>
 
@@ -292,6 +337,7 @@
 
           <div class="msg" id="roundMsg"></div>
         </div>
+
       </section>
 
       <section class="card" id="scoreboardCard">
