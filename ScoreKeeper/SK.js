@@ -113,6 +113,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     colHeadEntity: $("colHeadEntity"),
     colHeadTotal: $("colHeadTotal"),
     colHeadThis: $("colHeadThis"),
+    btnHistoryOrder: $("btnHistoryOrder"),
 
     targetLabel: $("targetLabel"),
     phase10Ref: $("phase10Ref"),
@@ -168,6 +169,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     finalWinnerAt: null, // { winnerId, roundN, target, ts }
     winnerMilestones: [], // [{ winnerId, roundN, target, ts }]
     sortByTotal: false,
+    historySortDir: "asc",
     savedExists: false,
     savedSessionCount: 0,
     selectedSessionId: "",
@@ -263,6 +265,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       finalWinnerAt: state.finalWinnerAt,
       winnerMilestones: state.winnerMilestones,
       sortByTotal: state.sortByTotal,
+      historySortDir: state.historySortDir,
       spadesPartnerIndex: state.spadesPartnerIndex,
       presetNote: state.presetNote,
       skyjoCurrentRoundWentOutPlayerId:
@@ -932,6 +935,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       }
       syncWinnerAnchorsFromMilestones();
       state.sortByTotal = !!payload.sortByTotal;
+      state.historySortDir = payload.historySortDir === "desc" ? "desc" : "asc";
 
       state.lastRoundScores = state.rounds.length
         ? state.rounds[state.rounds.length - 1].scores || {}
@@ -1409,7 +1413,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       els.colHeadTotal.textContent = isPhase10() ? "Phases" : "Total";
     }
     if (els.colHeadThis) {
-      els.colHeadThis.textContent = isPhase10() ? "Completed" : "This round";
+      els.colHeadThis.textContent = isPhase10() ? "Last Completed" : "Last Round";
     }
 
     // Phase 10 reference (hints/reminders)
@@ -2312,6 +2316,20 @@ import { createScoreboardController } from "./js/scoreboard.js";
     applyPhase10UiText();
     renderAll();
   });
+
+  if (els.historyDetails) {
+    els.historyDetails.addEventListener("toggle", () => {
+      renderAll();
+    });
+  }
+
+  if (els.btnHistoryOrder) {
+    els.btnHistoryOrder.addEventListener("click", () => {
+      state.historySortDir = state.historySortDir === "desc" ? "asc" : "desc";
+      save();
+      renderAll();
+    });
+  }
 
   els.savedSessionSelect.addEventListener("change", () => {
     selectSession(els.savedSessionSelect.value || "");

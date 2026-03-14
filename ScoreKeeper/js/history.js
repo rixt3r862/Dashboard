@@ -1034,14 +1034,23 @@ export function createHistoryController(deps) {
     const cards = els.historyCards;
     const useCards = shouldUseHistoryCards();
     const rows = buildHistoryRows(cols);
+    const orderedRows =
+      state.historySortDir === "desc" ? [...rows].reverse() : rows;
     tbl.innerHTML = "";
     if (cards) cards.innerHTML = "";
+    if (els.btnHistoryOrder) {
+      els.btnHistoryOrder.textContent =
+        state.historySortDir === "desc"
+          ? "Order: Newest first"
+          : "Order: Oldest first";
+      els.btnHistoryOrder.disabled = rows.length <= 1;
+    }
 
     tbl.hidden = useCards;
     if (cards) cards.hidden = !useCards;
 
     if (useCards && cards) {
-      for (const row of rows) {
+      for (const row of orderedRows) {
         const card = document.createElement("article");
         card.className = "history-round-card";
 
@@ -1115,7 +1124,7 @@ export function createHistoryController(deps) {
       tbl.appendChild(thead);
 
       const tbody = document.createElement("tbody");
-      for (const row of rows) {
+      for (const row of orderedRows) {
         const tr = document.createElement("tr");
         const td0 = document.createElement("td");
         td0.textContent = String(row.roundN);

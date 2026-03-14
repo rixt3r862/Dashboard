@@ -113,6 +113,7 @@ export function createScoreboardController(deps) {
       ? state.rounds[state.rounds.length - 1]
       : null;
     const adjustedLastRoundScores = adjustedSkyjoScoresForRound(lastRound);
+    const showLastRound = !els.historyDetails?.open;
 
     let entries = [];
     const thisRoundById = {};
@@ -179,9 +180,11 @@ export function createScoreboardController(deps) {
 
       tr.appendChild(tdName);
       tr.appendChild(tdTotal);
-      tr.appendChild(tdThis);
+      if (showLastRound) tr.appendChild(tdThis);
       els.scoreboardBody.appendChild(tr);
     }
+
+    if (els.colHeadThis) els.colHeadThis.hidden = !showLastRound;
 
     renderHistoryTable();
   }

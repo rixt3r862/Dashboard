@@ -751,6 +751,15 @@ summary{
   list-style:none;
 }
 summary::-webkit-details-marker{ display:none; }
+.history-toolbar{
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+.history-order-btn{
+  width: auto;
+  min-width: 0;
+}
 .history-wrap{
   margin-top: 10px;
   overflow:auto;
@@ -958,6 +967,9 @@ summary::-webkit-details-marker{ display:none; }
 }
 
 @media (max-width: 640px){
+  .history-toolbar{
+    justify-content: flex-start;
+  }
   .history-graph-wrap{
     padding: 8px;
   }
