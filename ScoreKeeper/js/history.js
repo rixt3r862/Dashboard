@@ -211,6 +211,10 @@ export function createHistoryController(deps) {
 
     els.historyGraph.innerHTML = "";
     els.historyGraphLegend.innerHTML = "";
+    if (els.historyInsights) {
+      els.historyInsights.innerHTML = "";
+      els.historyInsights.hidden = true;
+    }
     els.historyStatsTable.innerHTML = "";
 
     if (isPhase10() || !state.rounds.length || !state.players.length) {
@@ -363,13 +367,56 @@ export function createHistoryController(deps) {
     }
 
     els.historyGraphMeta.textContent = `X: rounds  Y: cumulative points (${state.teams ? "teams" : "players"})`;
-    renderHistoryStatsTable(series);
+    const analysis = analyzeHistory(series);
+    renderHistoryInsights(analysis);
+    renderHistoryStatsTable(series, analysis);
     els.historyGraphWrap.hidden = false;
   }
 
   function formatStatValue(n) {
     if (!Number.isFinite(n)) return "0";
     return String(Math.round(n));
+  }
+
+  function formatPoints(n) {
+    const value = Math.abs(Math.round(Number(n) || 0));
+    return `${value} ${value === 1 ? "pt" : "pts"}`;
+  }
+
+  function formatEntityList(ids, labelById) {
+    const labels = ids
+      .map((id) => labelById.get(id))
+      .filter((label) => typeof label === "string" && label.trim());
+    if (!labels.length) return "No one";
+    if (labels.length === 1) return labels[0];
+    if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
+    return `${labels[0]}, ${labels[1]} +${labels.length - 2}`;
+  }
+
+  function bestValueForWinMode(values) {
+    if (!values.length) return 0;
+    return state.winMode === "low" ? Math.min(...values) : Math.max(...values);
+  }
+
+  function rankEntries(entries) {
+    return [...entries].sort((a, b) => {
+      const diff =
+        state.winMode === "low" ? a.value - b.value : b.value - a.value;
+      if (diff !== 0) return diff;
+      return String(a.label || "").localeCompare(String(b.label || ""));
+    });
+  }
+
+  function pickBestIds(entries) {
+    const numeric = entries.filter((entry) => Number.isFinite(entry.value));
+    if (!numeric.length) return { bestValue: 0, ids: [] };
+    const bestValue = bestValueForWinMode(numeric.map((entry) => entry.value));
+    return {
+      bestValue,
+      ids: numeric
+        .filter((entry) => entry.value === bestValue)
+        .map((entry) => entry.id),
+    };
   }
 
   function roundScoresByEntity() {
@@ -391,15 +438,259 @@ export function createHistoryController(deps) {
     }));
   }
 
-  function renderHistoryStatsTable(series) {
+  function analyzeHistory(series) {
     const rows = roundScoresByEntity();
+    if (!rows.length || !state.rounds.length) return null;
+
+    const labelById = new Map(rows.map((row) => [row.id, row.label]));
+    const seriesById = new Map(series.map((entry) => [entry.id, entry]));
+    const roundWins = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    const bestStreaks = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    const currentStreaks = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    let leadChanges = 0;
+    let lastUniqueLeaderId = null;
+    let biggestSwing = null;
+
+    for (let idx = 0; idx < state.rounds.length; idx += 1) {
+      const roundEntries = rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        value: Number(row.rounds[idx] ?? 0),
+      }));
+      const numericRoundEntries = roundEntries.filter((entry) =>
+        Number.isFinite(entry.value),
+      );
+      const spreadValues = numericRoundEntries.map((entry) => entry.value);
+      const roundSpread = spreadValues.length
+        ? Math.max(...spreadValues) - Math.min(...spreadValues)
+        : 0;
+      const bestRound = pickBestIds(numericRoundEntries);
+
+      if (!biggestSwing || roundSpread > biggestSwing.spread) {
+        biggestSwing = {
+          roundN: idx + 1,
+          spread: roundSpread,
+          winnerIds: bestRound.ids,
+        };
+      }
+
+      if (bestRound.ids.length === 1) {
+        const winnerId = bestRound.ids[0];
+        for (const row of rows) {
+          currentStreaks[row.id] = row.id === winnerId ? currentStreaks[row.id] + 1 : 0;
+          if (row.id === winnerId) {
+            roundWins[row.id] += 1;
+            bestStreaks[row.id] = Math.max(bestStreaks[row.id], currentStreaks[row.id]);
+          }
+        }
+      } else {
+        for (const row of rows) currentStreaks[row.id] = 0;
+      }
+
+      const cumulativeEntries = rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        value: Number(seriesById.get(row.id)?.values?.[idx] ?? 0),
+      }));
+      const leaderState = pickBestIds(cumulativeEntries);
+      if (leaderState.ids.length === 1) {
+        const leaderId = leaderState.ids[0];
+        if (lastUniqueLeaderId && lastUniqueLeaderId !== leaderId) leadChanges += 1;
+        lastUniqueLeaderId = leaderId;
+      }
+    }
+
+    const standings = rankEntries(
+      rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        value: Number(
+          seriesById.get(row.id)?.values?.at(-1) ??
+            row.rounds.reduce((sum, score) => sum + score, 0),
+        ),
+      })),
+    );
+    const leaderIds = pickBestIds(standings).ids;
+    const leaderId = leaderIds.length === 1 ? leaderIds[0] : null;
+    const runnerUp = standings[1] ?? null;
+    const leadMargin =
+      leaderId && runnerUp
+        ? Math.abs(Number(standings[0]?.value ?? 0) - runnerUp.value)
+        : null;
+
+    const roundWinValues = Object.values(roundWins);
+    const topRoundWinCount = roundWinValues.length ? Math.max(...roundWinValues) : 0;
+    const topRoundWinIds =
+      topRoundWinCount > 0
+        ? rows.filter((row) => roundWins[row.id] === topRoundWinCount).map((row) => row.id)
+        : [];
+
+    const streakValues = Object.values(bestStreaks);
+    const topStreakValue = streakValues.length ? Math.max(...streakValues) : 0;
+    const topStreakIds =
+      topStreakValue > 0
+        ? rows.filter((row) => bestStreaks[row.id] === topStreakValue).map((row) => row.id)
+        : [];
+
+    const roundsLabel = `${state.rounds.length} ${state.rounds.length === 1 ? "round" : "rounds"}`;
+    let headline = `Game story builds after ${roundsLabel}.`;
+    if (leaderId) {
+      const leaderLabel = labelById.get(leaderId) || "Leader";
+      const marginText = leadMargin === null ? "" : ` by ${formatPoints(leadMargin)}`;
+      if (state.gameState === "free_play") {
+        headline = `${leaderLabel} leads${marginText} after ${roundsLabel} of free play.`;
+      } else if (state.mode === "finished" && state.finalWinnerAt) {
+        if (state.finalWinnerAt.roundN < state.rounds.length) {
+          headline = `${leaderLabel} first hit the target in Round ${state.finalWinnerAt.roundN} and finished${marginText} ahead after ${roundsLabel}.`;
+        } else {
+          headline = `${leaderLabel} won${marginText} in Round ${state.finalWinnerAt.roundN}.`;
+        }
+      } else {
+        headline = `${leaderLabel} leads${marginText} after ${roundsLabel}.`;
+      }
+    } else {
+      headline = `The top spot is tied after ${roundsLabel}.`;
+    }
+
+    const leadChangeText = leadChanges
+      ? `There ${leadChanges === 1 ? "has" : "have"} been ${leadChanges} lead ${
+          leadChanges === 1 ? "change" : "changes"
+        }.`
+      : "No lead changes yet.";
+    const roundWinText =
+      topRoundWinCount > 0
+        ? `${formatEntityList(topRoundWinIds, labelById)} ${
+            topRoundWinIds.length === 1 ? "has" : "have"
+          } the most round wins (${topRoundWinCount}).`
+        : null;
+
+    return {
+      rows,
+      seriesById,
+      labelById,
+      roundWins,
+      bestStreaks,
+      leadChanges,
+      biggestSwing,
+      leaderId,
+      runnerUp,
+      leadMargin,
+      topRoundWinIds,
+      topRoundWinCount,
+      topStreakIds,
+      topStreakValue,
+      story: roundWinText ? `${headline} ${leadChangeText} ${roundWinText}` : `${headline} ${leadChangeText}`,
+    };
+  }
+
+  function renderHistoryInsights(analysis) {
+    if (!els.historyInsights) return;
+    els.historyInsights.innerHTML = "";
+    els.historyInsights.hidden = true;
+    if (!analysis) return;
+
+    const story = document.createElement("p");
+    story.className = "history-story";
+    story.textContent = analysis.story;
+    els.historyInsights.appendChild(story);
+
+    const cards = document.createElement("div");
+    cards.className = "history-insights-grid";
+
+    const cardsData = [
+      {
+        label: "Leader Changes",
+        value: String(analysis.leadChanges),
+        meta: analysis.leadChanges
+          ? "Unique leaders at the top of the game"
+          : "The lead has stayed with one side so far",
+      },
+      {
+        label:
+          state.mode === "finished" && state.gameState !== "free_play"
+            ? "Winning Margin"
+            : "Current Margin",
+        value:
+          analysis.leaderId && analysis.leadMargin !== null
+            ? formatPoints(analysis.leadMargin)
+            : "Tie",
+        meta:
+          analysis.leaderId && analysis.runnerUp
+            ? `${analysis.labelById.get(analysis.leaderId) || "Leader"} over ${analysis.runnerUp.label}`
+            : "Top spot is level",
+      },
+      {
+        label: "Most Round Wins",
+        value:
+          analysis.topRoundWinCount > 0
+            ? `${formatEntityList(analysis.topRoundWinIds, analysis.labelById)} · ${analysis.topRoundWinCount}`
+            : "None yet",
+        meta: "Rounds won outright",
+      },
+      {
+        label: "Biggest Swing",
+        value:
+          analysis.biggestSwing && analysis.biggestSwing.spread > 0
+            ? formatPoints(analysis.biggestSwing.spread)
+            : "Even",
+        meta:
+          analysis.biggestSwing && analysis.biggestSwing.spread > 0
+            ? `${formatEntityList(analysis.biggestSwing.winnerIds, analysis.labelById)} in Round ${analysis.biggestSwing.roundN}`
+            : "No standout round spread yet",
+      },
+      {
+        label: "Best Streak",
+        value:
+          analysis.topStreakValue > 0
+            ? `${formatEntityList(analysis.topStreakIds, analysis.labelById)} · ${analysis.topStreakValue}`
+            : "None yet",
+        meta: "Consecutive round wins",
+      },
+    ];
+
+    for (const cardData of cardsData) {
+      const card = document.createElement("article");
+      card.className = "history-insight-card";
+
+      const label = document.createElement("span");
+      label.className = "history-insight-label";
+      label.textContent = cardData.label;
+      card.appendChild(label);
+
+      const value = document.createElement("strong");
+      value.className = "history-insight-value";
+      value.textContent = cardData.value;
+      card.appendChild(value);
+
+      const meta = document.createElement("span");
+      meta.className = "history-insight-meta";
+      meta.textContent = cardData.meta;
+      card.appendChild(meta);
+
+      cards.appendChild(card);
+    }
+
+    els.historyInsights.appendChild(cards);
+    els.historyInsights.hidden = false;
+  }
+
+  function renderHistoryStatsTable(series, analysis = analyzeHistory(series)) {
+    const rows = analysis?.rows || roundScoresByEntity();
     const tbl = els.historyStatsTable;
     tbl.innerHTML = "";
     if (!rows.length || !state.rounds.length) return;
 
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
-    const headers = ["Player", "Total", "Avg", "Best", "Worst"];
+    const headers = [
+      state.teams?.length ? "Team" : "Player",
+      "Total",
+      "Avg",
+      "Round Wins",
+      "Best",
+      "Worst",
+      "Best Streak",
+    ];
     for (const header of headers) {
       const th = document.createElement("th");
       th.textContent = header;
@@ -409,7 +700,7 @@ export function createHistoryController(deps) {
     thead.appendChild(trh);
     tbl.appendChild(thead);
 
-    const seriesById = new Map(series.map((s) => [s.id, s]));
+    const seriesById = analysis?.seriesById || new Map(series.map((s) => [s.id, s]));
     const tbody = document.createElement("tbody");
     for (const row of rows) {
       const tr = document.createElement("tr");
@@ -436,6 +727,10 @@ export function createHistoryController(deps) {
       avgTd.textContent = formatStatValue(avg);
       tr.appendChild(avgTd);
 
+      const roundWinsTd = document.createElement("td");
+      roundWinsTd.textContent = formatStatValue(analysis?.roundWins?.[row.id] ?? 0);
+      tr.appendChild(roundWinsTd);
+
       const bestTd = document.createElement("td");
       bestTd.textContent = formatStatValue(best);
       tr.appendChild(bestTd);
@@ -443,6 +738,10 @@ export function createHistoryController(deps) {
       const worstTd = document.createElement("td");
       worstTd.textContent = formatStatValue(worst);
       tr.appendChild(worstTd);
+
+      const streakTd = document.createElement("td");
+      streakTd.textContent = formatStatValue(analysis?.bestStreaks?.[row.id] ?? 0);
+      tr.appendChild(streakTd);
 
       tbody.appendChild(tr);
     }

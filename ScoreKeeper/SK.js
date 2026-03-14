@@ -125,6 +125,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     historyGraphMeta: $("historyGraphMeta"),
     historyGraph: $("historyGraph"),
     historyGraphLegend: $("historyGraphLegend"),
+    historyInsights: $("historyInsights"),
     historyStatsTable: $("historyStatsTable"),
 
     ariaLive: $("ariaLive"),
