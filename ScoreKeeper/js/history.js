@@ -451,6 +451,8 @@ export function createHistoryController(deps) {
     let lastUniqueLeaderId = null;
     let biggestSwing = null;
 
+    // Walk each round once to build the summary metrics that power both the
+    // "game story" text and the per-player stats table below it.
     for (let idx = 0; idx < state.rounds.length; idx += 1) {
       const roundEntries = rows.map((row) => ({
         id: row.id,
@@ -532,6 +534,8 @@ export function createHistoryController(deps) {
         ? rows.filter((row) => bestStreaks[row.id] === topStreakValue).map((row) => row.id)
         : [];
 
+    // Turn the numeric summary into a short natural-language recap so the
+    // history panel explains what happened instead of only showing raw stats.
     const roundsLabel = `${state.rounds.length} ${state.rounds.length === 1 ? "round" : "rounds"}`;
     let headline = `Game story builds after ${roundsLabel}.`;
     if (leaderId) {
@@ -597,6 +601,8 @@ export function createHistoryController(deps) {
     const cards = document.createElement("div");
     cards.className = "history-insights-grid";
 
+    // Keep these cards declarative so the UI copy can be adjusted without
+    // touching the DOM construction loop below.
     const cardsData = [
       {
         label: "Leader Changes",

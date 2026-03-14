@@ -86,10 +86,6 @@ h1{
   max-width: 360px;
   flex: 1 1 260px;
 }
-.session-note{
-  width: 100%;
-  text-align: right;
-}
 .session-hidden-controls{
   display: none !important;
 }
@@ -242,10 +238,6 @@ h1{
     width: 100%;
     justify-content: flex-start;
     align-items: flex-start;
-  }
-  .session-note{
-    text-align: left;
-    max-width: 34rem;
   }
 }
 

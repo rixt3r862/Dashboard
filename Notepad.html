@@ -316,6 +316,7 @@
       }
 
       function queueDraftSave() {
+        // Debounce localStorage writes so long typing sessions stay responsive.
         window.clearTimeout(saveTimer);
         setDraftStatus("Saving...");
         saveTimer = window.setTimeout(() => {

@@ -402,6 +402,8 @@
 
     async function stopCameraScan(options = {}) {
       const { preserveStatus = false } = options;
+      // Stop both the preview loop and the media tracks so mobile browsers
+      // release the camera indicator immediately.
       if (cameraFrameId) {
         cancelAnimationFrame(cameraFrameId);
         cameraFrameId = 0;
@@ -440,6 +442,8 @@
         inversionAttempts: "attemptBoth"
       });
 
+      // End the live session on first successful decode so the result feels decisive
+      // and the user is not left wondering whether another scan is still in progress.
       if (code && code.data) {
         if (code.data !== cameraLastValue) {
           cameraLastValue = code.data;
@@ -465,6 +469,8 @@
 
         let stream;
         try {
+          // Prefer the rear camera on phones, but fall back cleanly when the
+          // browser or device ignores facingMode hints.
           stream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: { ideal: "environment" }

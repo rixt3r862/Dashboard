@@ -594,6 +594,8 @@
       }
 
       function renderSmartSections() {
+        // These sections are derived from local browser state rather than the
+        // static LINKS array, so the dashboard can feel personalized without a backend.
         const pins = getPinnedUrls()
           .map(findLink)
           .filter(Boolean);
@@ -692,6 +694,8 @@
         grid.innerHTML = "";
         const f = filter.trim().toLowerCase();
         const pins = new Set(getPinnedUrls());
+        // Pinned apps still participate in search, but float to the top of the
+        // main grid so the launcher remains predictable.
         const list = allLinks().filter(
           (l) =>
             !f ||
@@ -744,6 +748,7 @@
           return;
         }
 
+        // Any dashboard navigation updates the recent-apps rail before the page changes.
         const appLink = e.target.closest("[data-app-url]");
         if (appLink instanceof HTMLAnchorElement) {
           const url = appLink.getAttribute("data-app-url");
