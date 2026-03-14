@@ -928,13 +928,13 @@ summary::-webkit-details-marker{ display:none; }
 }
 .history-stats-wrap{
   margin-top: 10px;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
 }
 .history-stats-table{
   width: 100%;
-  min-width: 640px;
+  table-layout: fixed;
   border-collapse: collapse;
   border: none;
   border-radius: 0;
@@ -944,12 +944,22 @@ summary::-webkit-details-marker{ display:none; }
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   font-size: var(--fs-sm);
+}
+.history-stats-table td{
   white-space: nowrap;
+}
+.history-stats-table th{
+  white-space: normal;
+  line-height: 1.2;
 }
 .history-stats-table th{
   background: rgba(248,250,252,.9);
   color: var(--muted);
   font-weight: 700;
+}
+.history-stats-table th:first-child,
+.history-stats-table td:first-child{
+  width: 18%;
 }
 .history-stats-table tr:last-child td{
   border-bottom: none;
@@ -985,6 +995,17 @@ summary::-webkit-details-marker{ display:none; }
   }
   .history-insight-value{
     font-size: 18px;
+  }
+  .history-stats-wrap{
+    overflow: auto;
+  }
+  .history-stats-table{
+    min-width: 640px;
+    table-layout: auto;
+  }
+  .history-stats-table th,
+  .history-stats-table td{
+    white-space: nowrap;
   }
   .history-stats-table th,
   .history-stats-table td{
