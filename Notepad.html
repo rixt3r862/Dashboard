@@ -52,6 +52,7 @@
       .topbar-actions {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 0.5rem;
       }
 
@@ -96,6 +97,63 @@
         outline-offset: 2px;
       }
 
+      .draft-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        color: #57534e;
+        font-size: 0.9rem;
+      }
+
+      .draft-status {
+        min-height: 1.2rem;
+      }
+
+      .draft-meta {
+        color: #78716c;
+        font-size: 0.82rem;
+        text-align: right;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+
+      @media (max-width: 720px) {
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .topbar-actions {
+          width: 100%;
+        }
+
+        .topbar-actions > .btn,
+        .topbar-actions > a {
+          flex: 1 1 calc(50% - 0.25rem);
+          text-align: center;
+        }
+
+        .draft-bar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .draft-meta {
+          text-align: left;
+        }
+      }
+
       @media (prefers-color-scheme: dark) {
         body {
           background: #0c0a09;
@@ -117,6 +175,14 @@
           background: #1c1917;
           color: #f5f5f4;
         }
+
+        .draft-bar {
+          color: #d6d3d1;
+        }
+
+        .draft-meta {
+          color: #a8a29e;
+        }
       }
 
       :root[data-theme="light"] body {
@@ -136,6 +202,12 @@
         background: #fff;
         color: #1c1917;
       }
+      :root[data-theme="light"] .draft-bar {
+        color: #57534e;
+      }
+      :root[data-theme="light"] .draft-meta {
+        color: #78716c;
+      }
 
       :root[data-theme="dark"] body {
         background: #0c0a09;
@@ -154,6 +226,12 @@
         background: #1c1917;
         color: #f5f5f4;
       }
+      :root[data-theme="dark"] .draft-bar {
+        color: #d6d3d1;
+      }
+      :root[data-theme="dark"] .draft-meta {
+        color: #a8a29e;
+      }
     </style>
   </head>
   <body>
@@ -161,6 +239,8 @@
       <div class="topbar">
         <h1>Notepad</h1>
         <div class="topbar-actions">
+          <button class="btn" id="importBtn" type="button">Import TXT</button>
+          <button class="btn" id="exportBtn" type="button">Export TXT</button>
           <button class="btn" id="selectAllBtn" type="button">Select All</button>
           <button class="btn" id="copyBtn" type="button">Copy</button>
           <button class="btn" id="spellToggle" type="button">
@@ -170,7 +250,16 @@
         </div>
       </div>
 
+      <div class="draft-bar" aria-live="polite">
+        <div id="draftStatus" class="draft-status">Autosave ready.</div>
+        <div class="draft-meta">
+          Saved in this browser on this device.
+          <span id="draftSavedAt"></span>
+        </div>
+      </div>
+
       <label for="pad" style="position: absolute; left: -9999px">Notepad</label>
+      <input id="importFile" class="sr-only" type="file" accept=".txt,text/plain" />
       <textarea
         id="pad"
         placeholder="Start typing..."
@@ -183,9 +272,87 @@
     </main>
     <script>
       const pad = document.getElementById("pad");
+      const importBtn = document.getElementById("importBtn");
+      const exportBtn = document.getElementById("exportBtn");
+      const importFile = document.getElementById("importFile");
       const selectAllBtn = document.getElementById("selectAllBtn");
       const copyBtn = document.getElementById("copyBtn");
       const spellToggle = document.getElementById("spellToggle");
+      const draftStatus = document.getElementById("draftStatus");
+      const draftSavedAt = document.getElementById("draftSavedAt");
+      const DRAFT_KEY = "notepad.v1.draft";
+      const DRAFT_META_KEY = "notepad.v1.meta";
+      let saveTimer = 0;
+
+      function formatSavedTime(ts) {
+        if (!Number.isFinite(ts)) return "";
+        return new Date(ts).toLocaleString([], {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
+
+      function updateDraftSavedAt(ts) {
+        const label = formatSavedTime(ts);
+        draftSavedAt.textContent = label ? ` Last saved ${label}.` : "";
+      }
+
+      function setDraftStatus(message) {
+        draftStatus.textContent = message;
+      }
+
+      function saveDraft() {
+        try {
+          localStorage.setItem(DRAFT_KEY, pad.value);
+          const meta = { savedAt: Date.now() };
+          localStorage.setItem(DRAFT_META_KEY, JSON.stringify(meta));
+          updateDraftSavedAt(meta.savedAt);
+          setDraftStatus("Draft saved.");
+        } catch {
+          setDraftStatus("Unable to save draft on this device.");
+        }
+      }
+
+      function queueDraftSave() {
+        window.clearTimeout(saveTimer);
+        setDraftStatus("Saving...");
+        saveTimer = window.setTimeout(() => {
+          saveDraft();
+        }, 220);
+      }
+
+      function loadDraft() {
+        try {
+          const value = localStorage.getItem(DRAFT_KEY);
+          if (typeof value === "string" && value.length) {
+            pad.value = value;
+            setDraftStatus("Draft restored.");
+          } else {
+            setDraftStatus("Autosave ready.");
+          }
+          const metaRaw = localStorage.getItem(DRAFT_META_KEY);
+          if (metaRaw) {
+            const meta = JSON.parse(metaRaw);
+            updateDraftSavedAt(Number(meta?.savedAt));
+          }
+        } catch {
+          setDraftStatus("Autosave unavailable.");
+        }
+      }
+
+      function exportTxt() {
+        const blob = new Blob([pad.value], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const stamp = new Date().toISOString().slice(0, 10);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `notepad-${stamp}.txt`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setDraftStatus("Text exported.");
+      }
 
       function syncSpellToggleLabel() {
         spellToggle.textContent = `Spellcheck: ${pad.spellcheck ? "On" : "Off"}`;
@@ -213,12 +380,44 @@
         }
       });
 
+      importBtn.addEventListener("click", () => {
+        importFile.click();
+      });
+
+      importFile.addEventListener("change", async () => {
+        const file = importFile.files && importFile.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          pad.value = text;
+          saveDraft();
+          setDraftStatus(`Imported ${file.name}.`);
+          pad.focus();
+        } catch {
+          setDraftStatus("Unable to import that file.");
+        } finally {
+          importFile.value = "";
+        }
+      });
+
+      exportBtn.addEventListener("click", exportTxt);
+
       spellToggle.addEventListener("click", () => {
         pad.spellcheck = !pad.spellcheck;
         syncSpellToggleLabel();
         pad.focus();
       });
 
+      pad.addEventListener("input", queueDraftSave);
+
+      window.addEventListener("pagehide", () => {
+        if (saveTimer) {
+          window.clearTimeout(saveTimer);
+          saveDraft();
+        }
+      });
+
+      loadDraft();
       syncSpellToggleLabel();
     </script>
   </body>
