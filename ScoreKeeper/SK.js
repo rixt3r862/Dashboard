@@ -19,7 +19,10 @@ import { createRoundEntryController } from "./js/roundEntry.js";
 import { createScoreboardController } from "./js/scoreboard.js";
 
 (() => {
-  const STORAGE_KEY = "scorekeeper.v2";
+  const AUTOSAVE_KEY = "scorekeeper.v3.autosave";
+  const SESSIONS_KEY = "scorekeeper.v3.sessions";
+  const LEGACY_AUTOSAVE_KEY = "scorekeeper.v2";
+  const EXPORT_VERSION = 1;
 
   const $ = (id) => document.getElementById(id);
 
@@ -34,9 +37,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
     btnUndo: $("btnUndo"),
     btnToggleSort: $("btnToggleSort"),
     btnLoadSaved: $("btnLoadSaved"),
+    btnSaveSession: $("btnSaveSession"),
+    btnExportSession: $("btnExportSession"),
+    btnImportSession: $("btnImportSession"),
+    btnLoadSession: $("btnLoadSession"),
+    btnDeleteSession: $("btnDeleteSession"),
+    importSessionFile: $("importSessionFile"),
+    savedSessionSelect: $("savedSessionSelect"),
 
     pillStatus: $("pillStatus"),
     pillSaved: $("pillSaved"),
+    pillSessions: $("pillSessions"),
 
     leftTitle: $("leftTitle"),
     setupPanel: $("setupPanel"),
@@ -149,6 +160,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     winnerMilestones: [], // [{ winnerId, roundN, target, ts }]
     sortByTotal: false,
     savedExists: false,
+    savedSessionCount: 0,
+    selectedSessionId: "",
+    currentSessionId: null,
     bannerDismissed: false,
     historyEditingRoundN: null,
 
@@ -209,6 +223,214 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function setLive(text) {
     els.ariaLive.textContent = text;
+  }
+
+  function activeMessageEl() {
+    return state.mode === "setup" ? els.setupMsg : els.roundMsg;
+  }
+
+  function showStatusMessage(text) {
+    showMsg(activeMessageEl(), text);
+  }
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function snapshotState() {
+    return {
+      mode: state.mode,
+      presetKey: state.presetKey,
+      target: state.target,
+      winMode: state.winMode,
+      players: state.players,
+      teams: state.teams,
+      rounds: state.rounds,
+      winnerId: state.winnerId,
+      gameState: state.gameState,
+      firstWinnerAt: state.firstWinnerAt,
+      finalWinnerAt: state.finalWinnerAt,
+      winnerMilestones: state.winnerMilestones,
+      sortByTotal: state.sortByTotal,
+      spadesPartnerIndex: state.spadesPartnerIndex,
+      presetNote: state.presetNote,
+      skyjoCurrentRoundWentOutPlayerId:
+        state.skyjoCurrentRoundWentOutPlayerId,
+      currentSessionId: state.currentSessionId,
+    };
+  }
+
+  function hasSnapshotData(payload = snapshotState()) {
+    return !!(
+      Array.isArray(payload?.players) && payload.players.length
+    );
+  }
+
+  function defaultSessionName(payload = snapshotState()) {
+    const presetLabel = PRESETS[payload?.presetKey]?.label || "Custom";
+    const names = Array.isArray(payload?.players)
+      ? payload.players
+          .map((player) => normalizeName(player?.name))
+          .filter(Boolean)
+          .slice(0, 2)
+      : [];
+    const when = new Date().toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    if (names.length) {
+      return `${presetLabel}: ${names.join(" & ")} (${when})`;
+    }
+    return `${presetLabel} Session (${when})`;
+  }
+
+  function sessionOptionLabel(session) {
+    const presetLabel = PRESETS[session.payload?.presetKey]?.label || "Custom";
+    const players = Array.isArray(session.payload?.players)
+      ? session.payload.players.length
+      : 0;
+    const rounds = Array.isArray(session.payload?.rounds)
+      ? session.payload.rounds.length
+      : 0;
+    return `${session.name} • ${presetLabel} • ${players}P • ${rounds}R`;
+  }
+
+  function sanitizeFileName(name) {
+    const base = String(name || "scorekeeper-session")
+      .trim()
+      .replace(/[^a-z0-9._-]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+    return base || "scorekeeper-session";
+  }
+
+  function getSelectedSession() {
+    if (!state.selectedSessionId) return null;
+    return getStoredSessions().find((session) => session.id === state.selectedSessionId) || null;
+  }
+
+  function setAutosavePayload(payload) {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+      try {
+        localStorage.removeItem(LEGACY_AUTOSAVE_KEY);
+      } catch {}
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function readAutosavePayload() {
+    for (const key of [AUTOSAVE_KEY, LEGACY_AUTOSAVE_KEY]) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const payload = JSON.parse(raw);
+        if (
+          payload &&
+          Array.isArray(payload.players) &&
+          Array.isArray(payload.rounds)
+        ) {
+          return {
+            key,
+            payload,
+          };
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  function normalizeSessionRecord(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const payload =
+      entry.payload && typeof entry.payload === "object" ? entry.payload : null;
+    if (
+      !payload ||
+      !Array.isArray(payload.players) ||
+      !Array.isArray(payload.rounds)
+    ) {
+      return null;
+    }
+
+    const createdAt = Number.parseInt(entry.createdAt, 10);
+    const updatedAt = Number.parseInt(entry.updatedAt, 10);
+    return {
+      id:
+        typeof entry.id === "string" && entry.id.trim()
+          ? entry.id
+          : uid(),
+      name:
+        typeof entry.name === "string" && entry.name.trim()
+          ? entry.name.trim()
+          : defaultSessionName(payload),
+      payload,
+      createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+      updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now(),
+    };
+  }
+
+  function getStoredSessions() {
+    try {
+      const raw = localStorage.getItem(SESSIONS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map(normalizeSessionRecord)
+        .filter(Boolean)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+    } catch {
+      return [];
+    }
+  }
+
+  function setStoredSessions(sessions) {
+    try {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function updateSessionControls(preferredId = state.selectedSessionId) {
+    const sessions = getStoredSessions();
+    state.savedSessionCount = sessions.length;
+
+    let selectedId = preferredId;
+    if (!selectedId && state.currentSessionId) {
+      selectedId = state.currentSessionId;
+    }
+    if (selectedId && !sessions.some((session) => session.id === selectedId)) {
+      selectedId = "";
+    }
+    state.selectedSessionId = selectedId;
+
+    if (els.savedSessionSelect) {
+      els.savedSessionSelect.innerHTML = `<option value="">Saved sessions</option>`;
+      for (const session of sessions) {
+        const option = document.createElement("option");
+        option.value = session.id;
+        option.textContent = sessionOptionLabel(session);
+        els.savedSessionSelect.appendChild(option);
+      }
+      els.savedSessionSelect.value = selectedId;
+      els.savedSessionSelect.disabled = sessions.length === 0;
+    }
+
+    if (els.pillSessions) {
+      els.pillSessions.innerHTML = `<strong>Sessions:</strong> ${sessions.length}`;
+    }
+
+    const hasCurrent = hasSnapshotData();
+    const hasSelected = !!selectedId;
+    els.btnSaveSession.disabled = !hasCurrent;
+    els.btnExportSession.disabled = !(hasCurrent || hasSelected);
+    els.btnLoadSession.disabled = !hasSelected;
+    els.btnDeleteSession.disabled = !hasSelected;
   }
 
   function clampInt(val, min, max) {
@@ -422,54 +644,27 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function detectSaved() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      state.savedExists = !!raw;
-    } catch {
-      state.savedExists = false;
-    }
+    state.savedExists = !!readAutosavePayload();
     els.btnLoadSaved.style.display = state.savedExists ? "inline-flex" : "none";
     els.pillSaved.style.display = state.savedExists ? "inline-flex" : "none";
+    updateSessionControls();
   }
 
   function save() {
-    try {
-      const payload = {
-        mode: state.mode,
-        presetKey: state.presetKey,
-        target: state.target,
-        winMode: state.winMode,
-        players: state.players,
-        teams: state.teams,
-        rounds: state.rounds,
-        winnerId: state.winnerId,
-        gameState: state.gameState,
-        firstWinnerAt: state.firstWinnerAt,
-        finalWinnerAt: state.finalWinnerAt,
-        winnerMilestones: state.winnerMilestones,
-        sortByTotal: state.sortByTotal,
-        spadesPartnerIndex: state.spadesPartnerIndex,
-        presetNote: state.presetNote,
-        skyjoCurrentRoundWentOutPlayerId:
-          state.skyjoCurrentRoundWentOutPlayerId,
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      detectSaved();
-    } catch {}
+    setAutosavePayload(snapshotState());
+    detectSaved();
   }
 
   function clearSaved() {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(AUTOSAVE_KEY);
+      localStorage.removeItem(LEGACY_AUTOSAVE_KEY);
     } catch {}
     detectSaved();
   }
 
-  function loadSaved() {
+  function hydrateStateFromPayload(payload, options = {}) {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return false;
-      const payload = JSON.parse(raw);
       if (
         !payload ||
         !Array.isArray(payload.players) ||
@@ -544,6 +739,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.bannerDismissed = false;
       state.historyEditingRoundN = null;
       state.activeRoundHelper = null;
+      const requestedSessionId =
+        typeof options.currentSessionId === "string"
+          ? options.currentSessionId
+          : typeof payload.currentSessionId === "string"
+            ? payload.currentSessionId
+            : null;
+      const sessionIds = new Set(getStoredSessions().map((session) => session.id));
+      state.currentSessionId =
+        requestedSessionId && sessionIds.has(requestedSessionId)
+          ? requestedSessionId
+          : null;
+      state.selectedSessionId = state.currentSessionId || "";
       state.skyjoCurrentRoundWentOutPlayerId =
         typeof payload.skyjoCurrentRoundWentOutPlayerId === "string"
           ? payload.skyjoCurrentRoundWentOutPlayerId
@@ -573,11 +780,245 @@ import { createScoreboardController } from "./js/scoreboard.js";
       maybeRenderTeamPreview();
       applyPhase10UiText();
 
+      save();
       renderAll();
-      setLive("Saved game loaded.");
+      updateSessionControls(state.selectedSessionId);
+      setLive(options.liveMessage || "Saved game loaded.");
       return true;
     } catch {
       return false;
+    }
+  }
+
+  function loadSaved() {
+    const autosave = readAutosavePayload();
+    if (!autosave) return false;
+    const ok = hydrateStateFromPayload(autosave.payload, {
+      liveMessage: "Autosave resumed.",
+    });
+    if (ok && autosave.key === LEGACY_AUTOSAVE_KEY) {
+      save();
+    }
+    return ok;
+  }
+
+  function saveNamedSession() {
+    if (!hasSnapshotData()) {
+      showStatusMessage("Start or load a game before saving a session.");
+      return;
+    }
+
+    const sessions = getStoredSessions();
+    const existing = state.currentSessionId
+      ? sessions.find((session) => session.id === state.currentSessionId)
+      : null;
+
+    let name = existing?.name || defaultSessionName();
+    if (!existing) {
+      const answer = window.prompt("Name this saved session:", name);
+      if (answer === null) return;
+      name = normalizeName(answer) || name;
+    }
+
+    const now = Date.now();
+    const id = existing?.id || uid();
+    const payload = cloneJson(snapshotState());
+    payload.currentSessionId = id;
+    const nextRecord = {
+      id,
+      name,
+      payload,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+    const nextSessions = [nextRecord, ...sessions.filter((session) => session.id !== id)]
+      .map(normalizeSessionRecord)
+      .filter(Boolean)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+
+    if (!setStoredSessions(nextSessions)) {
+      showStatusMessage("Unable to save this session.");
+      return;
+    }
+
+    state.currentSessionId = id;
+    state.selectedSessionId = id;
+    save();
+    updateSessionControls(id);
+    showStatusMessage(`Session saved: ${name}.`);
+    setLive(`Session saved: ${name}.`);
+  }
+
+  function loadSelectedSession() {
+    const session = getSelectedSession();
+    if (!session) return;
+    const ok = hydrateStateFromPayload(cloneJson(session.payload), {
+      currentSessionId: session.id,
+      liveMessage: `Session loaded: ${session.name}.`,
+    });
+    if (!ok) {
+      showStatusMessage("That session could not be loaded.");
+      return;
+    }
+    state.selectedSessionId = session.id;
+    updateSessionControls(session.id);
+  }
+
+  function deleteSelectedSession() {
+    const session = getSelectedSession();
+    if (!session) return;
+
+    const proceed = window.confirm(`Delete saved session "${session.name}"?`);
+    if (!proceed) return;
+
+    const remaining = getStoredSessions().filter(
+      (entry) => entry.id !== session.id,
+    );
+    if (!setStoredSessions(remaining)) {
+      showStatusMessage("Unable to delete that session.");
+      return;
+    }
+
+    if (state.currentSessionId === session.id) {
+      state.currentSessionId = null;
+    }
+    state.selectedSessionId = "";
+    save();
+    updateSessionControls("");
+    showStatusMessage(`Deleted session: ${session.name}.`);
+    setLive(`Deleted session: ${session.name}.`);
+  }
+
+  function resolveExportSession() {
+    if (hasSnapshotData()) {
+      const current = state.currentSessionId
+        ? getStoredSessions().find((session) => session.id === state.currentSessionId)
+        : null;
+      return {
+        name: current?.name || defaultSessionName(),
+        id: current?.id || null,
+        payload: cloneJson(snapshotState()),
+      };
+    }
+
+    const session = getSelectedSession();
+    if (!session) return null;
+    return {
+      name: session.name,
+      id: session.id,
+      payload: cloneJson(session.payload),
+    };
+  }
+
+  function exportSessionFile() {
+    const exportable = resolveExportSession();
+    if (!exportable) {
+      showStatusMessage("Nothing to export yet.");
+      return;
+    }
+
+    const bundle = {
+      app: "scorekeeper",
+      version: EXPORT_VERSION,
+      exportedAt: new Date().toISOString(),
+      session: {
+        id: exportable.id,
+        name: exportable.name,
+      },
+      payload: exportable.payload,
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${sanitizeFileName(exportable.name)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+
+    showStatusMessage(`Exported session: ${exportable.name}.`);
+    setLive(`Exported session: ${exportable.name}.`);
+  }
+
+  function parseImportedSession(json, filename = "") {
+    if (!json || typeof json !== "object") return null;
+
+    const payload =
+      json.app === "scorekeeper" && json.payload
+        ? json.payload
+        : json.payload && typeof json.payload === "object"
+          ? json.payload
+          : json;
+    if (
+      !payload ||
+      !Array.isArray(payload.players) ||
+      !Array.isArray(payload.rounds)
+    ) {
+      return null;
+    }
+
+    const fallbackName = filename
+      ? sanitizeFileName(filename.replace(/\.json$/i, ""))
+      : defaultSessionName(payload);
+    const providedName =
+      typeof json.session?.name === "string" && json.session.name.trim()
+        ? json.session.name.trim()
+        : typeof json.name === "string" && json.name.trim()
+          ? json.name.trim()
+          : fallbackName;
+    const now = Date.now();
+    const id = uid();
+    const clonedPayload = cloneJson(payload);
+    clonedPayload.currentSessionId = id;
+
+    return {
+      id,
+      name: providedName,
+      payload: clonedPayload,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async function importSessionFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const imported = parseImportedSession(parsed, file.name);
+      if (!imported) {
+        showStatusMessage("That file is not a valid ScoreKeeper session.");
+        return;
+      }
+
+      const nextSessions = [imported, ...getStoredSessions()]
+        .map(normalizeSessionRecord)
+        .filter(Boolean)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+      if (!setStoredSessions(nextSessions)) {
+        showStatusMessage("Unable to import that session.");
+        return;
+      }
+
+      const ok = hydrateStateFromPayload(imported.payload, {
+        currentSessionId: imported.id,
+        liveMessage: `Session imported: ${imported.name}.`,
+      });
+      if (!ok) {
+        showStatusMessage("Imported file could not be loaded.");
+        return;
+      }
+      state.selectedSessionId = imported.id;
+      updateSessionControls(imported.id);
+    } catch {
+      showStatusMessage("Import failed. Check that the file contains valid JSON.");
+    } finally {
+      if (els.importSessionFile) {
+        els.importSessionFile.value = "";
+      }
     }
   }
 
@@ -593,6 +1034,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundScores = {};
     clearWinnerLifecycle();
     state.sortByTotal = false;
+    state.currentSessionId = null;
+    state.selectedSessionId = "";
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
@@ -614,6 +1057,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     renderSetupInputs(false);
     renderAll();
+    updateSessionControls("");
     setLive("New game started.");
   }
 
@@ -648,6 +1092,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.players.map((p) => [p.id, 0]),
     );
     clearWinnerLifecycle();
+    state.currentSessionId = null;
+    state.selectedSessionId = "";
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
@@ -660,6 +1106,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     save();
     applyPhase10UiText();
     renderAll();
+    updateSessionControls("");
     setLive("New game started with same players.");
   }
 
@@ -1030,6 +1477,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.players.map((p) => [p.id, 0]),
     );
     clearWinnerLifecycle();
+    state.currentSessionId = null;
+    state.selectedSessionId = "";
     state.bannerDismissed = false;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
@@ -1042,6 +1491,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     save();
     applyPhase10UiText();
     renderAll();
+    updateSessionControls("");
     setLive("Game started.");
   }
   function totalsByPlayerId() {
@@ -1337,6 +1787,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.btnToggleSort.textContent = state.sortByTotal
       ? "Sort: Totals"
       : "Sort: Off";
+    els.btnSaveSession.disabled = !hasSnapshotData();
+    els.btnExportSession.disabled = !(
+      hasSnapshotData() || !!state.selectedSessionId
+    );
+    els.btnLoadSession.disabled = !state.selectedSessionId;
+    els.btnDeleteSession.disabled = !state.selectedSessionId;
+    els.savedSessionSelect.disabled = state.savedSessionCount === 0;
 
     els.btnUndo.disabled = !(state.rounds.length > 0);
 
@@ -1374,6 +1831,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (state.mode === "setup") {
       updateStartButtonState();
     }
+    updateSessionControls(state.selectedSessionId);
   }
 
   function escapeHtml(str) {
@@ -1594,6 +2052,36 @@ import { createScoreboardController } from "./js/scoreboard.js";
     renderAll();
   });
 
+  els.savedSessionSelect.addEventListener("change", () => {
+    state.selectedSessionId = els.savedSessionSelect.value || "";
+    updateSessionControls(state.selectedSessionId);
+  });
+
+  els.btnSaveSession.addEventListener("click", () => {
+    saveNamedSession();
+  });
+
+  els.btnExportSession.addEventListener("click", () => {
+    exportSessionFile();
+  });
+
+  els.btnImportSession.addEventListener("click", () => {
+    els.importSessionFile.click();
+  });
+
+  els.importSessionFile.addEventListener("change", () => {
+    const file = els.importSessionFile.files?.[0];
+    importSessionFile(file);
+  });
+
+  els.btnLoadSession.addEventListener("click", () => {
+    loadSelectedSession();
+  });
+
+  els.btnDeleteSession.addEventListener("click", () => {
+    deleteSelectedSession();
+  });
+
   els.btnLoadSaved.addEventListener("click", () => {
     const ok = loadSaved();
     if (!ok) {
@@ -1620,12 +2108,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
   renderSetupInputs();
   maybeRenderTeamPreview();
   applyPhase10UiText();
+  updateSessionControls();
 
   // Auto-load if saved game is playing/finished
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const payload = JSON.parse(raw);
+    const autosave = readAutosavePayload();
+    if (autosave) {
+      const payload = autosave.payload;
       if (
         payload &&
         (payload.mode === "playing" || payload.mode === "finished")

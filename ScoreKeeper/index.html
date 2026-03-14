@@ -6,6 +6,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Card Game Score Keeper</title>
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="../app.webmanifest" />
+  <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
   <link rel="icon" type="image/svg+xml" href="./img/scorekeeper-favicon.svg" />
   <link rel="shortcut icon" href="./img/scorekeeper-favicon.svg" />
   <script>
@@ -45,6 +48,25 @@
         </div>
       </div>
       <div class="top-actions">
+        <button class="btn" id="btnSaveSession" type="button" title="Save a named session snapshot">
+          Save Session
+        </button>
+        <button class="btn" id="btnExportSession" type="button" title="Export the current game as JSON">
+          Export
+        </button>
+        <button class="btn" id="btnImportSession" type="button" title="Import a saved ScoreKeeper session">
+          Import
+        </button>
+        <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
+        <select id="savedSessionSelect" class="session-select" aria-label="Saved ScoreKeeper sessions">
+          <option value="">Saved sessions on this device</option>
+        </select>
+        <button class="btn" id="btnLoadSession" type="button" title="Load the selected named session">
+          Load Session
+        </button>
+        <button class="btn danger" id="btnDeleteSession" type="button" title="Delete the selected named session">
+          Delete Session
+        </button>
         <button class="btn" id="btnPrint" type="button" title="Print scoreboard (or save as PDF)" disabled>
           Print Scoreboard
         </button>
@@ -52,7 +74,11 @@
           New Game
         </button>
         <span class="pill" id="pillStatus"><strong>Status:</strong> Setup</span>
-        <span class="pill" id="pillSaved" style="display: none"><strong>Saved:</strong> Yes</span>
+        <span class="pill" id="pillSaved" style="display: none"><strong>Autosave:</strong> On</span>
+        <span class="pill" id="pillSessions"><strong>Sessions:</strong> 0</span>
+        <div class="session-note muted">
+          Sessions are saved in this browser on this device. Export JSON to back up or move them.
+        </div>
       </div>
     </header>
 
@@ -193,7 +219,7 @@
               Start Game
             </button>
             <button class="btn" id="btnLoadSaved" type="button" style="display: none">
-              Load Saved Game
+              Resume Autosave
             </button>
           </div>
 

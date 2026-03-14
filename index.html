@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <title>Rick’s Utility Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="manifest" href="./app.webmanifest" />
+    <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
     <script>
       tailwind = { config: { darkMode: "class" } };
     </script>
@@ -85,10 +88,10 @@
           desc: "Time & display clock",
         },
         {
-          name: "Time Converter",
+          name: "24h Time Helper",
           url: "./Time Converter.html",
           icon: "🕒",
-          desc: "24h ↔ 12h time converter",
+          desc: "Convert 24-hour time into 12-hour format",
         },
         {
           name: "Timer",
@@ -108,7 +111,7 @@
           name: "Unit Converter",
           url: "./Unit Converter.html",
           icon: "📐",
-          desc: "Length, weight, volume, and temperature",
+          desc: "Length, weight, volume, temperature, and more",
         },
         {
           name: "Notepad",

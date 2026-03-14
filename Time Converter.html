@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>24h → 12h Time Converter</title>
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="./app.webmanifest" />
+  <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
+  <title>24h to 12h Time Helper</title>
   <script>
     (function () {
       try {
@@ -208,7 +211,7 @@
   <a class="back-link" href="./index.html">Back to Dashboard</a>
 
   <div class="card">
-    <h2>24 2 12 Time Converter</h2>
+    <h2>24h to 12h Time Helper</h2>
 
     <input
       type="text"
@@ -221,7 +224,7 @@
     />
 
     <div class="output" id="output" onclick="copyOutput()"></div>
-    <div class="hint">Click the time to copy</div>
+    <div class="hint">Paste a 24-hour time and copy the 12-hour result</div>
   </div>
 
   <script>

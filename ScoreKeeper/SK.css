@@ -81,6 +81,15 @@ h1{
   column-gap: 8px;
   row-gap: 6px;
 }
+.session-select{
+  min-width: min(280px, 100%);
+  max-width: 360px;
+  flex: 1 1 260px;
+}
+.session-note{
+  width: 100%;
+  text-align: right;
+}
 
 .grid{
   display:grid;
@@ -143,6 +152,10 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
   border-color: rgba(37,99,235,.5);
   box-shadow: 0 0 0 4px rgba(37,99,235,.12);
   outline:none;
+}
+select:disabled{
+  opacity: .7;
+  cursor: not-allowed;
 }
 
 .btn{
