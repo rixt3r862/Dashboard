@@ -879,6 +879,13 @@ summary::-webkit-details-marker{ display:none; }
   padding: 10px;
   background: rgba(255,255,255,.72);
 }
+.history-graph-stack{
+  display: grid;
+  gap: 12px;
+}
+.history-graph-panel{
+  min-width: 0;
+}
 .history-graph-head{
   display:flex;
   align-items:center;

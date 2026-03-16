@@ -221,50 +221,80 @@ export function createHistoryController(deps) {
     });
   }
 
-  function renderHistoryGraph() {
-    if (
-      !els.historyGraphWrap ||
-      !els.historyGraph ||
-      !els.historyGraphTitle ||
-      !els.historyGraphLegend ||
-      !els.historyGraphMeta ||
-      !els.historyStatsTable
-    ) {
-      return;
+  function buildPhase10PointsSeries() {
+    if (!state.rounds.length || !state.players.length || !isPhase10()) return [];
+    const totalsByPlayer = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    return state.players.map((player, idx) => {
+      const values = [];
+      for (const round of state.rounds) {
+        const adjusted = adjustedRoundScoresForGraph(round);
+        totalsByPlayer[player.id] += Number(adjusted?.[player.id] ?? 0);
+        values.push(totalsByPlayer[player.id]);
+      }
+      return {
+        id: player.id,
+        label: player.name || `Player ${idx + 1}`,
+        color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+        values,
+      };
+    });
+  }
+
+  function clearGraphPanel(panelEl, graphEl, legendEl, metaEl) {
+    if (graphEl) graphEl.innerHTML = "";
+    if (legendEl) legendEl.innerHTML = "";
+    if (metaEl) metaEl.textContent = "";
+    if (panelEl) panelEl.hidden = true;
+  }
+
+  function graphBounds(mode, allValues) {
+    const rawMin = Math.min(...allValues);
+    const rawMax = Math.max(...allValues);
+    const span = Math.max(1, rawMax - rawMin);
+
+    if (mode === "phase-progress") {
+      return {
+        yMin: 0,
+        yMax: Math.max(1, state.target || 10, rawMax),
+      };
     }
 
-    els.historyGraph.innerHTML = "";
-    els.historyGraphLegend.innerHTML = "";
-    if (els.historyInsights) {
-      els.historyInsights.innerHTML = "";
-      els.historyInsights.hidden = true;
-    }
-    els.historyStatsTable.innerHTML = "";
-    els.historyGraphTitle.textContent = isPhase10()
-      ? "Phase Progress"
-      : "Points Trend";
-    els.historyGraphMeta.textContent = "";
+    let yMin = rawMin - Math.max(1, Math.round(span * 0.1));
+    let yMax = rawMax + Math.max(1, Math.round(span * 0.1));
+    if (yMin > 0) yMin = 0;
+    if (yMax === yMin) yMax = yMin + 1;
+    return { yMin, yMax };
+  }
 
-    if (!state.rounds.length || !state.players.length) {
-      els.historyGraphWrap.hidden = true;
-      return;
-    }
+  function renderGraphPanel({
+    panelEl,
+    graphEl,
+    titleEl,
+    metaEl,
+    legendEl,
+    title,
+    metaText,
+    ariaLabel,
+    series,
+    mode = "cumulative-points",
+  }) {
+    if (!graphEl || !titleEl || !metaEl || !legendEl) return false;
 
-    const series = buildGraphSeries().filter(
+    graphEl.innerHTML = "";
+    legendEl.innerHTML = "";
+    titleEl.textContent = title;
+    metaEl.textContent = "";
+    if (panelEl) panelEl.hidden = true;
+
+    const normalizedSeries = series.filter(
       (entry) => Array.isArray(entry.values) && entry.values.length,
     );
-    if (!series.length) {
-      els.historyGraphWrap.hidden = true;
-      return;
-    }
+    if (!normalizedSeries.length) return false;
 
-    const allValues = series.flatMap((s) =>
-      s.values.filter((v) => Number.isFinite(v)),
+    const allValues = normalizedSeries.flatMap((entry) =>
+      entry.values.filter((value) => Number.isFinite(value)),
     );
-    if (!allValues.length) {
-      els.historyGraphWrap.hidden = true;
-      return;
-    }
+    if (!allValues.length) return false;
 
     const roundsCount = state.rounds.length;
     const width = Math.max(860, 220 + roundsCount * 64);
@@ -275,19 +305,7 @@ export function createHistoryController(deps) {
     const padBottom = 42;
     const innerW = Math.max(1, width - padLeft - padRight);
     const innerH = Math.max(1, height - padTop - padBottom);
-
-    const rawMin = Math.min(...allValues);
-    const rawMax = Math.max(...allValues);
-    const span = Math.max(1, rawMax - rawMin);
-    const phase10Mode = isPhase10();
-    let yMin = phase10Mode
-      ? 0
-      : rawMin - Math.max(1, Math.round(span * 0.1));
-    let yMax = phase10Mode
-      ? Math.max(1, state.target || 10, rawMax)
-      : rawMax + Math.max(1, Math.round(span * 0.1));
-    if (!phase10Mode && yMin > 0) yMin = 0;
-    if (yMax === yMin) yMax = yMin + 1;
+    const { yMin, yMax } = graphBounds(mode, allValues);
 
     const xFor = (idx) => {
       if (roundsCount <= 1) return padLeft + innerW / 2;
@@ -298,13 +316,8 @@ export function createHistoryController(deps) {
       return padTop + innerH - t * innerH;
     };
 
-    els.historyGraph.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    els.historyGraph.setAttribute(
-      "aria-label",
-      phase10Mode
-        ? `Round phase progress graph with ${roundsCount} rounds and ${series.length} players.`
-        : `Round points trend graph with ${roundsCount} rounds and ${series.length} ${state.teams ? "teams" : "players"}.`,
-    );
+    graphEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    graphEl.setAttribute("aria-label", ariaLabel);
 
     const yTicks = 5;
     for (let i = 0; i <= yTicks; i += 1) {
@@ -319,7 +332,7 @@ export function createHistoryController(deps) {
         y2: y,
         class: "history-graph-grid",
       });
-      els.historyGraph.appendChild(grid);
+      graphEl.appendChild(grid);
 
       const label = createSvgNode("text", {
         x: padLeft - 8,
@@ -328,7 +341,7 @@ export function createHistoryController(deps) {
         class: "history-graph-label",
       });
       label.textContent = String(value);
-      els.historyGraph.appendChild(label);
+      graphEl.appendChild(label);
     }
 
     const xAxis = createSvgNode("line", {
@@ -338,7 +351,7 @@ export function createHistoryController(deps) {
       y2: padTop + innerH,
       class: "history-graph-axis",
     });
-    els.historyGraph.appendChild(xAxis);
+    graphEl.appendChild(xAxis);
 
     const yAxis = createSvgNode("line", {
       x1: padLeft,
@@ -347,7 +360,7 @@ export function createHistoryController(deps) {
       y2: padTop + innerH,
       class: "history-graph-axis",
     });
-    els.historyGraph.appendChild(yAxis);
+    graphEl.appendChild(yAxis);
 
     const xLabelStep = Math.max(1, Math.ceil(roundsCount / 8));
     for (let i = 0; i < roundsCount; i += 1) {
@@ -361,11 +374,11 @@ export function createHistoryController(deps) {
         class: "history-graph-label",
       });
       label.textContent = String(i + 1);
-      els.historyGraph.appendChild(label);
+      graphEl.appendChild(label);
     }
 
-    for (const entry of series) {
-      const points = entry.values.map((v, idx) => [xFor(idx), yFor(v)]);
+    for (const entry of normalizedSeries) {
+      const points = entry.values.map((value, idx) => [xFor(idx), yFor(value)]);
       const d = points
         .map(([x, y], idx) =>
           `${idx === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`,
@@ -377,7 +390,7 @@ export function createHistoryController(deps) {
         class: "history-graph-line",
         stroke: entry.color,
       });
-      els.historyGraph.appendChild(path);
+      graphEl.appendChild(path);
 
       for (const [x, y] of points) {
         const point = createSvgNode("circle", {
@@ -387,7 +400,7 @@ export function createHistoryController(deps) {
           class: "history-graph-point",
           fill: entry.color,
         });
-        els.historyGraph.appendChild(point);
+        graphEl.appendChild(point);
       }
 
       const legendItem = document.createElement("span");
@@ -398,17 +411,91 @@ export function createHistoryController(deps) {
       swatch.style.borderColor = entry.color;
       legendItem.appendChild(swatch);
       legendItem.append(document.createTextNode(entry.label));
-      els.historyGraphLegend.appendChild(legendItem);
+      legendEl.appendChild(legendItem);
     }
 
-    els.historyGraphMeta.textContent = phase10Mode
-      ? `X: rounds  Y: cumulative phases completed`
-      : `X: rounds  Y: cumulative points (${state.teams ? "teams" : "players"})`;
-    const analysis = phase10Mode
-      ? analyzePhase10History(series)
-      : analyzeHistory(series);
+    metaEl.textContent = metaText;
+    if (panelEl) panelEl.hidden = false;
+    return true;
+  }
+
+  function renderHistoryGraph() {
+    if (
+      !els.historyGraphWrap ||
+      !els.historyGraph ||
+      !els.historyGraphTitle ||
+      !els.historyGraphLegend ||
+      !els.historyGraphMeta ||
+      !els.historyStatsTable
+    ) {
+      return;
+    }
+
+    clearGraphPanel(
+      els.historyPrimaryGraphPanel,
+      els.historyGraph,
+      els.historyGraphLegend,
+      els.historyGraphMeta,
+    );
+    clearGraphPanel(
+      els.historyPointsGraphPanel,
+      els.historyPointsGraph,
+      els.historyPointsGraphLegend,
+      els.historyPointsGraphMeta,
+    );
+    if (els.historyInsights) {
+      els.historyInsights.innerHTML = "";
+      els.historyInsights.hidden = true;
+    }
+    els.historyStatsTable.innerHTML = "";
+
+    if (!state.rounds.length || !state.players.length) {
+      els.historyGraphWrap.hidden = true;
+      return;
+    }
+
+    const primarySeries = buildGraphSeries();
+    const primaryRendered = renderGraphPanel({
+      panelEl: els.historyPrimaryGraphPanel,
+      graphEl: els.historyGraph,
+      titleEl: els.historyGraphTitle,
+      metaEl: els.historyGraphMeta,
+      legendEl: els.historyGraphLegend,
+      title: isPhase10() ? "Phase Progress" : "Points Trend",
+      metaText: isPhase10()
+        ? "X: rounds  Y: cumulative phases completed"
+        : `X: rounds  Y: cumulative points (${state.teams ? "teams" : "players"})`,
+      ariaLabel: isPhase10()
+        ? `Round phase progress graph with ${state.rounds.length} rounds and ${primarySeries.length} players.`
+        : `Round points trend graph with ${state.rounds.length} rounds and ${primarySeries.length} ${state.teams ? "teams" : "players"}.`,
+      series: primarySeries,
+      mode: isPhase10() ? "phase-progress" : "cumulative-points",
+    });
+    if (!primaryRendered) {
+      els.historyGraphWrap.hidden = true;
+      return;
+    }
+
+    if (isPhase10()) {
+      renderGraphPanel({
+        panelEl: els.historyPointsGraphPanel,
+        graphEl: els.historyPointsGraph,
+        titleEl: els.historyPointsGraphTitle,
+        metaEl: els.historyPointsGraphMeta,
+        legendEl: els.historyPointsGraphLegend,
+        title: "Points Trend",
+        metaText: "X: rounds  Y: cumulative points (players)",
+        ariaLabel: `Round points trend graph with ${state.rounds.length} rounds and ${state.players.length} players.`,
+        series: buildPhase10PointsSeries(),
+        mode: "cumulative-points",
+      });
+    }
+
+    const analysis = isPhase10()
+      ? analyzePhase10History(primarySeries)
+      : analyzeHistory(primarySeries);
     renderHistoryInsights(analysis);
-    renderHistoryStatsTable(series, analysis);
+    renderHistoryStatsTable(primarySeries, analysis);
     els.historyGraphWrap.hidden = false;
   }
 

@@ -458,21 +458,46 @@
                 <div class="history-cards" id="historyCards" hidden></div>
               </div>
               <div id="historyGraphWrap" class="history-graph-wrap" hidden>
-                <div class="history-graph-head">
-                  <strong id="historyGraphTitle">Points Trend</strong>
-                  <span class="muted" id="historyGraphMeta"></span>
+                <div class="history-graph-stack">
+                  <section id="historyPrimaryGraphPanel" class="history-graph-panel">
+                    <div class="history-graph-head">
+                      <strong id="historyGraphTitle">Points Trend</strong>
+                      <span class="muted" id="historyGraphMeta"></span>
+                    </div>
+                    <div class="history-graph-scroll">
+                      <svg
+                        id="historyGraph"
+                        class="history-graph"
+                        role="img"
+                        aria-label="Round points trend graph"
+                        viewBox="0 0 860 320"
+                        preserveAspectRatio="none"
+                      ></svg>
+                    </div>
+                    <div id="historyGraphLegend" class="history-graph-legend" aria-label="Graph legend"></div>
+                  </section>
+                  <section id="historyPointsGraphPanel" class="history-graph-panel" hidden>
+                    <div class="history-graph-head">
+                      <strong id="historyPointsGraphTitle">Points Trend</strong>
+                      <span class="muted" id="historyPointsGraphMeta"></span>
+                    </div>
+                    <div class="history-graph-scroll">
+                      <svg
+                        id="historyPointsGraph"
+                        class="history-graph"
+                        role="img"
+                        aria-label="Round points trend graph"
+                        viewBox="0 0 860 320"
+                        preserveAspectRatio="none"
+                      ></svg>
+                    </div>
+                    <div
+                      id="historyPointsGraphLegend"
+                      class="history-graph-legend"
+                      aria-label="Points graph legend"
+                    ></div>
+                  </section>
                 </div>
-                <div class="history-graph-scroll">
-                  <svg
-                    id="historyGraph"
-                    class="history-graph"
-                    role="img"
-                    aria-label="Round points trend graph"
-                    viewBox="0 0 860 320"
-                    preserveAspectRatio="none"
-                  ></svg>
-                </div>
-                <div id="historyGraphLegend" class="history-graph-legend" aria-label="Graph legend"></div>
                 <div id="historyInsights" class="history-insights" hidden aria-label="Game summary"></div>
                 <div class="history-stats-wrap">
                   <table class="history-stats-table" aria-label="Round statistics" id="historyStatsTable"></table>
