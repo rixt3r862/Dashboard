@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   adjustSkyjoRoundScores,
+  determinePhase10Winner,
   determineWinnerFromTotals,
+  phase10CompletionMap,
+  phase10ProgressByPlayerId,
   totalsByPlayerId,
   totalsByTeamId,
   validateRoundScores,
@@ -34,25 +37,80 @@ test("low-score winner waits until someone reaches target, then picks lowest", (
   assert.equal(determineWinnerFromTotals(ended, "low", 100), "b");
 });
 
-test("Phase 10 validation only allows Yes/No values (1/0)", () => {
+test("Phase 10 validation allows normal leftover hand points", () => {
   const players = [
     { id: "p1", name: "A" },
     { id: "p2", name: "B" },
   ];
   const ok = validateRoundScores({
-    scores: { p1: 1, p2: 0 },
+    scores: { p1: 0, p2: 37 },
     players,
     presetKey: "phase10",
   });
   assert.equal(ok.ok, true);
+});
 
-  const bad = validateRoundScores({
-    scores: { p1: 2, p2: 0 },
-    players,
-    presetKey: "phase10",
+test("Phase 10 completion map honors explicit metadata and legacy yes/no rounds", () => {
+  const players = [
+    { id: "p1", name: "A" },
+    { id: "p2", name: "B" },
+  ];
+
+  assert.deepEqual(
+    phase10CompletionMap(players, {
+      scores: { p1: 55, p2: 10 },
+      phase10CompletedByPlayerId: { p1: 1, p2: 0 },
+    }),
+    { p1: true, p2: false },
+  );
+
+  assert.deepEqual(
+    phase10CompletionMap(players, {
+      scores: { p1: 1, p2: 0 },
+    }),
+    { p1: true, p2: false },
+  );
+});
+
+test("Phase 10 winner is first to finish final phase with lowest points as same-round tiebreak", () => {
+  const players = [
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "c", name: "C" },
+  ];
+  const rounds = [
+    { n: 1, scores: { a: 20, b: 35, c: 40 }, phase10CompletedByPlayerId: { a: 1, b: 1, c: 0 } },
+    { n: 2, scores: { a: 15, b: 10, c: 25 }, phase10CompletedByPlayerId: { a: 1, b: 0, c: 1 } },
+    { n: 3, scores: { a: 5, b: 8, c: 9 }, phase10CompletedByPlayerId: { a: 1, b: 1, c: 1 } },
+  ];
+
+  assert.equal(determinePhase10Winner(players, rounds, 3), "a");
+});
+
+test("Phase 10 progress tracks both points and completed phases", () => {
+  const players = [
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+  ];
+  const rounds = [
+    { n: 1, scores: { a: 0, b: 35 }, phase10CompletedByPlayerId: { a: 1, b: 0 } },
+    { n: 2, scores: { a: 22, b: 0 }, phase10CompletedByPlayerId: { a: 0, b: 1 } },
+  ];
+
+  assert.deepEqual(phase10ProgressByPlayerId(players, rounds, 10), {
+    a: {
+      completedPhases: 1,
+      currentPhase: 2,
+      points: 22,
+      reachedTarget: false,
+    },
+    b: {
+      completedPhases: 1,
+      currentPhase: 2,
+      points: 35,
+      reachedTarget: false,
+    },
   });
-  assert.equal(bad.ok, false);
-  assert.match(String(bad.error), /Yes\/No/i);
 });
 
 test("Hearts validation allows normal total or shoot-the-moon total", () => {

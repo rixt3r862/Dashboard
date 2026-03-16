@@ -19,7 +19,8 @@ export const PRESETS = {
     target: 10,
     winMode: "high",
     teams: false,
-    notes: "Tracking phases completed (not points).",
+    notes:
+      "Track leftover hand points each round and mark who completed their phase. First to finish Phase 10 wins; ties at the final phase go to the lowest total points.",
   },
   skyjo: {
     label: "SkyJo",
@@ -91,7 +92,6 @@ export const APP_MESSAGES = {
     wholeNumbers: "Scores must be whole numbers.",
     outOfRange: ({ name, value }) =>
       `Score for ${name} looks out of range (${value}).`,
-    phase10YesNo: "Phase 10 scores must be Yes/No only.",
     heartsTotalWarning: ({
       contextLabel,
       total,

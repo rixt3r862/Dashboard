@@ -1,4 +1,5 @@
 import { bindSelectOnFocusAndClick } from "./inputUx.js";
+import { phase10CompletionMap } from "./rules.mjs";
 
 export function createRoundEntryController(deps) {
   const {
@@ -18,18 +19,27 @@ export function createRoundEntryController(deps) {
     const next = {};
     for (const p of state.players) {
       const v = Number(state.currentRoundScores?.[p.id] ?? 0);
-      if (isPhase10()) {
-        next[p.id] = v > 0 ? 1 : 0;
-      } else {
-        next[p.id] = Number.isFinite(v) ? Math.trunc(v) : 0;
-      }
+      next[p.id] = Number.isFinite(v) ? Math.trunc(v) : 0;
     }
     state.currentRoundScores = next;
+  }
+
+  function ensureCurrentPhase10Completions() {
+    const next = {};
+    for (const p of state.players) {
+      next[p.id] = Number(state.currentRoundPhase10Completed?.[p.id] ?? 0) > 0 ? 1 : 0;
+    }
+    state.currentRoundPhase10Completed = next;
   }
 
   function readRoundScores() {
     ensureCurrentRoundScores();
     return { ...state.currentRoundScores };
+  }
+
+  function readPhase10Completions() {
+    ensureCurrentPhase10Completions();
+    return { ...state.currentRoundPhase10Completed };
   }
 
   function closeRoundHelperForm() {
@@ -60,18 +70,25 @@ export function createRoundEntryController(deps) {
   function setRoundScoreInputValue(playerId, value, opts = {}) {
     const { silent = false } = opts;
     if (!state.players.some((p) => p.id === playerId)) return;
-    if (isPhase10()) {
-      state.currentRoundScores[playerId] = Number(value) > 0 ? 1 : 0;
-    } else {
-      const n = Number.parseInt(value, 10);
-      state.currentRoundScores[playerId] = Number.isNaN(n) ? 0 : n;
-    }
+    const n = Number.parseInt(value, 10);
+    state.currentRoundScores[playerId] = Number.isNaN(n) ? 0 : n;
     if (!silent) {
       showMsg(els.roundMsg, "");
       renderRoundPreview();
       return;
     }
     renderHeartsRoundTotal(state.currentRoundScores);
+  }
+
+  function setPhase10CompletionValue(playerId, value, opts = {}) {
+    const { silent = false } = opts;
+    if (!state.players.some((p) => p.id === playerId)) return;
+    ensureCurrentPhase10Completions();
+    state.currentRoundPhase10Completed[playerId] = Number(value) > 0 ? 1 : 0;
+    if (!silent) {
+      showMsg(els.roundMsg, "");
+      renderRoundPreview();
+    }
   }
 
   function applyRoundScores(scoresByPlayerId) {
@@ -82,9 +99,24 @@ export function createRoundEntryController(deps) {
     renderRoundPreview();
   }
 
+  function applyPhase10Completions(completionsByPlayerId) {
+    for (const p of state.players) {
+      if (!(p.id in completionsByPlayerId)) continue;
+      setPhase10CompletionValue(p.id, completionsByPlayerId[p.id], {
+        silent: true,
+      });
+    }
+    renderRoundPreview();
+  }
+
   function roundActionZeroAll() {
     const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
     applyRoundScores(scores);
+    if (isPhase10()) {
+      applyPhase10Completions(
+        Object.fromEntries(state.players.map((p) => [p.id, 0])),
+      );
+    }
     showMsg(els.roundMsg, "");
     setLive("Cleared round scores.");
   }
@@ -94,7 +126,11 @@ export function createRoundEntryController(deps) {
       showMsg(els.roundMsg, "No previous round to repeat.");
       return;
     }
-    applyRoundScores(state.rounds[state.rounds.length - 1].scores || {});
+    const lastRound = state.rounds[state.rounds.length - 1];
+    applyRoundScores(lastRound.scores || {});
+    if (isPhase10()) {
+      applyPhase10Completions(phase10CompletionMap(state.players, lastRound));
+    }
     closeRoundHelperForm();
     showMsg(els.roundMsg, "");
     setLive("Loaded previous round scores.");
@@ -106,8 +142,7 @@ export function createRoundEntryController(deps) {
       showMsg(els.roundMsg, "Enter a whole number.");
       return;
     }
-    const val = isPhase10() ? (n <= 0 ? 0 : 1) : n;
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, val]));
+    const scores = Object.fromEntries(state.players.map((p) => [p.id, n]));
     applyRoundScores(scores);
     closeRoundHelperForm();
     showMsg(els.roundMsg, "");
@@ -143,18 +178,6 @@ export function createRoundEntryController(deps) {
   function openRoundHelperForm(action) {
     state.activeRoundHelper = action;
     if (action === "set_all") {
-      if (isPhase10()) {
-        els.roundHelperForm.innerHTML = `
-          <div class="round-helper-form-row">
-            <button type="button" class="round-helper-btn" data-helper-form-action="apply_set_all" data-set-all-value="0" aria-label="Set all players to No">No</button>
-            <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_set_all" data-set-all-value="1" aria-label="Set all players to Yes">Yes</button>
-            <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel set all">Cancel</button>
-          </div>
-        `;
-        els.roundHelperForm.style.display = "block";
-        return;
-      }
-
       els.roundHelperForm.innerHTML = `
         <div class="round-helper-form-row">
           <input id="helperSetAllValue" class="round-helper-input" type="number" inputmode="numeric" placeholder="Score" aria-label="Set all score value" />
@@ -264,15 +287,17 @@ export function createRoundEntryController(deps) {
 
     els.roundPreview.style.display = "block";
     const scores = readRoundScores();
+    const phase10Completions = isPhase10() ? readPhase10Completions() : {};
     renderHeartsRoundTotal(scores);
     const isSkyjo = state.presetKey === "skyjo" && !isPhase10();
-    const valueLabel = isPhase10() ? "Phase Completed" : "Score";
+    const valueLabel = isPhase10() ? "Points & Phase" : "Score";
 
     const rows = state.players
       .map((p) => {
         const rawVal = Number(scores[p.id] ?? 0);
         const val = Number.isFinite(rawVal) ? rawVal : 0;
-        const displayVal = isPhase10() ? (val > 0 ? "Yes" : "No") : "";
+        const phaseComplete = Number(phase10Completions[p.id] ?? 0) > 0;
+        const displayVal = isPhase10() ? (phaseComplete ? "PH+" : "") : "";
         const playerNameEsc = escapeHtml(p.name);
         const skyjoWentOutUi = isSkyjo
           ? `
@@ -285,16 +310,26 @@ export function createRoundEntryController(deps) {
           : "";
         const actions = isPhase10()
           ? `
-            <button type="button" class="round-preview-btn ${
-              val <= 0 ? "active" : ""
-            }" data-preview-action="set" data-player-id="${
-              p.id
-            }" data-value="0" aria-label="Set ${playerNameEsc} to No">No</button>
-            <button type="button" class="round-preview-btn ${
-              val > 0 ? "active" : ""
-            }" data-preview-action="set" data-player-id="${
-              p.id
-            }" data-value="1" aria-label="Set ${playerNameEsc} to Yes">Yes</button>
+            <span class="round-preview-score-controls">
+              <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
+              <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
+              <input type="number" inputmode="numeric" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Points left for ${playerNameEsc}" />
+              <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
+              <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
+            </span>
+            <span class="round-preview-phase-toggle" aria-label="${playerNameEsc} phase completion">
+              <span class="round-preview-phase-label">Phase</span>
+              <button type="button" class="round-preview-btn ${
+                !phaseComplete ? "active" : ""
+              }" data-preview-action="phase" data-player-id="${
+                p.id
+              }" data-value="0" aria-label="Mark ${playerNameEsc} as not completing a phase">No</button>
+              <button type="button" class="round-preview-btn ${
+                phaseComplete ? "active" : ""
+              }" data-preview-action="phase" data-player-id="${
+                p.id
+              }" data-value="1" aria-label="Mark ${playerNameEsc} as completing a phase">Yes</button>
+            </span>
           `
           : `
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
@@ -311,7 +346,7 @@ export function createRoundEntryController(deps) {
               <span class="round-preview-name">${playerNameEsc}</span>
               <span class="round-preview-right">
                 <span class="round-preview-value">${displayVal}</span>
-                <span class="round-preview-actions">${actions}</span>
+                <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
               </span>
               ${skyjoWentOutUi}
             </div>
@@ -323,7 +358,7 @@ export function createRoundEntryController(deps) {
             <span class="round-preview-name">${playerNameEsc}</span>
             <span class="round-preview-right">
               <span class="round-preview-value">${displayVal}</span>
-              <span class="round-preview-actions">${actions}</span>
+              <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
             </span>
           </div>
         `;
@@ -356,6 +391,9 @@ export function createRoundEntryController(deps) {
     state.currentRoundScores = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundPhase10Completed = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
     renderRoundPreview();
   }
 
@@ -372,6 +410,13 @@ export function createRoundEntryController(deps) {
         const raw = Number.parseInt(btn.getAttribute("data-value"), 10);
         const val = Number.isNaN(raw) ? 0 : raw;
         setRoundScoreInputValue(playerId, val);
+        return;
+      }
+
+      if (action === "phase") {
+        const raw = Number.parseInt(btn.getAttribute("data-value"), 10);
+        const val = Number.isNaN(raw) ? 0 : raw;
+        setPhase10CompletionValue(playerId, val);
         return;
       }
 
@@ -516,8 +561,11 @@ export function createRoundEntryController(deps) {
   return {
     ensureCurrentRoundScores,
     readRoundScores,
+    readPhase10Completions,
     setRoundScoreInputValue,
+    setPhase10CompletionValue,
     applyRoundScores,
+    applyPhase10Completions,
     renderRoundPreview,
     clearRoundInputs,
     closeRoundHelperForm,

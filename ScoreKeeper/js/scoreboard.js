@@ -1,4 +1,8 @@
-import { adjustSkyjoRoundScores } from "./rules.mjs";
+import {
+  adjustSkyjoRoundScores,
+  phase10CompletionMap,
+  phase10ProgressByPlayerId,
+} from "./rules.mjs";
 
 export function createScoreboardController(deps) {
   const {
@@ -12,7 +16,6 @@ export function createScoreboardController(deps) {
     totalsByPlayerId,
     totalsByTeamId,
     leaderIdFromTotals,
-    phase10CurrentPhase,
     entityName,
     renderHistoryTable,
   } = deps;
@@ -107,12 +110,20 @@ export function createScoreboardController(deps) {
     return adjustSkyjoRoundScores(state.players, round);
   }
 
+  function phase10Progress() {
+    return phase10ProgressByPlayerId(state.players, state.rounds, state.target);
+  }
+
   function renderScoreboard() {
     const playerTotals = totalsByPlayerId();
     const lastRound = state.rounds.length
       ? state.rounds[state.rounds.length - 1]
       : null;
     const adjustedLastRoundScores = adjustedSkyjoScoresForRound(lastRound);
+    const lastPhase10CompletionMap = isPhase10()
+      ? phase10CompletionMap(state.players, lastRound)
+      : {};
+    const phase10ByPlayerId = isPhase10() ? phase10Progress() : {};
     const showLastRound = !els.historyDetails?.open;
 
     let entries = [];
@@ -139,6 +150,7 @@ export function createScoreboardController(deps) {
         id: p.id,
         name: p.name,
         total: playerTotals[p.id] ?? 0,
+        phaseCompleted: phase10ByPlayerId[p.id]?.completedPhases ?? 0,
       }));
       for (const p of state.players) {
         thisRoundById[p.id] = Number(adjustedLastRoundScores[p.id] ?? 0);
@@ -147,15 +159,30 @@ export function createScoreboardController(deps) {
     }
 
     const leader = leaderIdFromTotals(
-      entries.map((e) => ({ id: e.id, total: e.total })),
+      entries.map((e) => ({
+        id: e.id,
+        total: e.total,
+        phaseCompleted: e.phaseCompleted,
+      })),
     );
     const winner = state.winnerId;
 
     let entriesToShow = [...entries];
     if (state.sortByTotal) {
-      entriesToShow.sort((a, b) =>
-        state.winMode === "low" ? a.total - b.total : b.total - a.total,
-      );
+      if (isPhase10()) {
+        entriesToShow.sort((a, b) => {
+          const phaseDiff =
+            Number(b.phaseCompleted ?? 0) - Number(a.phaseCompleted ?? 0);
+          if (phaseDiff !== 0) return phaseDiff;
+          const pointsDiff = Number(a.total ?? 0) - Number(b.total ?? 0);
+          if (pointsDiff !== 0) return pointsDiff;
+          return String(a.name || "").localeCompare(String(b.name || ""));
+        });
+      } else {
+        entriesToShow.sort((a, b) =>
+          state.winMode === "low" ? a.total - b.total : b.total - a.total,
+        );
+      }
     }
 
     els.scoreboardBody.innerHTML = "";
@@ -166,8 +193,15 @@ export function createScoreboardController(deps) {
 
       const tdName = document.createElement("td");
       if (isPhase10() && !state.teams) {
-        const current = phase10CurrentPhase(e.total);
-        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div><div class="sub">Current phase: ${current}</div>`;
+        const phaseStatus = phase10ByPlayerId[e.id] || {
+          completedPhases: 0,
+          currentPhase: 1,
+        };
+        const phaseSummary =
+          phaseStatus.completedPhases >= state.target
+            ? `Completed all ${state.target} phases`
+            : `Current phase: ${phaseStatus.currentPhase} of ${state.target}`;
+        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div><div class="sub">${escapeHtml(phaseSummary)}</div>`;
       } else {
         tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div>`;
       }
@@ -176,7 +210,13 @@ export function createScoreboardController(deps) {
       tdTotal.innerHTML = `<div class="total">${e.total}</div>`;
 
       const tdThis = document.createElement("td");
-      tdThis.textContent = String(thisRoundById[e.id] ?? 0);
+      if (isPhase10() && !state.teams) {
+        const lastPoints = Number(thisRoundById[e.id] ?? 0);
+        const completionText = lastPhase10CompletionMap[e.id] ? " · Phase+" : "";
+        tdThis.textContent = `${lastPoints}${completionText}`;
+      } else {
+        tdThis.textContent = String(thisRoundById[e.id] ?? 0);
+      }
 
       tr.appendChild(tdName);
       tr.appendChild(tdTotal);
@@ -204,16 +244,24 @@ export function createScoreboardController(deps) {
 
     if (state.mode === "finished" && state.winnerId && !state.bannerDismissed) {
       const name = entityName(state.winnerId);
-      els.winnerText.textContent = `🏆 Winner: ${name} (${winnerTotal})`;
+      const winnerSuffix = isPhase10()
+        ? `${winnerTotal} pts`
+        : String(winnerTotal);
+      els.winnerText.textContent = `🏆 Winner: ${name} (${winnerSuffix})`;
 
       const rulesLine =
-        state.winMode === "low"
+        isPhase10()
+          ? `Final phase is ${state.target}. If multiple players finish Phase ${state.target} in the same round, the lowest total points wins.`
+          : state.winMode === "low"
           ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
           : `Target was ${state.target}. First to reach the target wins.`;
       const summaryParts = [
         `🎉 ${winnerCongratsLine(name)}`,
         rulesLine,
       ].filter(Boolean);
+      if (els.btnKeepGoing) {
+        els.btnKeepGoing.hidden = isPhase10();
+      }
       els.winnerSub.textContent = summaryParts.join(" ");
       if (els.winnerMilestones) {
         const items = (state.winnerMilestones || [])
@@ -227,6 +275,9 @@ export function createScoreboardController(deps) {
 
       els.winnerBanner.classList.add("show");
     } else {
+      if (els.btnKeepGoing) {
+        els.btnKeepGoing.hidden = false;
+      }
       if (els.winnerMilestones) {
         els.winnerMilestones.innerHTML = "";
       }

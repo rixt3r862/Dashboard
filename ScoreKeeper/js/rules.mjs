@@ -9,6 +9,98 @@ export function totalsByPlayerId(players, rounds) {
   return totals;
 }
 
+export function phase10CompletionMap(players, round) {
+  const ids = Array.isArray(players) ? players.map((p) => p.id) : [];
+  const explicit = round?.phase10CompletedByPlayerId;
+  if (explicit && typeof explicit === "object") {
+    return Object.fromEntries(
+      ids.map((id) => [id, Number(explicit[id] ?? 0) > 0]),
+    );
+  }
+
+  const legacyPhase10Round = ids.length
+    ? ids.every((id) => {
+        const value = Number(round?.scores?.[id] ?? 0);
+        return value === 0 || value === 1;
+      })
+    : false;
+
+  return Object.fromEntries(
+    ids.map((id) => {
+      const raw = Number(round?.scores?.[id] ?? 0);
+      return [id, legacyPhase10Round && raw > 0];
+    }),
+  );
+}
+
+export function phase10ProgressByPlayerId(players, rounds, target = 10) {
+  const normalizedTarget = Math.max(1, Number(target) || 10);
+  const progress = Object.fromEntries(
+    players.map((p) => [
+      p.id,
+      {
+        completedPhases: 0,
+        currentPhase: 1,
+        points: 0,
+        reachedTarget: false,
+      },
+    ]),
+  );
+
+  for (const round of rounds) {
+    const completedMap = phase10CompletionMap(players, round);
+    for (const player of players) {
+      const entry = progress[player.id];
+      const rawPoints = Number(round?.scores?.[player.id] ?? 0);
+      entry.points += Number.isFinite(rawPoints) ? rawPoints : 0;
+      if (completedMap[player.id]) {
+        entry.completedPhases += 1;
+      }
+      entry.reachedTarget = entry.completedPhases >= normalizedTarget;
+      entry.currentPhase = entry.reachedTarget
+        ? normalizedTarget
+        : Math.max(1, Math.min(normalizedTarget, entry.completedPhases + 1));
+    }
+  }
+
+  return progress;
+}
+
+export function determinePhase10Winner(players, rounds, target = 10) {
+  const normalizedTarget = Math.max(1, Number(target) || 10);
+  const completed = Object.fromEntries(players.map((p) => [p.id, 0]));
+  const points = Object.fromEntries(players.map((p) => [p.id, 0]));
+
+  for (const round of rounds) {
+    const completedMap = phase10CompletionMap(players, round);
+    const candidates = [];
+
+    for (const player of players) {
+      const rawPoints = Number(round?.scores?.[player.id] ?? 0);
+      points[player.id] += Number.isFinite(rawPoints) ? rawPoints : 0;
+
+      const before = completed[player.id];
+      if (completedMap[player.id]) {
+        completed[player.id] += 1;
+      }
+      if (before < normalizedTarget && completed[player.id] >= normalizedTarget) {
+        candidates.push(player.id);
+      }
+    }
+
+    if (candidates.length) {
+      candidates.sort((a, b) => {
+        const diff = (points[a] ?? 0) - (points[b] ?? 0);
+        if (diff !== 0) return diff;
+        return String(a).localeCompare(String(b));
+      });
+      return candidates[0] ?? null;
+    }
+  }
+
+  return null;
+}
+
 export function adjustSkyjoRoundScores(players, round) {
   const out = {};
   for (const p of players) {
@@ -107,8 +199,6 @@ export function validateRoundScores({
   const outOfRangeMsg =
     messages.outOfRange ||
     (({ name, value }) => `Score for ${name} looks out of range (${value}).`);
-  const phase10YesNoMsg =
-    messages.phase10YesNo || "Phase 10 scores must be Yes/No only.";
   const heartsTotalWarningMsg =
     messages.heartsTotalWarning ||
     (({ contextLabel: ctx, total, normalTotal, shootMoonTotal }) =>
@@ -128,18 +218,6 @@ export function validateRoundScores({
         ok: false,
         error: outOfRangeMsg({ name: p.name, value: v }),
       };
-    }
-  }
-
-  if (presetKey === "phase10") {
-    for (const p of players) {
-      const v = Number(scores[p.id] ?? 0);
-      if (v !== 0 && v !== 1) {
-        return {
-          ok: false,
-          error: phase10YesNoMsg,
-        };
-      }
     }
   }
 

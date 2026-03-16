@@ -1352,6 +1352,18 @@ summary::-webkit-details-marker{ display:none; }
   border-radius: 10px;
   font-size: var(--fs-sm);
 }
+.history-edit-phase10{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.history-edit-phase10 .history-edit-input{
+  width: auto;
+}
+.history-edit-phase10-select{
+  min-width: 96px;
+}
 
 .msg{
   margin-top: 10px;
@@ -1535,6 +1547,33 @@ summary::-webkit-details-marker{ display:none; }
   display: inline-flex;
   gap: 6px;
   flex-wrap: nowrap;
+}
+.round-preview-actions.phase10{
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  row-gap: 6px;
+}
+.round-preview-score-controls{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.round-preview-phase-toggle{
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: 4px;
+  padding-left: 4px;
+  border-left: 1px solid rgba(148,163,184,.32);
+}
+.round-preview-phase-label{
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .round-preview-out{
   display: inline-flex;

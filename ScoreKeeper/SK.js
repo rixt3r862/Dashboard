@@ -8,6 +8,8 @@ import {
 } from "./js/config.js";
 import {
   adjustSkyjoRoundScores,
+  determinePhase10Winner,
+  phase10ProgressByPlayerId,
   determineWinnerFromTotals as resolveWinnerFromTotals,
   normalizeHeartsShootMoonScores,
   totalsByPlayerId as sumTotalsByPlayerId,
@@ -133,6 +135,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     historyTable: $("historyTable"),
     historyCards: $("historyCards"),
     historyGraphWrap: $("historyGraphWrap"),
+    historyGraphTitle: $("historyGraphTitle"),
     historyGraphMeta: $("historyGraphMeta"),
     historyGraph: $("historyGraph"),
     historyGraphLegend: $("historyGraphLegend"),
@@ -171,9 +174,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     winMode: "high", // high | low
     players: [], // { id, name }
     teams: null, // null | [{ id, name, members:[playerId]}]
-    rounds: [], // { n, scores: { [playerId]: number }, ts }
+    rounds: [], // { n, scores: { [playerId]: number }, ts, phase10CompletedByPlayerId? }
     lastRoundScores: {}, // for display only
     currentRoundScores: {}, // in-progress round entry values
+    currentRoundPhase10Completed: {}, // in-progress Phase 10 completion flags
     winnerId: null, // playerId or teamId (depending on mode)
     gameState: "in_progress", // in_progress | completed | extended | free_play
     firstWinnerAt: null, // { winnerId, roundN, target, ts }
@@ -238,7 +242,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
     totalsByPlayerId,
     totalsByTeamId,
     leaderIdFromTotals,
-    phase10CurrentPhase,
     entityName,
     renderHistoryTable: () => history.renderHistoryTable(),
   });
@@ -742,6 +745,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function buildWinnerEntries(playerTotals) {
+    if (isPhase10()) {
+      const progress = phase10Progress();
+      return state.players.map((p) => ({
+        id: p.id,
+        total: playerTotals[p.id] ?? 0,
+        phaseCompleted: progress[p.id]?.completedPhases ?? 0,
+      }));
+    }
     if (state.teams) {
       const teamTotals = totalsByTeamId(playerTotals);
       return state.teams.map((t) => ({
@@ -805,7 +816,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function openContinueModal() {
-    if (state.mode !== "finished" || !state.winnerId || !els.continueModal) return;
+    if (
+      state.mode !== "finished" ||
+      !state.winnerId ||
+      !els.continueModal ||
+      isPhase10()
+    ) {
+      return;
+    }
     const suggestedTarget = suggestedContinueTarget();
     els.continueTargetPoints.value = String(suggestedTarget);
     if (els.continueModalContext) {
@@ -946,6 +964,16 @@ import { createScoreboardController } from "./js/scoreboard.js";
         n: Number(r.n),
         scores: r.scores || {},
         ts: r.ts || Date.now(),
+        phase10CompletedByPlayerId:
+          r.phase10CompletedByPlayerId &&
+          typeof r.phase10CompletedByPlayerId === "object"
+            ? Object.fromEntries(
+                state.players.map((p) => [
+                  p.id,
+                  Number(r.phase10CompletedByPlayerId?.[p.id] ?? 0) > 0 ? 1 : 0,
+                ]),
+              )
+            : null,
         skyjoWentOutPlayerId:
           typeof r.skyjoWentOutPlayerId === "string"
             ? String(r.skyjoWentOutPlayerId)
@@ -981,6 +1009,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
         ? state.rounds[state.rounds.length - 1].scores || {}
         : {};
       state.currentRoundScores = Object.fromEntries(
+        state.players.map((p) => [p.id, 0]),
+      );
+      state.currentRoundPhase10Completed = Object.fromEntries(
         state.players.map((p) => [p.id, 0]),
       );
       state.bannerDismissed = false;
@@ -1336,6 +1367,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.rounds = [];
     state.lastRoundScores = {};
     state.currentRoundScores = {};
+    state.currentRoundPhase10Completed = {};
     clearWinnerLifecycle();
     state.sortByTotal = false;
     state.currentSessionId = null;
@@ -1396,6 +1428,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.rounds = [];
     state.lastRoundScores = {};
     state.currentRoundScores = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
+    state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
     clearWinnerLifecycle();
@@ -1524,13 +1559,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.scoreboardCard.classList.toggle("hearts-mode", state.presetKey === "hearts");
 
     if (els.targetLabel) {
-      els.targetLabel.textContent = isPhase10() ? "Phases to win" : "Target";
+      els.targetLabel.textContent = isPhase10() ? "Final phase" : "Target";
     }
     if (els.colHeadTotal) {
-      els.colHeadTotal.textContent = isPhase10() ? "Phases" : "Total";
+      els.colHeadTotal.textContent = isPhase10() ? "Points" : "Total";
     }
     if (els.colHeadThis) {
-      els.colHeadThis.textContent = isPhase10() ? "Last Completed" : "Last Round";
+      els.colHeadThis.textContent = "Last Round";
     }
 
     // Phase 10 reference (hints/reminders)
@@ -1539,10 +1574,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
   }
 
-  function phase10CurrentPhase(totalCompleted) {
-    const t = Number.isFinite(totalCompleted) ? totalCompleted : 0;
-    // If you have completed 0 phases, you are on Phase 1.
-    return Math.max(1, Math.min(state.target || 10, t + 1));
+  function phase10Progress() {
+    return phase10ProgressByPlayerId(state.players, state.rounds, state.target);
   }
 
   function applyPreset(key) {
@@ -1868,6 +1901,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundScores = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundPhase10Completed = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
     clearWinnerLifecycle();
     state.currentSessionId = null;
     state.selectedSessionId = "";
@@ -1905,6 +1941,16 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function leaderIdFromTotals(entries) {
+    if (isPhase10()) {
+      const bestPhase = Math.max(
+        ...entries.map((entry) => Number(entry.phaseCompleted ?? 0)),
+      );
+      const leaders = entries.filter(
+        (entry) => Number(entry.phaseCompleted ?? 0) === bestPhase,
+      );
+      return leaders.length === 1 ? leaders[0]?.id ?? null : null;
+    }
+
     let best = null;
     for (const e of entries) {
       const t = e.total ?? 0;
@@ -1925,6 +1971,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function determineWinnerFromTotals(entries) {
     if (state.gameState === "free_play") return null;
+    if (isPhase10()) {
+      return determinePhase10Winner(state.players, state.rounds, state.target);
+    }
     return resolveWinnerFromTotals(entries, state.winMode, state.target);
   }
 
@@ -2048,6 +2097,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (state.mode !== "playing") return;
 
     let scores = roundEntry.readRoundScores();
+    const phase10CompletedByPlayerId = isPhase10()
+      ? roundEntry.readPhase10Completions()
+      : null;
     const blockReason = addRoundBlockReason(scores);
     if (blockReason) {
       showMsg(els.roundMsg, blockReason);
@@ -2077,6 +2129,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       n: nextN,
       scores,
       ts: Date.now(),
+      phase10CompletedByPlayerId,
       skyjoWentOutPlayerId:
         state.presetKey === "skyjo"
           ? state.skyjoCurrentRoundWentOutPlayerId || null
@@ -2085,6 +2138,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.rounds.push(round);
     state.lastRoundScores = scores;
     state.currentRoundScores = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
+    state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
     state.historyEditingRoundN = null;
@@ -2138,6 +2194,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundScores = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundPhase10Completed = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
     syncWinnerLifecycleAfterLoad();
     state.bannerDismissed = true;
     state.historyEditingRoundN = null;
@@ -2179,7 +2238,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.btnToggleSort.disabled = !state.players.length;
     els.btnPrint.disabled = !state.players.length;
     els.btnToggleSort.textContent = state.sortByTotal
-      ? "Sort: Totals"
+      ? isPhase10()
+        ? "Sort: Standings"
+        : "Sort: Totals"
       : "Sort: Off";
     els.btnSaveSession.disabled = !hasSnapshotData();
     els.btnExportSession.disabled = !(

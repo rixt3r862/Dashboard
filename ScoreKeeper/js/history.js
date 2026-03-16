@@ -1,6 +1,9 @@
 import { bindSelectOnFocusAndClick } from "./inputUx.js";
-import { adjustSkyjoRoundScores } from "./rules.mjs";
-import { normalizeHeartsShootMoonScores } from "./rules.mjs";
+import {
+  adjustSkyjoRoundScores,
+  normalizeHeartsShootMoonScores,
+  phase10CompletionMap,
+} from "./rules.mjs";
 
 export function createHistoryController(deps) {
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -158,6 +161,26 @@ export function createHistoryController(deps) {
   function buildGraphSeries() {
     if (!state.rounds.length || !state.players.length) return [];
 
+    if (isPhase10()) {
+      const completionTotals = Object.fromEntries(
+        state.players.map((p) => [p.id, 0]),
+      );
+      return state.players.map((player, idx) => {
+        const values = [];
+        for (const round of state.rounds) {
+          const completedMap = phase10CompletionMap(state.players, round);
+          if (completedMap[player.id]) completionTotals[player.id] += 1;
+          values.push(completionTotals[player.id]);
+        }
+        return {
+          id: player.id,
+          label: player.name || `Player ${idx + 1}`,
+          color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+          values,
+        };
+      });
+    }
+
     if (state.teams?.length) {
       // Team graphs are cumulative sums of member round scores.
       const totalsByTeam = Object.fromEntries(state.teams.map((t) => [t.id, 0]));
@@ -202,6 +225,7 @@ export function createHistoryController(deps) {
     if (
       !els.historyGraphWrap ||
       !els.historyGraph ||
+      !els.historyGraphTitle ||
       !els.historyGraphLegend ||
       !els.historyGraphMeta ||
       !els.historyStatsTable
@@ -216,8 +240,12 @@ export function createHistoryController(deps) {
       els.historyInsights.hidden = true;
     }
     els.historyStatsTable.innerHTML = "";
+    els.historyGraphTitle.textContent = isPhase10()
+      ? "Phase Progress"
+      : "Points Trend";
+    els.historyGraphMeta.textContent = "";
 
-    if (isPhase10() || !state.rounds.length || !state.players.length) {
+    if (!state.rounds.length || !state.players.length) {
       els.historyGraphWrap.hidden = true;
       return;
     }
@@ -251,9 +279,14 @@ export function createHistoryController(deps) {
     const rawMin = Math.min(...allValues);
     const rawMax = Math.max(...allValues);
     const span = Math.max(1, rawMax - rawMin);
-    let yMin = rawMin - Math.max(1, Math.round(span * 0.1));
-    let yMax = rawMax + Math.max(1, Math.round(span * 0.1));
-    if (yMin > 0) yMin = 0;
+    const phase10Mode = isPhase10();
+    let yMin = phase10Mode
+      ? 0
+      : rawMin - Math.max(1, Math.round(span * 0.1));
+    let yMax = phase10Mode
+      ? Math.max(1, state.target || 10, rawMax)
+      : rawMax + Math.max(1, Math.round(span * 0.1));
+    if (!phase10Mode && yMin > 0) yMin = 0;
     if (yMax === yMin) yMax = yMin + 1;
 
     const xFor = (idx) => {
@@ -268,7 +301,9 @@ export function createHistoryController(deps) {
     els.historyGraph.setAttribute("viewBox", `0 0 ${width} ${height}`);
     els.historyGraph.setAttribute(
       "aria-label",
-      `Round points trend graph with ${roundsCount} rounds and ${series.length} ${state.teams ? "teams" : "players"}.`,
+      phase10Mode
+        ? `Round phase progress graph with ${roundsCount} rounds and ${series.length} players.`
+        : `Round points trend graph with ${roundsCount} rounds and ${series.length} ${state.teams ? "teams" : "players"}.`,
     );
 
     const yTicks = 5;
@@ -366,8 +401,12 @@ export function createHistoryController(deps) {
       els.historyGraphLegend.appendChild(legendItem);
     }
 
-    els.historyGraphMeta.textContent = `X: rounds  Y: cumulative points (${state.teams ? "teams" : "players"})`;
-    const analysis = analyzeHistory(series);
+    els.historyGraphMeta.textContent = phase10Mode
+      ? `X: rounds  Y: cumulative phases completed`
+      : `X: rounds  Y: cumulative points (${state.teams ? "teams" : "players"})`;
+    const analysis = phase10Mode
+      ? analyzePhase10History(series)
+      : analyzeHistory(series);
     renderHistoryInsights(analysis);
     renderHistoryStatsTable(series, analysis);
     els.historyGraphWrap.hidden = false;
@@ -391,6 +430,28 @@ export function createHistoryController(deps) {
     if (labels.length === 1) return labels[0];
     if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
     return `${labels[0]}, ${labels[1]} +${labels.length - 2}`;
+  }
+
+  function formatPercent(value) {
+    if (!Number.isFinite(value)) return "0%";
+    return `${Math.round(value * 100)}%`;
+  }
+
+  function phase10Target() {
+    return Math.max(1, Number(state.target) || 10);
+  }
+
+  function phase10CurrentPhaseFromCompleted(totalCompleted) {
+    const completed = Math.max(0, Math.round(Number(totalCompleted) || 0));
+    const target = phase10Target();
+    if (completed >= target) return target;
+    return Math.max(1, Math.min(target, completed + 1));
+  }
+
+  function phase10ProgressLabel(totalCompleted) {
+    const completed = Math.max(0, Math.round(Number(totalCompleted) || 0));
+    if (completed >= phase10Target()) return "Completed";
+    return `Phase ${phase10CurrentPhaseFromCompleted(completed)}`;
   }
 
   function bestValueForWinMode(values) {
@@ -436,6 +497,134 @@ export function createHistoryController(deps) {
       label: player.name || "Player",
       rounds: rounds.map((scores) => Number(scores?.[player.id] ?? 0)),
     }));
+  }
+
+  function phase10CompletionRows() {
+    return state.players.map((player) => ({
+      id: player.id,
+      label: player.name || "Player",
+      rounds: state.rounds.map((round) =>
+        phase10CompletionMap(state.players, round)[player.id] ? 1 : 0,
+      ),
+    }));
+  }
+
+  function analyzePhase10History(series) {
+    const rows = phase10CompletionRows();
+    if (!rows.length || !state.rounds.length) return null;
+
+    const labelById = new Map(rows.map((row) => [row.id, row.label]));
+    const seriesById = new Map(series.map((entry) => [entry.id, entry]));
+    const completionCounts = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    const bestStreaks = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    const currentStreaks = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    let leadChanges = 0;
+    let lastUniqueLeaderId = null;
+
+    for (let idx = 0; idx < state.rounds.length; idx += 1) {
+      for (const row of rows) {
+        const completedThisRound = Number(row.rounds[idx] ?? 0) > 0 ? 1 : 0;
+        if (completedThisRound) {
+          completionCounts[row.id] += 1;
+          currentStreaks[row.id] += 1;
+          bestStreaks[row.id] = Math.max(
+            bestStreaks[row.id],
+            currentStreaks[row.id],
+          );
+        } else {
+          currentStreaks[row.id] = 0;
+        }
+      }
+
+      const cumulativeEntries = rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        value: Number(seriesById.get(row.id)?.values?.[idx] ?? 0),
+      }));
+      const leaderState = pickBestIds(cumulativeEntries);
+      if (leaderState.ids.length === 1) {
+        const leaderId = leaderState.ids[0];
+        if (lastUniqueLeaderId && lastUniqueLeaderId !== leaderId) leadChanges += 1;
+        lastUniqueLeaderId = leaderId;
+      }
+    }
+
+    const completionEntries = rows.map((row) => ({
+      id: row.id,
+      label: row.label,
+      value: completionCounts[row.id] ?? 0,
+    }));
+    const topCompletion = pickBestIds(completionEntries);
+    const topCompletionCount = Number(topCompletion.bestValue ?? 0);
+
+    const rateEntries = rows.map((row) => ({
+      id: row.id,
+      label: row.label,
+      value: state.rounds.length
+        ? (completionCounts[row.id] ?? 0) / state.rounds.length
+        : 0,
+    }));
+    const topRate = pickBestIds(rateEntries);
+    const topRateValue = Number(topRate.bestValue ?? 0);
+
+    const phaseEntries = rows.map((row) => ({
+      id: row.id,
+      label: row.label,
+      value: phase10CurrentPhaseFromCompleted(completionCounts[row.id] ?? 0),
+    }));
+    const furthestPhase = pickBestIds(phaseEntries);
+    const furthestPhaseValue = Number(furthestPhase.bestValue ?? 1);
+
+    const streakEntries = rows.map((row) => ({
+      id: row.id,
+      label: row.label,
+      value: bestStreaks[row.id] ?? 0,
+    }));
+    const topStreak = pickBestIds(streakEntries);
+    const topStreakValue = Number(topStreak.bestValue ?? 0);
+
+    const roundsLabel = `${state.rounds.length} ${state.rounds.length === 1 ? "round" : "rounds"}`;
+    let headline = `Phase progress builds after ${roundsLabel}.`;
+    if (furthestPhase.ids.length === 1) {
+      const leaderId = furthestPhase.ids[0];
+      headline = `${labelById.get(leaderId) || "Leader"} is furthest ahead at ${phase10ProgressLabel(
+        completionCounts[leaderId] ?? 0,
+      )} after ${roundsLabel}.`;
+    } else if (furthestPhase.ids.length > 1) {
+      headline = `${formatEntityList(
+        furthestPhase.ids,
+        labelById,
+      )} are tied on ${phase10ProgressLabel(topCompletionCount)} after ${roundsLabel}.`;
+    }
+    const leadChangeText = leadChanges
+      ? `There ${leadChanges === 1 ? "has" : "have"} been ${leadChanges} lead ${
+          leadChanges === 1 ? "change" : "changes"
+        }.`
+      : "No lead changes yet.";
+    const completionText =
+      topCompletionCount > 0
+        ? `${formatEntityList(topCompletion.ids, labelById)} ${
+            topCompletion.ids.length === 1 ? "has" : "have"
+          } completed the most rounds (${topCompletionCount}).`
+        : "No phases have been completed yet.";
+
+    return {
+      rows,
+      seriesById,
+      labelById,
+      completionCounts,
+      bestStreaks,
+      leadChanges,
+      furthestPhaseIds: furthestPhase.ids,
+      furthestPhaseValue,
+      topCompletionIds: topCompletion.ids,
+      topCompletionCount,
+      topRateIds: topRate.ids,
+      topRateValue,
+      topStreakIds: topStreak.ids,
+      topStreakValue,
+      story: `${headline} ${leadChangeText} ${completionText}`,
+    };
   }
 
   function analyzeHistory(series) {
@@ -593,6 +782,83 @@ export function createHistoryController(deps) {
     els.historyInsights.hidden = true;
     if (!analysis) return;
 
+    if (isPhase10()) {
+      const story = document.createElement("p");
+      story.className = "history-story";
+      story.textContent = analysis.story;
+      els.historyInsights.appendChild(story);
+
+      const cards = document.createElement("div");
+      cards.className = "history-insights-grid";
+      const cardsData = [
+        {
+          label: "Furthest Phase",
+          value:
+            analysis.furthestPhaseIds?.length > 0
+              ? `${formatEntityList(analysis.furthestPhaseIds, analysis.labelById)} · ${phase10ProgressLabel(
+                  analysis.topCompletionCount,
+                )}`
+              : "No leader yet",
+          meta: `Target is ${phase10Target()} phases`,
+        },
+        {
+          label: "Most Completed",
+          value:
+            analysis.topCompletionCount > 0
+              ? `${formatEntityList(analysis.topCompletionIds, analysis.labelById)} · ${analysis.topCompletionCount}`
+              : "None yet",
+          meta: "Rounds with a completed phase",
+        },
+        {
+          label: "Best Rate",
+          value:
+            analysis.topRateIds?.length > 0
+              ? `${formatEntityList(analysis.topRateIds, analysis.labelById)} · ${formatPercent(analysis.topRateValue)}`
+              : "0%",
+          meta: "Completed rounds divided by total rounds",
+        },
+        {
+          label: "Best Streak",
+          value:
+            analysis.topStreakValue > 0
+              ? `${formatEntityList(analysis.topStreakIds, analysis.labelById)} · ${analysis.topStreakValue}`
+              : "None yet",
+          meta: "Consecutive completed rounds",
+        },
+        {
+          label: "Leader Changes",
+          value: String(analysis.leadChanges ?? 0),
+          meta: "Changes in the cumulative phase leader",
+        },
+      ];
+
+      for (const cardData of cardsData) {
+        const card = document.createElement("article");
+        card.className = "history-insight-card";
+
+        const label = document.createElement("span");
+        label.className = "history-insight-label";
+        label.textContent = cardData.label;
+        card.appendChild(label);
+
+        const value = document.createElement("strong");
+        value.className = "history-insight-value";
+        value.textContent = cardData.value;
+        card.appendChild(value);
+
+        const meta = document.createElement("span");
+        meta.className = "history-insight-meta";
+        meta.textContent = cardData.meta;
+        card.appendChild(meta);
+
+        cards.appendChild(card);
+      }
+
+      els.historyInsights.appendChild(cards);
+      els.historyInsights.hidden = false;
+      return;
+    }
+
     const story = document.createElement("p");
     story.className = "history-story";
     story.textContent = analysis.story;
@@ -685,6 +951,68 @@ export function createHistoryController(deps) {
     const tbl = els.historyStatsTable;
     tbl.innerHTML = "";
     if (!rows.length || !state.rounds.length) return;
+
+    if (isPhase10()) {
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      const headers = [
+        "Player",
+        "Completed",
+        "Missed",
+        "Rate",
+        "Current Phase",
+        "Best Streak",
+        "Last Round",
+      ];
+      for (const header of headers) {
+        const th = document.createElement("th");
+        th.textContent = header;
+        th.scope = "col";
+        trh.appendChild(th);
+      }
+      thead.appendChild(trh);
+      tbl.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        const nameTd = document.createElement("td");
+        nameTd.textContent = row.label;
+        tr.appendChild(nameTd);
+
+        const roundValues = row.rounds.filter((v) => Number.isFinite(v));
+        const completed = Math.max(
+          0,
+          Math.round(Number(analysis?.completionCounts?.[row.id] ?? 0)),
+        );
+        const missed = Math.max(0, state.rounds.length - completed);
+        const rate = state.rounds.length ? completed / state.rounds.length : 0;
+        const currentPhase = phase10ProgressLabel(completed);
+        const bestStreak = Math.max(
+          0,
+          Math.round(Number(analysis?.bestStreaks?.[row.id] ?? 0)),
+        );
+        const lastRound =
+          roundValues.length && Number(roundValues.at(-1)) > 0 ? "Yes" : "No";
+        const values = [
+          String(completed),
+          String(missed),
+          formatPercent(rate),
+          currentPhase,
+          String(bestStreak),
+          lastRound,
+        ];
+        for (const value of values) {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        }
+
+        tbody.appendChild(tr);
+      }
+      tbl.appendChild(tbody);
+      return;
+    }
 
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
@@ -788,9 +1116,25 @@ export function createHistoryController(deps) {
       const raw = String(inp.value ?? "").trim();
       const n = raw === "" ? 0 : Number.parseInt(raw, 10);
       if (Number.isNaN(n)) return null;
-      scores[p.id] = isPhase10() ? (n <= 0 ? 0 : 1) : n;
+      scores[p.id] = n;
     }
     return scores;
+  }
+
+  function readHistoryEditPhase10Completions(roundN) {
+    const completions = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    for (const p of state.players) {
+      const selector =
+        `[data-history-edit-round="${roundN}"]` +
+        `[data-history-edit-phase10="${p.id}"]`;
+      const inp =
+        els.historyTable.querySelector(selector) ||
+        els.historyCards?.querySelector(selector) ||
+        null;
+      if (!inp) return null;
+      completions[p.id] = Number(inp.value ?? 0) > 0 ? 1 : 0;
+    }
+    return completions;
   }
 
   function saveHistoryEdit(roundN) {
@@ -821,6 +1165,14 @@ export function createHistoryController(deps) {
     }
 
     state.rounds[idx].scores = scores;
+    if (isPhase10()) {
+      const completions = readHistoryEditPhase10Completions(roundN);
+      if (!completions) {
+        showMsg(els.roundMsg, "Phase 10 completion flags could not be read.");
+        return;
+      }
+      state.rounds[idx].phase10CompletedByPlayerId = completions;
+    }
     state.rounds[idx].ts = Date.now();
     showMsg(els.roundMsg, "");
     recalcAfterHistoryChange(`Round ${roundN} updated.`);
@@ -856,6 +1208,9 @@ export function createHistoryController(deps) {
         state.presetKey === "skyjo"
           ? adjustSkyjoRoundScores(state.players, r)
           : null;
+      const phase10CompletedMap = isPhase10()
+        ? phase10CompletionMap(state.players, r)
+        : null;
       const rawScoresById = Object.fromEntries(
         cols.map((pid) => {
           const v = Number(r.scores?.[pid] ?? 0);
@@ -865,7 +1220,7 @@ export function createHistoryController(deps) {
       const phaseNumberById = {};
       if (isPhase10() && phaseCompletionsById) {
         for (const pid of cols) {
-          if (rawScoresById[pid] > 0) {
+          if (phase10CompletedMap?.[pid]) {
             phaseNumberById[pid] = phaseCompletionsById[pid] + 1;
           }
         }
@@ -894,7 +1249,7 @@ export function createHistoryController(deps) {
           isSkyjo && Number.isFinite(rawV) && Number.isFinite(displayV)
             ? displayV > rawV
             : false;
-        const isPhase10CompleteCell = isPhase10() && rawV > 0;
+        const isPhase10CompleteCell = !!(isPhase10() && phase10CompletedMap?.[pid]);
         const isHeartsMoonShooter = heartsMoonShooterId === pid;
         const isHeartsMoonRecipient =
           state.presetKey === "hearts" &&
@@ -923,7 +1278,7 @@ export function createHistoryController(deps) {
 
       if (isPhase10() && phaseCompletionsById) {
         for (const pid of cols) {
-          if (rawScoresById[pid] > 0) {
+          if (phase10CompletedMap?.[pid]) {
             phaseCompletionsById[pid] += 1;
           }
         }
@@ -935,17 +1290,37 @@ export function createHistoryController(deps) {
   function buildEditControl(roundN, cell) {
     let input;
     if (isPhase10()) {
-      input = document.createElement("select");
-      input.className = "history-edit-input";
-      input.innerHTML = `
-        <option value="0">No</option>
-        <option value="1">Yes</option>
-      `;
-      input.value = String(cell.rawV <= 0 ? 0 : 1);
-      input.setAttribute(
+      input = document.createElement("div");
+      input.className = "history-edit-phase10";
+
+      const pointsInput = document.createElement("input");
+      pointsInput.type = "number";
+      pointsInput.inputMode = "numeric";
+      pointsInput.className = "history-edit-input";
+      pointsInput.value = String(Number.isFinite(cell.rawV) ? cell.rawV : 0);
+      pointsInput.setAttribute(
         "aria-label",
-        `Round ${roundN} completion for ${cell.playerName}`,
+        `Round ${roundN} points for ${cell.playerName}`,
       );
+      pointsInput.setAttribute("data-history-edit-round", String(roundN));
+      pointsInput.setAttribute("data-history-edit-score", cell.pid);
+      input.appendChild(pointsInput);
+
+      const completionSelect = document.createElement("select");
+      completionSelect.className = "history-edit-input history-edit-phase10-select";
+      completionSelect.innerHTML = `
+        <option value="0">No Phase</option>
+        <option value="1">Phase +</option>
+      `;
+      completionSelect.value = cell.isPhase10CompleteCell ? "1" : "0";
+      completionSelect.setAttribute(
+        "aria-label",
+        `Round ${roundN} phase completion for ${cell.playerName}`,
+      );
+      completionSelect.setAttribute("data-history-edit-round", String(roundN));
+      completionSelect.setAttribute("data-history-edit-phase10", cell.pid);
+      input.appendChild(completionSelect);
+      return input;
     } else {
       input = document.createElement("input");
       input.type = "number";
@@ -972,7 +1347,7 @@ export function createHistoryController(deps) {
     if (isPhase10()) {
       const valueText = document.createElement("span");
       valueText.className = "history-score-value";
-      valueText.textContent = cell.displayV > 0 ? "Yes" : "No";
+      valueText.textContent = String(Number.isFinite(cell.displayV) ? cell.displayV : 0);
       parent.appendChild(valueText);
     } else if (cell.isDoubledCell) {
       const shown = Number.isFinite(cell.displayV) ? cell.displayV : 0;
