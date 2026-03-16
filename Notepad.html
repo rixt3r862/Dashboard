@@ -3,7 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A local-first large-font notepad for quick typing, draft autosave, import, and export."
+    />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#2563eb" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%232563eb%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2258%22>📝</text></svg>"
+    />
     <link rel="manifest" href="./app.webmanifest" />
     <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
     <title>Notepad</title>
@@ -20,6 +33,7 @@
     <style>
       :root {
         color-scheme: light dark;
+        --pad-font-size: clamp(1.2rem, 2.2vw, 1.65rem);
       }
 
       * {
@@ -79,6 +93,11 @@
         background: #f5f5f4;
       }
 
+      .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
       #pad {
         width: 100%;
         min-height: calc(100dvh - 7.5rem);
@@ -86,7 +105,7 @@
         border: 1px solid #d6d3d1;
         border-radius: 0.85rem;
         padding: 1rem;
-        font-size: clamp(1.2rem, 2.2vw, 1.65rem);
+        font-size: var(--pad-font-size);
         line-height: 1.5;
         background: #fff;
         color: inherit;
@@ -115,6 +134,23 @@
         color: #78716c;
         font-size: 0.82rem;
         text-align: right;
+      }
+
+      .stats-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .stat-chip {
+        border: 1px solid #d6d3d1;
+        border-radius: 999px;
+        background: #fffbeb;
+        color: #57534e;
+        padding: 0.35rem 0.7rem;
+        font-size: 0.82rem;
+        line-height: 1.2;
       }
 
       .sr-only {
@@ -170,6 +206,10 @@
           background: #292524;
         }
 
+        .btn:disabled:hover {
+          background: #1c1917;
+        }
+
         #pad {
           border-color: #44403c;
           background: #1c1917;
@@ -182,6 +222,12 @@
 
         .draft-meta {
           color: #a8a29e;
+        }
+
+        .stat-chip {
+          border-color: #44403c;
+          background: #1c1917;
+          color: #d6d3d1;
         }
       }
 
@@ -196,6 +242,9 @@
       }
       :root[data-theme="light"] .btn:hover {
         background: #f5f5f4;
+      }
+      :root[data-theme="light"] .btn:disabled:hover {
+        background: #fff;
       }
       :root[data-theme="light"] #pad {
         border-color: #d6d3d1;
@@ -221,6 +270,9 @@
       :root[data-theme="dark"] .btn:hover {
         background: #292524;
       }
+      :root[data-theme="dark"] .btn:disabled:hover {
+        background: #1c1917;
+      }
       :root[data-theme="dark"] #pad {
         border-color: #44403c;
         background: #1c1917;
@@ -232,6 +284,16 @@
       :root[data-theme="dark"] .draft-meta {
         color: #a8a29e;
       }
+      :root[data-theme="light"] .stat-chip {
+        border-color: #d6d3d1;
+        background: #fffbeb;
+        color: #57534e;
+      }
+      :root[data-theme="dark"] .stat-chip {
+        border-color: #44403c;
+        background: #1c1917;
+        color: #d6d3d1;
+      }
     </style>
   </head>
   <body>
@@ -241,6 +303,9 @@
         <div class="topbar-actions">
           <button class="btn" id="importBtn" type="button">Import TXT</button>
           <button class="btn" id="exportBtn" type="button">Export TXT</button>
+          <button class="btn" id="clearBtn" type="button">Clear</button>
+          <button class="btn" id="decreaseTextBtn" type="button">A-</button>
+          <button class="btn" id="increaseTextBtn" type="button">A+</button>
           <button class="btn" id="selectAllBtn" type="button">Select All</button>
           <button class="btn" id="copyBtn" type="button">Copy</button>
           <button class="btn" id="spellToggle" type="button">
@@ -256,6 +321,13 @@
           Saved in this browser on this device.
           <span id="draftSavedAt"></span>
         </div>
+      </div>
+
+      <div class="stats-bar" aria-label="Note statistics">
+        <div class="stat-chip" id="wordCount">0 words</div>
+        <div class="stat-chip" id="charCount">0 characters</div>
+        <div class="stat-chip" id="lineCount">1 line</div>
+        <div class="stat-chip" id="textSizeLabel">Text: Medium</div>
       </div>
 
       <label for="pad" style="position: absolute; left: -9999px">Notepad</label>
@@ -274,15 +346,92 @@
       const pad = document.getElementById("pad");
       const importBtn = document.getElementById("importBtn");
       const exportBtn = document.getElementById("exportBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const decreaseTextBtn = document.getElementById("decreaseTextBtn");
+      const increaseTextBtn = document.getElementById("increaseTextBtn");
       const importFile = document.getElementById("importFile");
       const selectAllBtn = document.getElementById("selectAllBtn");
       const copyBtn = document.getElementById("copyBtn");
       const spellToggle = document.getElementById("spellToggle");
       const draftStatus = document.getElementById("draftStatus");
       const draftSavedAt = document.getElementById("draftSavedAt");
+      const wordCount = document.getElementById("wordCount");
+      const charCount = document.getElementById("charCount");
+      const lineCount = document.getElementById("lineCount");
+      const textSizeLabel = document.getElementById("textSizeLabel");
       const DRAFT_KEY = "notepad.v1.draft";
       const DRAFT_META_KEY = "notepad.v1.meta";
+      const TEXT_SIZE_KEY = "notepad.v1.textSize";
+      const TEXT_SIZE_PRESETS = [
+        {
+          id: "small",
+          label: "Small",
+          value: "clamp(1rem, 1.8vw, 1.35rem)",
+        },
+        {
+          id: "medium",
+          label: "Medium",
+          value: "clamp(1.2rem, 2.2vw, 1.65rem)",
+        },
+        {
+          id: "large",
+          label: "Large",
+          value: "clamp(1.45rem, 2.7vw, 2rem)",
+        },
+      ];
       let saveTimer = 0;
+      let textSizeIndex = 1;
+
+      function pluralize(count, singular, plural = `${singular}s`) {
+        return `${count} ${count === 1 ? singular : plural}`;
+      }
+
+      function updateNoteStats() {
+        const text = pad.value;
+        const trimmed = text.trim();
+        const words = trimmed ? trimmed.split(/\s+/).length : 0;
+        const chars = text.length;
+        const lines = text ? text.split(/\r?\n/).length : 1;
+
+        wordCount.textContent = pluralize(words, "word");
+        charCount.textContent = pluralize(chars, "character");
+        lineCount.textContent = pluralize(lines, "line");
+      }
+
+      function applyTextSize(index) {
+        const nextIndex = Math.max(0, Math.min(TEXT_SIZE_PRESETS.length - 1, index));
+        const preset = TEXT_SIZE_PRESETS[nextIndex];
+        textSizeIndex = nextIndex;
+        document.documentElement.style.setProperty("--pad-font-size", preset.value);
+        textSizeLabel.textContent = `Text: ${preset.label}`;
+        decreaseTextBtn.disabled = nextIndex === 0;
+        increaseTextBtn.disabled = nextIndex === TEXT_SIZE_PRESETS.length - 1;
+      }
+
+      function saveTextSizePreference() {
+        try {
+          localStorage.setItem(TEXT_SIZE_KEY, TEXT_SIZE_PRESETS[textSizeIndex].id);
+        } catch {}
+      }
+
+      function adjustTextSize(direction) {
+        const nextIndex = textSizeIndex + direction;
+        if (nextIndex < 0 || nextIndex >= TEXT_SIZE_PRESETS.length) return;
+        applyTextSize(nextIndex);
+        saveTextSizePreference();
+        setDraftStatus(`Text size set to ${TEXT_SIZE_PRESETS[textSizeIndex].label}.`);
+        pad.focus();
+      }
+
+      function loadTextSizePreference() {
+        try {
+          const savedId = localStorage.getItem(TEXT_SIZE_KEY);
+          const savedIndex = TEXT_SIZE_PRESETS.findIndex((preset) => preset.id === savedId);
+          applyTextSize(savedIndex >= 0 ? savedIndex : 1);
+        } catch {
+          applyTextSize(1);
+        }
+      }
 
       function formatSavedTime(ts) {
         if (!Number.isFinite(ts)) return "";
@@ -331,6 +480,7 @@
             pad.value = value;
             setDraftStatus("Draft restored.");
           } else {
+            pad.value = "";
             setDraftStatus("Autosave ready.");
           }
           const metaRaw = localStorage.getItem(DRAFT_META_KEY);
@@ -341,6 +491,8 @@
         } catch {
           setDraftStatus("Autosave unavailable.");
         }
+
+        updateNoteStats();
       }
 
       function exportTxt() {
@@ -357,6 +509,28 @@
 
       function syncSpellToggleLabel() {
         spellToggle.textContent = `Spellcheck: ${pad.spellcheck ? "On" : "Off"}`;
+      }
+
+      function clearNote() {
+        if (!pad.value) {
+          setDraftStatus("Note is already empty.");
+          pad.focus();
+          return;
+        }
+
+        const confirmed = window.confirm(
+          "Clear the current note? This will replace the saved draft with a blank note.",
+        );
+        if (!confirmed) {
+          pad.focus();
+          return;
+        }
+
+        pad.value = "";
+        updateNoteStats();
+        saveDraft();
+        setDraftStatus("Note cleared.");
+        pad.focus();
       }
 
       selectAllBtn.addEventListener("click", () => {
@@ -402,6 +576,9 @@
       });
 
       exportBtn.addEventListener("click", exportTxt);
+      clearBtn.addEventListener("click", clearNote);
+      decreaseTextBtn.addEventListener("click", () => adjustTextSize(-1));
+      increaseTextBtn.addEventListener("click", () => adjustTextSize(1));
 
       spellToggle.addEventListener("click", () => {
         pad.spellcheck = !pad.spellcheck;
@@ -409,7 +586,10 @@
         pad.focus();
       });
 
-      pad.addEventListener("input", queueDraftSave);
+      pad.addEventListener("input", () => {
+        updateNoteStats();
+        queueDraftSave();
+      });
 
       window.addEventListener("pagehide", () => {
         if (saveTimer) {
@@ -418,6 +598,7 @@
         }
       });
 
+      loadTextSizePreference();
       loadDraft();
       syncSpellToggleLabel();
     </script>
