@@ -41,6 +41,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     btnExportSession: $("btnExportSession"),
     btnImportSession: $("btnImportSession"),
     btnBrowseSessions: $("btnBrowseSessions"),
+    btnBrowseSessionsCount: $("btnBrowseSessionsCount"),
     btnLoadSession: $("btnLoadSession"),
     btnDeleteSession: $("btnDeleteSession"),
     btnSessionModalClose: $("btnSessionModalClose"),
@@ -53,8 +54,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
     sessionBrowserEmpty: $("sessionBrowserEmpty"),
 
     pillStatus: $("pillStatus"),
-    pillSaved: $("pillSaved"),
-    pillSessions: $("pillSessions"),
 
     leftTitle: $("leftTitle"),
     setupPanel: $("setupPanel"),
@@ -93,6 +92,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     roundHelperBar: $("roundHelperBar"),
     roundHelperButtons: $("roundHelperButtons"),
     roundHelperForm: $("roundHelperForm"),
+    roundStorageStatus: $("roundStorageStatus"),
+    roundAutosaveStatus: $("roundAutosaveStatus"),
+    roundSessionsStatus: $("roundSessionsStatus"),
 
     winnerBanner: $("winnerBanner"),
     winnerText: $("winnerText"),
@@ -496,8 +498,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
       els.savedSessionSelect.disabled = sessions.length === 0;
     }
 
-    if (els.pillSessions) {
-      els.pillSessions.innerHTML = `<strong>Sessions:</strong> ${sessions.length}`;
+    if (els.btnBrowseSessionsCount) {
+      els.btnBrowseSessionsCount.textContent = String(sessions.length);
+      els.btnBrowseSessionsCount.hidden = sessions.length === 0;
     }
 
     const hasCurrent = hasSnapshotData();
@@ -508,6 +511,25 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.btnDeleteSession.disabled = !hasSelected;
 
     renderSessionBrowser(sessions);
+    renderStorageStatus();
+  }
+
+  function renderStorageStatus() {
+    const playing = state.mode === "playing" || state.mode === "finished";
+    if (els.roundStorageStatus) {
+      els.roundStorageStatus.hidden = !playing;
+    }
+    if (!playing) return;
+
+    if (els.roundAutosaveStatus) {
+      els.roundAutosaveStatus.textContent = state.savedExists
+        ? "Autosave ready on this device"
+        : "Autosave unavailable on this device";
+    }
+    if (els.roundSessionsStatus) {
+      const noun = state.savedSessionCount === 1 ? "session" : "sessions";
+      els.roundSessionsStatus.textContent = `Saved ${noun}: ${state.savedSessionCount}`;
+    }
   }
 
   function filteredAndSortedSessions(sessions) {
@@ -865,8 +887,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function detectSaved() {
     state.savedExists = !!readAutosavePayload();
     els.btnLoadSaved.style.display = state.savedExists ? "inline-flex" : "none";
-    els.pillSaved.style.display = state.savedExists ? "inline-flex" : "none";
     updateSessionControls();
+    renderStorageStatus();
   }
 
   function save() {
@@ -2128,6 +2150,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
         state.gameState === "extended" ? "Finished (Extended)" : "Finished";
     }
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
+    renderStorageStatus();
 
     if (playing && state.players.length) {
       roundEntry.ensureCurrentRoundScores();

@@ -57,8 +57,9 @@
         <button class="btn" id="btnImportSession" type="button" title="Import a saved ScoreKeeper session">
           Import
         </button>
-        <button class="btn" id="btnBrowseSessions" type="button" title="Browse saved ScoreKeeper sessions">
-          Browse Sessions
+        <button class="btn session-browser-trigger" id="btnBrowseSessions" type="button" title="Browse saved ScoreKeeper sessions">
+          <span>Browse Sessions</span>
+          <span class="session-trigger-count" id="btnBrowseSessionsCount" hidden>0</span>
         </button>
         <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
         <div class="session-hidden-controls" hidden aria-hidden="true">
@@ -79,8 +80,6 @@
           New Game
         </button>
         <span class="pill" id="pillStatus"><strong>Status:</strong> Setup</span>
-        <span class="pill" id="pillSaved" style="display: none"><strong>Autosave:</strong> On</span>
-        <span class="pill" id="pillSessions"><strong>Sessions:</strong> 0</span>
       </div>
     </header>
 
@@ -358,6 +357,10 @@
           </div>
 
           <div class="msg" id="roundMsg"></div>
+          <div class="round-storage-status" id="roundStorageStatus" hidden>
+            <span class="round-storage-chip" id="roundAutosaveStatus">Autosave ready on this device</span>
+            <span class="round-storage-chip" id="roundSessionsStatus">Saved sessions: 0</span>
+          </div>
         </div>
 
       </section>
