@@ -236,7 +236,12 @@ export function createScoreboardController(deps) {
 
   function updateScoreboardTitle() {
     const playing = state.mode === "playing" || state.mode === "finished";
+    const customGameName = String(state.customGameName || "").trim();
     const presetLabel = PRESETS[state.presetKey]?.label || "";
+    if (playing && state.presetKey === "custom" && customGameName) {
+      els.scoreboardTitle.textContent = `${customGameName} Scoreboard`;
+      return;
+    }
     const showGameLabel = playing && state.presetKey !== "custom" && presetLabel;
     els.scoreboardTitle.textContent = showGameLabel
       ? `${presetLabel} Scoreboard`

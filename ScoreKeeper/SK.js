@@ -63,11 +63,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
     roundMsg: $("roundMsg"),
 
     presetSelect: $("presetSelect"),
+    customGameRow: $("customGameRow"),
+    customGameName: $("customGameName"),
     preRoundPresetRow: $("preRoundPresetRow"),
     preRoundPresetSelect: $("preRoundPresetSelect"),
     preRoundSpadesTeamRow: $("preRoundSpadesTeamRow"),
     preRoundSpadesPartnerLabel: $("preRoundSpadesPartnerLabel"),
     preRoundSpadesPartner: $("preRoundSpadesPartner"),
+    preRoundCustomGameRow: $("preRoundCustomGameRow"),
+    preRoundCustomGameName: $("preRoundCustomGameName"),
     winModeText: $("winModeText"),
 
     playerCount: $("playerCount"),
@@ -156,6 +160,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   const state = {
     mode: "setup", // setup | playing | finished
     presetKey: "custom",
+    customGameName: "",
     target: APP_LIMITS.defaultTarget,
     winMode: "high", // high | low
     players: [], // { id, name }
@@ -254,6 +259,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return {
       mode: state.mode,
       presetKey: state.presetKey,
+      customGameName: normalizeCustomGameName(state.customGameName),
       target: state.target,
       winMode: state.winMode,
       players: state.players,
@@ -280,8 +286,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
     );
   }
 
+  function displayGameLabel(payload = state) {
+    const customName = normalizeCustomGameName(payload?.customGameName);
+    if (payload?.presetKey === "custom" && customName) return customName;
+    return PRESETS[payload?.presetKey]?.label || "Custom";
+  }
+
   function defaultSessionName(payload = snapshotState()) {
-    const presetLabel = PRESETS[payload?.presetKey]?.label || "Custom";
+    const presetLabel = displayGameLabel(payload);
     const names = Array.isArray(payload?.players)
       ? payload.players
           .map((player) => normalizeName(player?.name))
@@ -301,7 +313,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function sessionOptionLabel(session) {
-    const presetLabel = PRESETS[session.payload?.presetKey]?.label || "Custom";
+    const presetLabel = displayGameLabel(session.payload);
     const players = Array.isArray(session.payload?.players)
       ? session.payload.players.length
       : 0;
@@ -330,7 +342,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function sessionPresetLabel(session) {
-    return PRESETS[session.payload?.presetKey]?.label || "Custom";
+    return displayGameLabel(session.payload);
   }
 
   function sessionPlayerNames(session) {
@@ -351,6 +363,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return [
       session.name,
       sessionPresetLabel(session),
+      normalizeCustomGameName(session.payload?.customGameName),
       ...sessionPlayerNames(session),
     ]
       .join(" ")
@@ -885,6 +898,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.presetKey = PRESETS[payload.presetKey]
         ? payload.presetKey
         : "custom";
+      state.customGameName = normalizeCustomGameName(payload.customGameName);
       state.target = Number.isFinite(payload.target)
         ? payload.target
         : APP_LIMITS.defaultTarget;
@@ -1286,6 +1300,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function newGame() {
     state.mode = "setup";
     state.presetKey = "custom";
+    state.customGameName = "";
     state.target = APP_LIMITS.defaultTarget;
     state.winMode = "high";
     state.players = [];
@@ -1305,6 +1320,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.spadesPartnerIndex = 2;
 
     els.presetSelect.value = "custom";
+    if (els.customGameName) els.customGameName.value = "";
+    if (els.preRoundCustomGameName) els.preRoundCustomGameName.value = "";
     els.playerCount.value = APP_LIMITS.defaultPlayerCount;
     els.targetPoints.value = APP_LIMITS.defaultTarget;
 
@@ -1373,6 +1390,41 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function normalizeName(name) {
     return String(name || "").trim();
+  }
+
+  function normalizeCustomGameName(name) {
+    return String(name || "").trim();
+  }
+
+  function syncCustomGameInputs() {
+    if (els.customGameName && els.customGameName.value !== state.customGameName) {
+      els.customGameName.value = state.customGameName;
+    }
+    if (
+      els.preRoundCustomGameName &&
+      els.preRoundCustomGameName.value !== state.customGameName
+    ) {
+      els.preRoundCustomGameName.value = state.customGameName;
+    }
+  }
+
+  function renderCustomGameNameUi(allowPreRoundPresetChange = false) {
+    syncCustomGameInputs();
+    if (els.customGameRow) {
+      els.customGameRow.style.display = state.presetKey === "custom" ? "block" : "none";
+    }
+    if (els.preRoundCustomGameRow) {
+      els.preRoundCustomGameRow.style.display =
+        allowPreRoundPresetChange && state.presetKey === "custom" ? "block" : "none";
+    }
+  }
+
+  function setCustomGameName(nextName, options = {}) {
+    const { persist = false } = options;
+    state.customGameName = String(nextName || "");
+    syncCustomGameInputs();
+    scoreboard.updateScoreboardTitle();
+    if (persist && state.players.length) save();
   }
 
   function validateSetup(names, target) {
@@ -1455,6 +1507,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
 
     maybeRenderTeamPreview();
+    renderCustomGameNameUi(
+      state.mode === "playing" && state.rounds.length === 0,
+    );
     updateStartButtonState();
   }
 
@@ -1719,6 +1774,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       APP_LIMITS.targetMax,
     );
     const names = currentNameInputs();
+    state.customGameName = String(els.customGameName?.value || "");
 
     const msg = validateSetup(names, target);
     if (msg) {
@@ -2035,6 +2091,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (allowPreRoundPresetChange && els.preRoundPresetSelect) {
       els.preRoundPresetSelect.value = state.presetKey;
     }
+    renderCustomGameNameUi(allowPreRoundPresetChange);
     renderPreRoundSpadesTeamPicker(
       allowPreRoundPresetChange && state.presetKey === "spades",
     );
@@ -2113,6 +2170,22 @@ import { createScoreboardController } from "./js/scoreboard.js";
   els.presetSelect.addEventListener("change", (e) =>
     applyPreset(e.target.value),
   );
+
+  const onCustomGameNameInput = (value) => {
+    setCustomGameName(value, {
+      persist: state.mode === "playing",
+    });
+  };
+  if (els.customGameName) {
+    els.customGameName.addEventListener("input", () => {
+      onCustomGameNameInput(els.customGameName.value);
+    });
+  }
+  if (els.preRoundCustomGameName) {
+    els.preRoundCustomGameName.addEventListener("input", () => {
+      onCustomGameNameInput(els.preRoundCustomGameName.value);
+    });
+  }
   if (els.preRoundPresetSelect) {
     els.preRoundPresetSelect.addEventListener("change", (e) => {
       if (!(state.mode === "playing" && state.rounds.length === 0)) {
