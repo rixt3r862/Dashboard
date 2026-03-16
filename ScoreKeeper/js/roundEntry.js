@@ -457,15 +457,9 @@ export function createRoundEntryController(deps) {
     });
 
     els.roundPreviewBody.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
       const target = e.target;
       if (!(target instanceof HTMLInputElement)) return;
       if (target.getAttribute("data-preview-action") !== "input") return;
-      e.preventDefault();
-      const playerId = target.getAttribute("data-player-id");
-      if (playerId) {
-        setRoundScoreInputValue(playerId, target.value, { silent: true });
-      }
 
       const inputs = Array.from(
         els.roundPreviewBody.querySelectorAll(
@@ -474,6 +468,25 @@ export function createRoundEntryController(deps) {
       );
       const currentIdx = inputs.indexOf(target);
       if (currentIdx < 0) return;
+
+      const playerId = target.getAttribute("data-player-id");
+      if (playerId) {
+        setRoundScoreInputValue(playerId, target.value, { silent: true });
+      }
+
+      if (e.key === "Tab") {
+        const nextIdx = currentIdx + (e.shiftKey ? -1 : 1);
+        const nextInput = inputs[nextIdx];
+        if (nextInput instanceof HTMLInputElement) {
+          e.preventDefault();
+          nextInput.focus();
+          nextInput.select();
+        }
+        return;
+      }
+
+      if (e.key !== "Enter") return;
+      e.preventDefault();
 
       const nextInput = inputs[currentIdx + 1];
       if (nextInput instanceof HTMLInputElement) {
