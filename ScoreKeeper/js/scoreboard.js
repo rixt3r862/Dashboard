@@ -232,6 +232,15 @@ export function createScoreboardController(deps) {
   function renderWinnerBanner() {
     const playerTotals = totalsByPlayerId();
     let winnerTotal = 0;
+    const showContinueButton =
+      state.mode === "finished" &&
+      !!state.winnerId &&
+      !state.bannerDismissed &&
+      !isPhase10();
+
+    if (els.btnKeepGoing) {
+      els.btnKeepGoing.hidden = !showContinueButton;
+    }
 
     if (state.winnerId) {
       if (state.teams) {
@@ -259,9 +268,6 @@ export function createScoreboardController(deps) {
         `🎉 ${winnerCongratsLine(name)}`,
         rulesLine,
       ].filter(Boolean);
-      if (els.btnKeepGoing) {
-        els.btnKeepGoing.hidden = isPhase10();
-      }
       els.winnerSub.textContent = summaryParts.join(" ");
       if (els.winnerMilestones) {
         const items = (state.winnerMilestones || [])
@@ -275,9 +281,6 @@ export function createScoreboardController(deps) {
 
       els.winnerBanner.classList.add("show");
     } else {
-      if (els.btnKeepGoing) {
-        els.btnKeepGoing.hidden = false;
-      }
       if (els.winnerMilestones) {
         els.winnerMilestones.innerHTML = "";
       }

@@ -36,6 +36,17 @@ export function createHistoryController(deps) {
     determineWinnerFromTotals,
   } = deps;
 
+  function canContinueFinishedGame() {
+    return !isPhase10();
+  }
+
+  function normalizePhase10GameState(hasWinner = false) {
+    if (canContinueFinishedGame()) return;
+    if (state.gameState === "extended" || state.gameState === "free_play") {
+      state.gameState = hasWinner ? "completed" : "in_progress";
+    }
+  }
+
   function recalcAfterHistoryChange(liveText) {
     // History edits can reorder/remove rounds, so reindex round numbers first.
     state.rounds.forEach((r, i) => {
@@ -100,13 +111,14 @@ export function createHistoryController(deps) {
       syncWinnerAnchors();
     };
     pruneMilestones();
+    const winner = determineWinnerFromTotals(entries);
+    normalizePhase10GameState(Boolean(winner));
 
     // Free-play keeps scoring and history, but intentionally has no active winner state.
     if (state.gameState === "free_play") {
       state.winnerId = null;
       state.mode = state.players.length ? "playing" : "setup";
     } else {
-      const winner = determineWinnerFromTotals(entries);
       if (winner) {
         state.winnerId = winner;
         state.mode = "finished";

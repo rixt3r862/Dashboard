@@ -780,6 +780,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return Math.ceil((baseTarget + 1) / 50) * 50;
   }
 
+  function canContinueFinishedGame() {
+    return !isPhase10();
+  }
+
+  function normalizePhase10GameState(hasWinner = false) {
+    if (canContinueFinishedGame()) return;
+    if (state.gameState === "extended" || state.gameState === "free_play") {
+      state.gameState = hasWinner ? "completed" : "in_progress";
+    }
+  }
+
   function syncWinnerLifecycleAfterLoad() {
     if (!state.players.length) {
       clearWinnerLifecycle();
@@ -796,6 +807,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const playerTotals = totalsByPlayerId();
     const entries = buildWinnerEntries(playerTotals);
     const resolvedWinner = determineWinnerFromTotals(entries);
+    normalizePhase10GameState(Boolean(resolvedWinner));
 
     if (resolvedWinner) {
       state.winnerId = resolvedWinner;
@@ -826,7 +838,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.mode !== "finished" ||
       !state.winnerId ||
       !els.continueModal ||
-      isPhase10()
+      !canContinueFinishedGame()
     ) {
       return;
     }
@@ -869,6 +881,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function continueWithRaisedTarget() {
+    if (!canContinueFinishedGame()) {
+      closeContinueModal();
+      return;
+    }
     const nextTarget = clampInt(
       els.continueTargetPoints.value,
       APP_LIMITS.targetMin,
@@ -895,6 +911,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function continueWithFreePlay() {
+    if (!canContinueFinishedGame()) {
+      closeContinueModal();
+      return;
+    }
     state.mode = "playing";
     state.winnerId = null;
     state.gameState = "free_play";
@@ -2155,6 +2175,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     const playerTotals = totalsByPlayerId();
     const entries = buildWinnerEntries(playerTotals);
+    normalizePhase10GameState(false);
     const w =
       state.gameState === "free_play"
         ? null
@@ -2263,12 +2284,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     let statusText = "Setup";
     if (state.mode === "playing") {
-      if (state.gameState === "free_play") statusText = "Playing (Free Play)";
-      else if (state.gameState === "extended") statusText = "Playing (Extended)";
-      else statusText = "Playing";
+      if (canContinueFinishedGame() && state.gameState === "free_play") {
+        statusText = "Playing (Free Play)";
+      } else if (canContinueFinishedGame() && state.gameState === "extended") {
+        statusText = "Playing (Extended)";
+      } else {
+        statusText = "Playing";
+      }
     } else if (state.mode === "finished") {
       statusText =
-        state.gameState === "extended" ? "Finished (Extended)" : "Finished";
+        canContinueFinishedGame() && state.gameState === "extended"
+          ? "Finished (Extended)"
+          : "Finished";
     }
     els.pillStatus.innerHTML = `<strong>Status:</strong> ${statusText}`;
     renderStorageStatus();
