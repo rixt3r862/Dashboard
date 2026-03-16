@@ -205,6 +205,23 @@
               />
             </div>
 
+          </div>
+
+          <div
+            class="row custom-win-mode-row"
+            id="customWinModeRow"
+            style="display: none"
+          >
+            <div class="field custom-win-mode-field" style="max-width: 240px">
+              <label for="customWinModeSelect">Custom game win mode</label>
+              <select id="customWinModeSelect">
+                <option value="high">Highest score wins</option>
+                <option value="low">Lowest score wins</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
             <div class="field" style="max-width: 200px">
               <label for="playerCount">Number of players</label>
               <input
@@ -317,6 +334,17 @@
                 autocomplete="off"
                 maxlength="40"
               />
+            </div>
+            <div
+              class="field pre-round-custom-win-mode-field"
+              id="preRoundCustomWinModeRow"
+              style="display: none; max-width: 240px"
+            >
+              <label for="preRoundCustomWinModeSelect">Custom game win mode</label>
+              <select id="preRoundCustomWinModeSelect">
+                <option value="high">Highest score wins</option>
+                <option value="low">Lowest score wins</option>
+              </select>
             </div>
           </div>
 

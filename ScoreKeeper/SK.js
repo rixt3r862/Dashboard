@@ -64,6 +64,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     presetSelect: $("presetSelect"),
     customGameRow: $("customGameRow"),
     customGameName: $("customGameName"),
+    customWinModeRow: $("customWinModeRow"),
+    customWinModeSelect: $("customWinModeSelect"),
     preRoundPresetRow: $("preRoundPresetRow"),
     preRoundPresetSelect: $("preRoundPresetSelect"),
     preRoundSpadesTeamRow: $("preRoundSpadesTeamRow"),
@@ -71,6 +73,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     preRoundSpadesPartner: $("preRoundSpadesPartner"),
     preRoundCustomGameRow: $("preRoundCustomGameRow"),
     preRoundCustomGameName: $("preRoundCustomGameName"),
+    preRoundCustomWinModeRow: $("preRoundCustomWinModeRow"),
+    preRoundCustomWinModeSelect: $("preRoundCustomWinModeSelect"),
     winModeText: $("winModeText"),
 
     playerCount: $("playerCount"),
@@ -1019,6 +1023,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       closeContinueModal();
 
       els.presetSelect.value = state.presetKey;
+      syncCustomGameInputs();
+      syncCustomWinModeInputs();
       updateWinModeText();
       maybeRenderTeamPreview();
       applyPhase10UiText();
@@ -1344,6 +1350,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.presetSelect.value = "custom";
     if (els.customGameName) els.customGameName.value = "";
     if (els.preRoundCustomGameName) els.preRoundCustomGameName.value = "";
+    syncCustomWinModeInputs();
     els.playerCount.value = APP_LIMITS.defaultPlayerCount;
     els.targetPoints.value = APP_LIMITS.defaultTarget;
 
@@ -1430,6 +1437,19 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
   }
 
+  function syncCustomWinModeInputs() {
+    const value = state.winMode === "low" ? "low" : "high";
+    if (els.customWinModeSelect && els.customWinModeSelect.value !== value) {
+      els.customWinModeSelect.value = value;
+    }
+    if (
+      els.preRoundCustomWinModeSelect &&
+      els.preRoundCustomWinModeSelect.value !== value
+    ) {
+      els.preRoundCustomWinModeSelect.value = value;
+    }
+  }
+
   function renderCustomGameNameUi(allowPreRoundPresetChange = false) {
     syncCustomGameInputs();
     if (els.customGameRow) {
@@ -1441,11 +1461,34 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
   }
 
+  function renderCustomWinModeUi(allowPreRoundPresetChange = false) {
+    syncCustomWinModeInputs();
+    if (els.customWinModeRow) {
+      els.customWinModeRow.style.display =
+        state.presetKey === "custom" ? "flex" : "none";
+    }
+    if (els.preRoundCustomWinModeRow) {
+      els.preRoundCustomWinModeRow.style.display =
+        allowPreRoundPresetChange && state.presetKey === "custom"
+          ? "flex"
+          : "none";
+    }
+  }
+
   function setCustomGameName(nextName, options = {}) {
     const { persist = false } = options;
     state.customGameName = String(nextName || "");
     syncCustomGameInputs();
     scoreboard.updateScoreboardTitle();
+    if (persist && state.players.length) save();
+  }
+
+  function setWinMode(nextMode, options = {}) {
+    const { persist = false } = options;
+    state.winMode = nextMode === "low" ? "low" : "high";
+    syncCustomWinModeInputs();
+    updateWinModeText();
+    renderAll();
     if (persist && state.players.length) save();
   }
 
@@ -1516,6 +1559,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     state.winMode = preset.winMode === "low" ? "low" : "high";
     updateWinModeText();
+    syncCustomWinModeInputs();
 
     state.presetNote = preset.notes || "";
     showMsg(els.setupMsg, state.presetNote);
@@ -1530,6 +1574,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     maybeRenderTeamPreview();
     renderCustomGameNameUi(
+      state.mode === "playing" && state.rounds.length === 0,
+    );
+    renderCustomWinModeUi(
       state.mode === "playing" && state.rounds.length === 0,
     );
     updateStartButtonState();
@@ -1797,6 +1844,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
     );
     const names = currentNameInputs();
     state.customGameName = String(els.customGameName?.value || "");
+    if (state.presetKey === "custom") {
+      state.winMode =
+        els.customWinModeSelect?.value === "low" ? "low" : "high";
+      syncCustomWinModeInputs();
+      updateWinModeText();
+    }
 
     const msg = validateSetup(names, target);
     if (msg) {
@@ -2114,6 +2167,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       els.preRoundPresetSelect.value = state.presetKey;
     }
     renderCustomGameNameUi(allowPreRoundPresetChange);
+    renderCustomWinModeUi(allowPreRoundPresetChange);
     renderPreRoundSpadesTeamPicker(
       allowPreRoundPresetChange && state.presetKey === "spades",
     );
@@ -2207,6 +2261,22 @@ import { createScoreboardController } from "./js/scoreboard.js";
   if (els.preRoundCustomGameName) {
     els.preRoundCustomGameName.addEventListener("input", () => {
       onCustomGameNameInput(els.preRoundCustomGameName.value);
+    });
+  }
+  const onCustomWinModeChange = (value) => {
+    if (state.presetKey !== "custom") return;
+    setWinMode(value, {
+      persist: state.mode === "playing",
+    });
+  };
+  if (els.customWinModeSelect) {
+    els.customWinModeSelect.addEventListener("change", () => {
+      onCustomWinModeChange(els.customWinModeSelect.value);
+    });
+  }
+  if (els.preRoundCustomWinModeSelect) {
+    els.preRoundCustomWinModeSelect.addEventListener("change", () => {
+      onCustomWinModeChange(els.preRoundCustomWinModeSelect.value);
     });
   }
   if (els.preRoundPresetSelect) {
