@@ -252,6 +252,14 @@ h1{
     justify-content: flex-start;
     align-items: flex-start;
   }
+  .custom-game-field,
+  .pre-round-custom-game-field{
+    min-width: 0;
+    max-width: none;
+  }
+  .pre-round-preset-row label{
+    min-height: 0;
+  }
 }
 
 @media (max-width: 520px){
@@ -299,6 +307,32 @@ h1{
   gap:6px;
   min-width: 160px;
   flex: 1 1 160px;
+}
+
+.preset-field{
+  max-width: 260px;
+}
+
+.custom-game-field{
+  max-width: 320px;
+  min-width: 280px;
+}
+
+.pre-round-preset-row{
+  align-items:flex-start;
+}
+
+.pre-round-preset-row label{
+  min-height: calc(var(--fs-sm) * 3.2);
+}
+
+.pre-round-preset-field,
+.pre-round-custom-game-field{
+  flex-basis: 260px;
+}
+
+.pre-round-custom-game-field{
+  max-width: 320px;
 }
 
 label{

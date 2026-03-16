@@ -182,7 +182,7 @@
 
         <div id="setupPanel">
           <div class="row">
-            <div class="field" style="max-width: 260px">
+            <div class="field preset-field">
               <label for="presetSelect">Game preset</label>
               <select id="presetSelect">
                 <option value="custom">Custom</option>
@@ -195,7 +195,7 @@
               </select>
             </div>
 
-            <div class="field" id="customGameRow" style="display: none; max-width: 240px">
+            <div class="field custom-game-field" id="customGameRow" style="display: none">
               <label for="customGameName">Game</label>
               <input
                 id="customGameName"
@@ -286,10 +286,10 @@
         <div id="roundPanel" style="display: none">
           <div
             id="preRoundPresetRow"
-            class="row"
+            class="row pre-round-preset-row"
             style="display: none; margin-bottom: 8px"
           >
-            <div class="field" style="max-width: 260px">
+            <div class="field preset-field pre-round-preset-field">
               <label for="preRoundPresetSelect">Game preset<br /><em>(Can be changed before Round 1)</em></label>
               <select id="preRoundPresetSelect">
                 <option value="custom">Custom</option>
@@ -305,7 +305,11 @@
               <label id="preRoundSpadesPartnerLabel" for="preRoundSpadesPartner">Assign Teams (Spades)</label>
               <select id="preRoundSpadesPartner"></select>
             </div>
-            <div class="field" id="preRoundCustomGameRow" style="display: none; max-width: 240px">
+            <div
+              class="field custom-game-field pre-round-custom-game-field"
+              id="preRoundCustomGameRow"
+              style="display: none"
+            >
               <label for="preRoundCustomGameName">Game</label>
               <input
                 id="preRoundCustomGameName"
