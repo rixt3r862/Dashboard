@@ -1444,6 +1444,7 @@ export function createHistoryController(deps) {
     const phaseCompletionsById = isPhase10()
       ? Object.fromEntries(cols.map((pid) => [pid, 0]))
       : null;
+    const runningTotalsById = Object.fromEntries(cols.map((pid) => [pid, 0]));
     const rows = [];
 
     for (const r of state.rounds) {
@@ -1486,6 +1487,7 @@ export function createHistoryController(deps) {
           state.presetKey === "skyjo"
             ? Number(adjustedScores?.[pid] ?? rawV)
             : rawV;
+        runningTotalsById[pid] += Number.isFinite(displayV) ? displayV : 0;
         const isSkyjo = state.presetKey === "skyjo";
         const isWentOutCell = isSkyjo && r.skyjoWentOutPlayerId === pid;
         const isDoubledCell =
@@ -1503,6 +1505,7 @@ export function createHistoryController(deps) {
           pid,
           rawV,
           displayV,
+          totalAfterRound: Number(runningTotalsById[pid] ?? 0),
           playerName: state.players.find((p) => p.id === pid)?.name ?? "Player",
           phaseN: Number(phaseNumberById[pid] ?? 0),
           isWentOutCell,
@@ -1679,6 +1682,13 @@ export function createHistoryController(deps) {
       plusBadge.textContent = "+26";
       parent.appendChild(plusBadge);
     }
+
+    if (state.showHistoryTotals) {
+      const totalText = document.createElement("span");
+      totalText.className = "history-score-total";
+      totalText.textContent = `Total: ${formatStatValue(cell.totalAfterRound)}`;
+      parent.appendChild(totalText);
+    }
   }
 
   function renderHistoryTable() {
@@ -1697,6 +1707,12 @@ export function createHistoryController(deps) {
           ? "Order: Newest first"
           : "Order: Oldest first";
       els.btnHistoryOrder.disabled = rows.length <= 1;
+    }
+    if (els.btnHistoryTotals) {
+      els.btnHistoryTotals.textContent = state.showHistoryTotals
+        ? "Totals: On"
+        : "Totals: Off";
+      els.btnHistoryTotals.disabled = rows.length === 0;
     }
 
     tbl.hidden = useCards;

@@ -126,6 +126,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     colHeadTotal: $("colHeadTotal"),
     colHeadThis: $("colHeadThis"),
     btnHistoryOrder: $("btnHistoryOrder"),
+    btnHistoryTotals: $("btnHistoryTotals"),
 
     targetLabel: $("targetLabel"),
     phase10Ref: $("phase10Ref"),
@@ -191,6 +192,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     winnerMilestones: [], // [{ winnerId, roundN, target, ts }]
     sortByTotal: false,
     historySortDir: "asc",
+    showHistoryTotals: true,
     savedExists: false,
     savedSessionCount: 0,
     selectedSessionId: "",
@@ -287,6 +289,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       winnerMilestones: state.winnerMilestones,
       sortByTotal: state.sortByTotal,
       historySortDir: state.historySortDir,
+      showHistoryTotals: state.showHistoryTotals,
       spadesPartnerIndex: state.spadesPartnerIndex,
       presetNote: state.presetNote,
       skyjoCurrentRoundWentOutPlayerId:
@@ -1030,6 +1033,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
       syncWinnerAnchorsFromMilestones();
       state.sortByTotal = !!payload.sortByTotal;
       state.historySortDir = payload.historySortDir === "desc" ? "desc" : "asc";
+      state.showHistoryTotals =
+        typeof payload.showHistoryTotals === "boolean"
+          ? payload.showHistoryTotals
+          : true;
 
       state.lastRoundScores = state.rounds.length
         ? state.rounds[state.rounds.length - 1].scores || {}
@@ -2586,6 +2593,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
   if (els.btnHistoryOrder) {
     els.btnHistoryOrder.addEventListener("click", () => {
       state.historySortDir = state.historySortDir === "desc" ? "asc" : "desc";
+      save();
+      renderAll();
+    });
+  }
+  if (els.btnHistoryTotals) {
+    els.btnHistoryTotals.addEventListener("click", () => {
+      state.showHistoryTotals = !state.showHistoryTotals;
       save();
       renderAll();
     });
