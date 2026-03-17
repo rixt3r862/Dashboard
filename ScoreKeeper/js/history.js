@@ -1237,6 +1237,18 @@ export function createHistoryController(deps) {
     return completions;
   }
 
+  function readHistoryEditSkyjoWentOut(roundN) {
+    const selector =
+      `[data-history-edit-round="${roundN}"]` +
+      `[data-history-edit-skyjo-went-out]:checked`;
+    const inp =
+      els.historyTable.querySelector(selector) ||
+      els.historyCards?.querySelector(selector) ||
+      null;
+    if (!(inp instanceof HTMLInputElement)) return null;
+    return inp.getAttribute("data-history-edit-skyjo-went-out") || null;
+  }
+
   function saveHistoryEdit(roundN) {
     const idx = state.rounds.findIndex((r) => r.n === roundN);
     if (idx < 0) return;
@@ -1265,6 +1277,14 @@ export function createHistoryController(deps) {
     }
 
     state.rounds[idx].scores = scores;
+    if (state.presetKey === "skyjo") {
+      const wentOutId = readHistoryEditSkyjoWentOut(roundN);
+      if (!wentOutId) {
+        showMsg(els.roundMsg, "SkyJo: select who went out this round.");
+        return;
+      }
+      state.rounds[idx].skyjoWentOutPlayerId = wentOutId;
+    }
     if (isPhase10()) {
       const completions = readHistoryEditPhase10Completions(roundN);
       if (!completions) {
@@ -1420,6 +1440,41 @@ export function createHistoryController(deps) {
       completionSelect.setAttribute("data-history-edit-round", String(roundN));
       completionSelect.setAttribute("data-history-edit-phase10", cell.pid);
       input.appendChild(completionSelect);
+      return input;
+    } else if (state.presetKey === "skyjo") {
+      input = document.createElement("div");
+      input.className = "history-edit-skyjo";
+
+      const scoreInput = document.createElement("input");
+      scoreInput.type = "number";
+      scoreInput.inputMode = "numeric";
+      scoreInput.className = "history-edit-input";
+      scoreInput.value = String(Number.isFinite(cell.rawV) ? cell.rawV : 0);
+      scoreInput.setAttribute("aria-label", `Round ${roundN} score for ${cell.playerName}`);
+      scoreInput.setAttribute("data-history-edit-round", String(roundN));
+      scoreInput.setAttribute("data-history-edit-score", cell.pid);
+      input.appendChild(scoreInput);
+
+      const outLabel = document.createElement("label");
+      outLabel.className = "history-edit-skyjo-out";
+
+      const outRadio = document.createElement("input");
+      outRadio.type = "radio";
+      outRadio.name = `historyEditSkyjoWentOut-${roundN}`;
+      outRadio.checked = cell.isWentOutCell;
+      outRadio.setAttribute(
+        "aria-label",
+        `Round ${roundN} ${cell.playerName} went out`,
+      );
+      outRadio.setAttribute("data-history-edit-round", String(roundN));
+      outRadio.setAttribute("data-history-edit-skyjo-went-out", cell.pid);
+      outLabel.appendChild(outRadio);
+
+      const outText = document.createElement("span");
+      outText.textContent = "Out";
+      outLabel.appendChild(outText);
+
+      input.appendChild(outLabel);
       return input;
     } else {
       input = document.createElement("input");

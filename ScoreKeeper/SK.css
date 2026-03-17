@@ -1366,6 +1366,23 @@ summary::-webkit-details-marker{ display:none; }
   gap: 8px;
   flex-wrap: wrap;
 }
+.history-edit-skyjo{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.history-edit-skyjo-out{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.history-edit-skyjo-out input{
+  margin: 0;
+}
 .history-edit-phase10 .history-edit-input{
   width: auto;
 }
