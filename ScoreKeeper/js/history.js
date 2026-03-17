@@ -48,6 +48,10 @@ export function createHistoryController(deps) {
   }
 
   function recalcAfterHistoryChange(liveText) {
+    const prevWinnerId = state.winnerId;
+    const prevMode = state.mode;
+    const prevBannerDismissed = state.bannerDismissed;
+
     // History edits can reorder/remove rounds, so reindex round numbers first.
     state.rounds.forEach((r, i) => {
       r.n = i + 1;
@@ -118,6 +122,7 @@ export function createHistoryController(deps) {
     if (state.gameState === "free_play") {
       state.winnerId = null;
       state.mode = state.players.length ? "playing" : "setup";
+      state.bannerDismissed = true;
     } else {
       if (winner) {
         state.winnerId = winner;
@@ -126,6 +131,8 @@ export function createHistoryController(deps) {
         if (state.gameState !== "extended") {
           state.gameState = "completed";
         }
+        const winnerChanged = prevMode !== "finished" || prevWinnerId !== winner;
+        state.bannerDismissed = winnerChanged ? false : prevBannerDismissed;
       } else {
         state.winnerId = null;
         state.mode = state.players.length ? "playing" : "setup";
@@ -136,10 +143,10 @@ export function createHistoryController(deps) {
           state.winnerMilestones = [];
           syncWinnerAnchors();
         }
+        state.bannerDismissed = true;
       }
     }
 
-    state.bannerDismissed = true;
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
 
