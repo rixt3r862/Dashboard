@@ -109,6 +109,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     continueModal: $("continueModal"),
     sessionModal: $("sessionModal"),
     continueModalContext: $("continueModalContext"),
+    continueModalIntro: $("continueModalIntro"),
+    continueTargetRequirement: $("continueTargetRequirement"),
+    continueTargetRequirementText: $("continueTargetRequirementText"),
+    continueModalPrompt: $("continueModalPrompt"),
     continueTargetPoints: $("continueTargetPoints"),
     btnContinueRaiseTarget: $("btnContinueRaiseTarget"),
     btnContinueFreePlay: $("btnContinueFreePlay"),
@@ -776,11 +780,75 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function suggestedContinueTarget() {
-    const baseTarget = Number.isInteger(state.target)
-      ? state.target
-      : APP_LIMITS.defaultTarget;
-    // Recommend the next higher 50-point milestone for continued play.
-    return Math.ceil((baseTarget + 1) / 50) * 50;
+    const requirement = continueTargetRequirement();
+    // Recommend the next higher 50-point milestone that is safely above
+    // all current totals, so "continue" never starts in an already-won state.
+    return Math.ceil(requirement.minTarget / 50) * 50;
+  }
+
+  function continueTargetRequirement() {
+    const playerTotals = totalsByPlayerId();
+    const entries = buildWinnerEntries(playerTotals);
+    const topEntry = entries.reduce((best, entry) => {
+      const total = Number(entry?.total ?? 0);
+      if (!Number.isFinite(total)) return best;
+      if (!best || total > best.total) {
+        return { id: entry.id, total };
+      }
+      return best;
+    }, null);
+
+    const highestTotal = Number(topEntry?.total ?? 0);
+    return {
+      highestId: topEntry?.id ?? null,
+      highestTotal,
+      minTarget: Math.max(
+        APP_LIMITS.targetMin,
+        highestTotal + 1,
+      ),
+    };
+  }
+
+  function renderContinueModalContext(requirement, opts = {}) {
+    const { invalid = false } = opts;
+    if (!els.continueModalContext) return;
+
+    const firstRound = state.firstWinnerAt?.roundN;
+    const firstTarget = state.firstWinnerAt?.target;
+    const firstLine =
+      firstRound && firstTarget
+        ? `Original winner declared in round ${firstRound} at target ${firstTarget}.`
+        : "A winner has already been declared.";
+    const highestLabel = requirement.highestId
+      ? entityName(requirement.highestId)
+      : "A player";
+    const requirementLine = `${highestLabel} is already at ${requirement.highestTotal}, so the new target must be at least `;
+
+    if (
+      els.continueModalIntro &&
+      els.continueTargetRequirement &&
+      els.continueTargetRequirementText &&
+      els.continueModalPrompt
+    ) {
+      els.continueModalIntro.textContent = firstLine;
+      els.continueTargetRequirementText.innerHTML =
+        `${requirementLine}<strong class="continue-target-min">${requirement.minTarget}</strong>.`;
+      els.continueTargetRequirement.classList.toggle("is-invalid", invalid);
+      els.continueModalPrompt.textContent = "Choose how to continue.";
+      return;
+    }
+
+    els.continueModalContext.textContent = `${firstLine} ${requirementLine} Choose how to continue.`;
+  }
+
+  function syncContinueTargetRequirementFeedback() {
+    if (!els.continueTargetPoints) return;
+    const requirement = continueTargetRequirement();
+    const raw = String(els.continueTargetPoints.value ?? "").trim();
+    const parsed = Number.parseInt(raw, 10);
+    const invalid = raw !== "" && (!Number.isInteger(parsed) || parsed < requirement.minTarget);
+    renderContinueModalContext(requirement, { invalid });
+    els.continueTargetPoints.classList.toggle("is-invalid", invalid);
   }
 
   function canContinueFinishedGame() {
@@ -845,17 +913,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
     ) {
       return;
     }
+    const requirement = continueTargetRequirement();
     const suggestedTarget = suggestedContinueTarget();
     els.continueTargetPoints.value = String(suggestedTarget);
-    if (els.continueModalContext) {
-      const firstRound = state.firstWinnerAt?.roundN;
-      const firstTarget = state.firstWinnerAt?.target;
-      const firstLine =
-        firstRound && firstTarget
-          ? `Original winner declared in round ${firstRound} at target ${firstTarget}.`
-          : "A winner has already been declared.";
-      els.continueModalContext.textContent = `${firstLine} Choose how to continue.`;
-    }
+    els.continueTargetPoints.classList.remove("is-invalid");
+    els.continueTargetPoints.min = String(
+      Math.min(APP_LIMITS.targetMax, requirement.minTarget),
+    );
+    renderContinueModalContext(requirement);
     els.continueModal.hidden = false;
     els.continueModal.classList.add("is-open");
     els.continueTargetPoints.focus();
@@ -893,11 +958,32 @@ import { createScoreboardController } from "./js/scoreboard.js";
       APP_LIMITS.targetMin,
       APP_LIMITS.targetMax,
     );
-    if (!Number.isInteger(nextTarget) || nextTarget <= state.target) {
+    const requirement = continueTargetRequirement();
+    if (
+      !Number.isInteger(nextTarget) ||
+      nextTarget < APP_LIMITS.targetMin ||
+      nextTarget > APP_LIMITS.targetMax
+    ) {
       showMsg(
         els.roundMsg,
-        `New target must be greater than current target (${state.target}).`,
+        `New target must be between ${APP_LIMITS.targetMin} and ${APP_LIMITS.targetMax}.`,
       );
+      els.continueTargetPoints.focus();
+      els.continueTargetPoints.select?.();
+      return;
+    }
+    if (nextTarget < requirement.minTarget) {
+      const highestLabel = requirement.highestId
+        ? entityName(requirement.highestId)
+        : "A player";
+      renderContinueModalContext(requirement, { invalid: true });
+      els.continueTargetPoints.classList.add("is-invalid");
+      showMsg(
+        els.roundMsg,
+        `${highestLabel} is already at ${requirement.highestTotal}. Enter at least ${requirement.minTarget}, or choose Free Play instead.`,
+      );
+      els.continueTargetPoints.focus();
+      els.continueTargetPoints.select?.();
       return;
     }
     state.target = nextTarget;
@@ -2495,6 +2581,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     });
   }
   if (els.continueTargetPoints) {
+    els.continueTargetPoints.addEventListener("input", () => {
+      syncContinueTargetRequirementFeedback();
+    });
     els.continueTargetPoints.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" || e.isComposing) return;
       e.preventDefault();

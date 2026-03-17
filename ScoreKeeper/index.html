@@ -103,8 +103,12 @@
     <div class="continue-modal" id="continueModal" hidden>
       <div class="continue-modal-card" role="dialog" aria-modal="true" aria-labelledby="continueModalTitle">
         <h3 id="continueModalTitle">Continue This Game</h3>
-        <p class="muted" id="continueModalContext">
-          The game has a winner. Choose how to continue.
+        <p class="muted continue-modal-copy" id="continueModalContext">
+          <span id="continueModalIntro">The game has a winner.</span>
+          <span id="continueTargetRequirement" class="continue-target-requirement">
+            <span id="continueTargetRequirementText"></span>
+          </span>
+          <span id="continueModalPrompt">Choose how to continue.</span>
         </p>
         <div class="field">
           <label for="continueTargetPoints">New target (recommended)</label>

@@ -795,6 +795,42 @@ tr:last-child td{ border-bottom:none; }
 .continue-modal-card h3{
   margin: 0 0 8px;
 }
+.continue-modal-copy{
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.continue-target-requirement{
+  display: block;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,.28);
+  background: rgba(248,250,252,.9);
+  color: var(--text);
+  transition:
+    background-color .16s ease,
+    border-color .16s ease,
+    box-shadow .16s ease,
+    transform .16s ease;
+}
+.continue-target-min{
+  font-weight: 700;
+}
+.continue-target-requirement.is-invalid{
+  border-color: rgba(217,119,6,.45);
+  background: rgba(254,243,199,.95);
+  box-shadow: 0 0 0 3px rgba(245,158,11,.14);
+  transform: translateY(-1px);
+}
+.continue-target-requirement.is-invalid .continue-target-min{
+  font-weight: 900;
+  font-size: 1.1em;
+}
+.continue-modal-card input.is-invalid{
+  border-color: rgba(217,119,6,.5);
+  box-shadow: 0 0 0 3px rgba(245,158,11,.14);
+  background: rgba(255,251,235,.95);
+}
 .continue-modal-actions{
   margin-top: 12px;
   display: flex;
