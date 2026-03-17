@@ -908,6 +908,24 @@ export function createHistoryController(deps) {
         ? rows.filter((row) => roundWins[row.id] === topRoundWinCount).map((row) => row.id)
         : [];
 
+    const targetWins = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    for (const milestone of state.winnerMilestones || []) {
+      if (!milestone?.winnerId || !(milestone.winnerId in targetWins)) continue;
+      targetWins[milestone.winnerId] += 1;
+    }
+    const targetWinValues = Object.values(targetWins);
+    const topTargetWinCount = targetWinValues.length
+      ? Math.max(...targetWinValues)
+      : 0;
+    const topTargetWinIds =
+      topTargetWinCount > 0
+        ? rows
+            .filter((row) => targetWins[row.id] === topTargetWinCount)
+            .map((row) => row.id)
+        : [];
+    const hasContinuedTargetWins =
+      (state.winnerMilestones?.length ?? 0) > 1 && topTargetWinCount > 0;
+
     const streakValues = Object.values(bestStreaks);
     const topStreakValue = streakValues.length ? Math.max(...streakValues) : 0;
     const topStreakIds =
@@ -962,6 +980,10 @@ export function createHistoryController(deps) {
       leadMargin,
       topRoundWinIds,
       topRoundWinCount,
+      targetWins,
+      topTargetWinIds,
+      topTargetWinCount,
+      hasContinuedTargetWins,
       topStreakIds,
       topStreakValue,
       story: roundWinText ? `${headline} ${leadChangeText} ${roundWinText}` : `${headline} ${leadChangeText}`,
@@ -1091,6 +1113,15 @@ export function createHistoryController(deps) {
             : "None yet",
         meta: "Rounds won outright",
       },
+      ...(analysis.hasContinuedTargetWins
+        ? [
+            {
+              label: "Most Target Wins",
+              value: `${formatEntityList(analysis.topTargetWinIds, analysis.labelById)} · ${analysis.topTargetWinCount}`,
+              meta: "Targets reached first in continued play",
+            },
+          ]
+        : []),
       {
         label: "Biggest Swing",
         value:
