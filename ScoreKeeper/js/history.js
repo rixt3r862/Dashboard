@@ -528,7 +528,8 @@ export function createHistoryController(deps) {
     if (!labels.length) return "No one";
     if (labels.length === 1) return labels[0];
     if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
-    return `${labels[0]}, ${labels[1]} +${labels.length - 2}`;
+    if (labels.length === 3) return `${labels[0]}, ${labels[1]} & ${labels[2]}`;
+    return `${labels[0]}, ${labels[1]}, ${labels[2]} +${labels.length - 3}`;
   }
 
   function formatPercent(value) {
