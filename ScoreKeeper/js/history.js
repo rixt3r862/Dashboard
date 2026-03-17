@@ -1,6 +1,7 @@
 import { bindSelectOnFocusAndClick } from "./inputUx.js";
 import {
   adjustSkyjoRoundScores,
+  determineWinnerFromTotals as resolveWinnerFromTotals,
   normalizeHeartsShootMoonScores,
   phase10CompletionMap,
 } from "./rules.mjs";
@@ -47,6 +48,110 @@ export function createHistoryController(deps) {
     }
   }
 
+  function replayWinnerMarkerForTarget(target) {
+    const normalizedTarget = Math.max(1, Number(target) || state.target || 1);
+    if (!state.rounds.length || !state.players.length) return null;
+
+    if (isPhase10()) {
+      const completed = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+      const points = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+
+      for (let idx = 0; idx < state.rounds.length; idx += 1) {
+        const round = state.rounds[idx];
+        const completedMap = phase10CompletionMap(state.players, round);
+        const candidates = [];
+
+        for (const player of state.players) {
+          const rawPoints = Number(round?.scores?.[player.id] ?? 0);
+          points[player.id] += Number.isFinite(rawPoints) ? rawPoints : 0;
+
+          const before = completed[player.id];
+          if (completedMap[player.id]) {
+            completed[player.id] += 1;
+          }
+          if (before < normalizedTarget && completed[player.id] >= normalizedTarget) {
+            candidates.push(player.id);
+          }
+        }
+
+        if (candidates.length) {
+          candidates.sort((a, b) => {
+            const diff = (points[a] ?? 0) - (points[b] ?? 0);
+            if (diff !== 0) return diff;
+            return String(a).localeCompare(String(b));
+          });
+          return {
+            winnerId: candidates[0] ?? null,
+            roundN: idx + 1,
+            target: normalizedTarget,
+            ts: Number.isInteger(round?.ts) ? round.ts : Date.now(),
+          };
+        }
+      }
+      return null;
+    }
+
+    const cumulativePlayerTotals = Object.fromEntries(
+      state.players.map((p) => [p.id, 0]),
+    );
+
+    for (let idx = 0; idx < state.rounds.length; idx += 1) {
+      const round = state.rounds[idx];
+      const adjusted = adjustedRoundScoresForGraph(round);
+      for (const player of state.players) {
+        cumulativePlayerTotals[player.id] += Number(adjusted?.[player.id] ?? 0);
+      }
+
+      const entries = state.teams?.length
+        ? state.teams.map((team) => ({
+            id: team.id,
+            total: team.members.reduce(
+              (sum, pid) => sum + Number(cumulativePlayerTotals[pid] ?? 0),
+              0,
+            ),
+          }))
+        : state.players.map((player) => ({
+            id: player.id,
+            total: Number(cumulativePlayerTotals[player.id] ?? 0),
+          }));
+
+      const winnerId = resolveWinnerFromTotals(
+        entries,
+        state.winMode,
+        normalizedTarget,
+      );
+      if (winnerId) {
+        return {
+          winnerId,
+          roundN: idx + 1,
+          target: normalizedTarget,
+          ts: Number.isInteger(round?.ts) ? round.ts : Date.now(),
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function rebuildWinnerMilestones() {
+    const targets = [];
+    const seen = new Set();
+    for (const milestone of state.winnerMilestones || []) {
+      const target = Math.max(1, Number(milestone?.target) || 0);
+      if (!target || seen.has(target)) continue;
+      seen.add(target);
+      targets.push(target);
+    }
+    const currentTarget = Math.max(1, Number(state.target) || 0);
+    if (currentTarget && !seen.has(currentTarget)) {
+      targets.push(currentTarget);
+    }
+
+    return targets
+      .map((target) => replayWinnerMarkerForTarget(target))
+      .filter(Boolean);
+  }
+
   function recalcAfterHistoryChange(liveText) {
     const prevWinnerId = state.winnerId;
     const prevMode = state.mode;
@@ -78,13 +183,6 @@ export function createHistoryController(deps) {
       }));
     }
 
-    // Persist a target-aware winner timeline so "continue game" context stays meaningful.
-    const winnerMarker = (winnerId) => ({
-      winnerId,
-      roundN: state.rounds.length,
-      target: state.target,
-      ts: Date.now(),
-    });
     const syncWinnerAnchors = () => {
       if (!Array.isArray(state.winnerMilestones) || !state.winnerMilestones.length) {
         state.firstWinnerAt = null;
@@ -100,21 +198,9 @@ export function createHistoryController(deps) {
       );
       syncWinnerAnchors();
     };
-    const appendMilestone = (marker) => {
-      const last = state.winnerMilestones?.[state.winnerMilestones.length - 1];
-      if (
-        last &&
-        last.winnerId === marker.winnerId &&
-        last.roundN === marker.roundN &&
-        last.target === marker.target
-      ) {
-        return;
-      }
-      if (!Array.isArray(state.winnerMilestones)) state.winnerMilestones = [];
-      state.winnerMilestones.push(marker);
-      syncWinnerAnchors();
-    };
     pruneMilestones();
+    state.winnerMilestones = rebuildWinnerMilestones();
+    syncWinnerAnchors();
     const winner = determineWinnerFromTotals(entries);
     normalizePhase10GameState(Boolean(winner));
 
@@ -127,7 +213,6 @@ export function createHistoryController(deps) {
       if (winner) {
         state.winnerId = winner;
         state.mode = "finished";
-        appendMilestone(winnerMarker(winner));
         if (state.gameState !== "extended") {
           state.gameState = "completed";
         }
