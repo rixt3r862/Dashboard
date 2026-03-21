@@ -504,6 +504,40 @@
                       aria-label="Points graph legend"
                     ></div>
                   </section>
+                  <section id="historyPositionGraphPanel" class="history-graph-panel" hidden>
+                    <div class="history-graph-head">
+                      <strong id="historyPositionGraphTitle">Position by Round</strong>
+                      <span class="muted" id="historyPositionGraphMeta"></span>
+                    </div>
+                    <div class="history-graph-scroll">
+                      <svg
+                        id="historyPositionGraph"
+                        class="history-graph"
+                        role="img"
+                        aria-label="Round position graph"
+                        viewBox="0 0 860 320"
+                        preserveAspectRatio="none"
+                      ></svg>
+                    </div>
+                    <div
+                      id="historyPositionGraphLegend"
+                      class="history-graph-legend"
+                      aria-label="Position graph legend"
+                    ></div>
+                  </section>
+                  <section id="historyHeatmapPanel" class="history-graph-panel" hidden>
+                    <div class="history-graph-head">
+                      <strong id="historyHeatmapTitle">Swing Heatmap</strong>
+                      <span class="muted" id="historyHeatmapMeta"></span>
+                    </div>
+                    <div class="history-heatmap-scroll">
+                      <table
+                        id="historyHeatmap"
+                        class="history-heatmap"
+                        aria-label="Round swing heatmap"
+                      ></table>
+                    </div>
+                  </section>
                 </div>
                 <div id="historyInsights" class="history-insights" hidden aria-label="Game summary"></div>
                 <div class="history-stats-wrap">

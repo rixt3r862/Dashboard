@@ -344,6 +344,231 @@ export function createHistoryController(deps) {
     });
   }
 
+  function comparePositionEntries(a, b) {
+    if (isPhase10()) {
+      const phaseDiff =
+        Number(b.phaseCompleted ?? 0) - Number(a.phaseCompleted ?? 0);
+      if (phaseDiff !== 0) return phaseDiff;
+      const pointsDiff = Number(a.total ?? 0) - Number(b.total ?? 0);
+      if (pointsDiff !== 0) return pointsDiff;
+      return String(a.label || "").localeCompare(String(b.label || ""));
+    }
+
+    const totalDiff =
+      state.winMode === "low"
+        ? Number(a.total ?? 0) - Number(b.total ?? 0)
+        : Number(b.total ?? 0) - Number(a.total ?? 0);
+    if (totalDiff !== 0) return totalDiff;
+    return String(a.label || "").localeCompare(String(b.label || ""));
+  }
+
+  function samePositionRank(a, b) {
+    if (!a || !b) return false;
+    if (isPhase10()) {
+      return (
+        Number(a.phaseCompleted ?? 0) === Number(b.phaseCompleted ?? 0) &&
+        Number(a.total ?? 0) === Number(b.total ?? 0)
+      );
+    }
+    return Number(a.total ?? 0) === Number(b.total ?? 0);
+  }
+
+  function positionMapForEntries(entries) {
+    const ranked = [...entries].sort(comparePositionEntries);
+    const positionById = new Map();
+    let previous = null;
+    let currentRank = 1;
+
+    ranked.forEach((entry, idx) => {
+      if (idx === 0) {
+        currentRank = 1;
+      } else if (!samePositionRank(entry, previous)) {
+        currentRank = idx + 1;
+      }
+      positionById.set(entry.id, currentRank);
+      previous = entry;
+    });
+
+    return positionById;
+  }
+
+  function buildPositionGraphSeries() {
+    if (!state.rounds.length || !state.players.length) return [];
+
+    if (isPhase10()) {
+      const completionTotals = Object.fromEntries(
+        state.players.map((p) => [p.id, 0]),
+      );
+      const pointsTotals = Object.fromEntries(
+        state.players.map((p) => [p.id, 0]),
+      );
+      const valuesByPlayerId = Object.fromEntries(
+        state.players.map((p) => [p.id, []]),
+      );
+
+      for (const round of state.rounds) {
+        const adjusted = adjustedRoundScoresForGraph(round);
+        const completedMap = phase10CompletionMap(state.players, round);
+        for (const player of state.players) {
+          pointsTotals[player.id] += Number(adjusted?.[player.id] ?? 0);
+          if (completedMap[player.id]) completionTotals[player.id] += 1;
+        }
+
+        const positionById = positionMapForEntries(
+          state.players.map((player) => ({
+            id: player.id,
+            label: player.name || "Player",
+            total: pointsTotals[player.id] ?? 0,
+            phaseCompleted: completionTotals[player.id] ?? 0,
+          })),
+        );
+        for (const player of state.players) {
+          valuesByPlayerId[player.id].push(positionById.get(player.id) ?? 1);
+        }
+      }
+
+      return state.players.map((player, idx) => ({
+        id: player.id,
+        label: player.name || `Player ${idx + 1}`,
+        color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+        values: valuesByPlayerId[player.id],
+      }));
+    }
+
+    if (state.teams?.length) {
+      const teamTotals = Object.fromEntries(state.teams.map((t) => [t.id, 0]));
+      const valuesByTeamId = Object.fromEntries(state.teams.map((t) => [t.id, []]));
+
+      for (const round of state.rounds) {
+        const adjusted = adjustedRoundScoresForGraph(round);
+        for (const team of state.teams) {
+          teamTotals[team.id] += team.members.reduce(
+            (sum, pid) => sum + Number(adjusted?.[pid] ?? 0),
+            0,
+          );
+        }
+
+        const positionById = positionMapForEntries(
+          state.teams.map((team) => ({
+            id: team.id,
+            label: team.name || "Team",
+            total: teamTotals[team.id] ?? 0,
+          })),
+        );
+        for (const team of state.teams) {
+          valuesByTeamId[team.id].push(positionById.get(team.id) ?? 1);
+        }
+      }
+
+      return state.teams.map((team, idx) => ({
+        id: team.id,
+        label: team.name || `Team ${idx + 1}`,
+        color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+        values: valuesByTeamId[team.id],
+      }));
+    }
+
+    const playerTotals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    const valuesByPlayerId = Object.fromEntries(
+      state.players.map((p) => [p.id, []]),
+    );
+
+    for (const round of state.rounds) {
+      const adjusted = adjustedRoundScoresForGraph(round);
+      for (const player of state.players) {
+        playerTotals[player.id] += Number(adjusted?.[player.id] ?? 0);
+      }
+
+      const positionById = positionMapForEntries(
+        state.players.map((player) => ({
+          id: player.id,
+          label: player.name || "Player",
+          total: playerTotals[player.id] ?? 0,
+        })),
+      );
+      for (const player of state.players) {
+        valuesByPlayerId[player.id].push(positionById.get(player.id) ?? 1);
+      }
+    }
+
+    return state.players.map((player, idx) => ({
+      id: player.id,
+      label: player.name || `Player ${idx + 1}`,
+      color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+      values: valuesByPlayerId[player.id],
+    }));
+  }
+
+  function heatmapLowIsBetter() {
+    return isPhase10() || state.winMode === "low";
+  }
+
+  function heatmapCellTone(value, min, max) {
+    if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max)) {
+      return null;
+    }
+    if (max === min) return null;
+
+    const normalized = (value - min) / (max - min);
+    const quality = heatmapLowIsBetter() ? 1 - normalized : normalized;
+    const hue = Math.round(quality * 120);
+    const alpha = 0.18 + Math.abs(quality - 0.5) * 0.14;
+    return {
+      bg: `hsla(${hue}, 78%, 56%, ${alpha.toFixed(3)})`,
+      border: `hsla(${hue}, 72%, 34%, ${(alpha + 0.1).toFixed(3)})`,
+    };
+  }
+
+  function heatmapValueLabel(value) {
+    return String(Math.round(Number(value) || 0));
+  }
+
+  function buildHeatmapMatrix() {
+    const rows = roundScoresByEntity();
+    if (!rows.length || !state.rounds.length) return [];
+
+    const phaseRowsById = isPhase10()
+      ? new Map(
+          phase10CompletionRows().map((row) => [
+            row.id,
+            row.rounds.map((value) => Number(value) > 0),
+          ]),
+        )
+      : new Map();
+
+    return rows.map((row, idx) => ({
+      ...row,
+      color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+      cells: row.rounds.map((rawValue, roundIdx) => {
+        const roundValues = rows.map((candidate) =>
+          Number(candidate.rounds?.[roundIdx] ?? 0),
+        );
+        const finiteRoundValues = roundValues.filter(Number.isFinite);
+        const min = finiteRoundValues.length ? Math.min(...finiteRoundValues) : 0;
+        const max = finiteRoundValues.length ? Math.max(...finiteRoundValues) : 0;
+        const value = Number.isFinite(rawValue) ? rawValue : 0;
+        const tone = heatmapCellTone(value, min, max);
+        const isBest = heatmapLowIsBetter() ? value === min : value === max;
+        const isWorst = heatmapLowIsBetter() ? value === max : value === min;
+        const phaseCompleted = !!phaseRowsById.get(row.id)?.[roundIdx];
+        const skyjoWentOut =
+          state.presetKey === "skyjo" &&
+          !state.teams &&
+          state.rounds[roundIdx]?.skyjoWentOutPlayerId === row.id;
+        return {
+          value,
+          tone,
+          isNeutral: min === max,
+          isBest,
+          isWorst,
+          phaseCompleted,
+          skyjoWentOut,
+          roundN: roundIdx + 1,
+        };
+      }),
+    }));
+  }
+
   function clearGraphPanel(panelEl, graphEl, legendEl, metaEl) {
     if (graphEl) graphEl.innerHTML = "";
     if (legendEl) legendEl.innerHTML = "";
@@ -351,7 +576,14 @@ export function createHistoryController(deps) {
     if (panelEl) panelEl.hidden = true;
   }
 
-  function graphBounds(mode, allValues) {
+  function clearHeatmapPanel(panelEl, tableEl, titleEl, metaEl) {
+    if (tableEl) tableEl.innerHTML = "";
+    if (titleEl) titleEl.textContent = "";
+    if (metaEl) metaEl.textContent = "";
+    if (panelEl) panelEl.hidden = true;
+  }
+
+  function graphBounds(mode, allValues, entityCount = 0) {
     const rawMin = Math.min(...allValues);
     const rawMax = Math.max(...allValues);
     const span = Math.max(1, rawMax - rawMin);
@@ -363,11 +595,47 @@ export function createHistoryController(deps) {
       };
     }
 
+    if (mode === "rank-position") {
+      return {
+        yMin: 1,
+        yMax: Math.max(1, entityCount || Math.round(rawMax) || 1),
+      };
+    }
+
     let yMin = rawMin - Math.max(1, Math.round(span * 0.1));
     let yMax = rawMax + Math.max(1, Math.round(span * 0.1));
     if (yMin > 0) yMin = 0;
     if (yMax === yMin) yMax = yMin + 1;
     return { yMin, yMax };
+  }
+
+  function ordinalRankLabel(value) {
+    const n = Math.max(1, Math.round(Number(value) || 0));
+    const mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+    const mod10 = n % 10;
+    if (mod10 === 1) return `${n}st`;
+    if (mod10 === 2) return `${n}nd`;
+    if (mod10 === 3) return `${n}rd`;
+    return `${n}th`;
+  }
+
+  function graphTickValues(mode, yMin, yMax) {
+    if (mode === "rank-position") {
+      const count = Math.max(1, Math.round(yMax));
+      return Array.from({ length: count }, (_, idx) => idx + 1);
+    }
+
+    const yTicks = 5;
+    return Array.from(
+      { length: yTicks + 1 },
+      (_, idx) => yMin + (idx / yTicks) * (yMax - yMin),
+    );
+  }
+
+  function graphTickLabel(mode, value) {
+    if (mode === "rank-position") return ordinalRankLabel(value);
+    return String(Math.round(value));
   }
 
   function renderGraphPanel({
@@ -409,25 +677,25 @@ export function createHistoryController(deps) {
     const padBottom = 42;
     const innerW = Math.max(1, width - padLeft - padRight);
     const innerH = Math.max(1, height - padTop - padBottom);
-    const { yMin, yMax } = graphBounds(mode, allValues);
+    const { yMin, yMax } = graphBounds(mode, allValues, normalizedSeries.length);
 
     const xFor = (idx) => {
       if (roundsCount <= 1) return padLeft + innerW / 2;
       return padLeft + (innerW * idx) / (roundsCount - 1);
     };
     const yFor = (value) => {
+      if (yMax === yMin) return padTop + innerH / 2;
       const t = (value - yMin) / (yMax - yMin);
-      return padTop + innerH - t * innerH;
+      return mode === "rank-position"
+        ? padTop + t * innerH
+        : padTop + innerH - t * innerH;
     };
 
     graphEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
     graphEl.setAttribute("aria-label", ariaLabel);
 
-    const yTicks = 5;
-    for (let i = 0; i <= yTicks; i += 1) {
-      const ratio = i / yTicks;
-      const y = padTop + innerH - ratio * innerH;
-      const value = Math.round(yMin + ratio * (yMax - yMin));
+    for (const tickValue of graphTickValues(mode, yMin, yMax)) {
+      const y = yFor(tickValue);
 
       const grid = createSvgNode("line", {
         x1: padLeft,
@@ -444,7 +712,7 @@ export function createHistoryController(deps) {
         "text-anchor": "end",
         class: "history-graph-label",
       });
-      label.textContent = String(value);
+      label.textContent = graphTickLabel(mode, tickValue);
       graphEl.appendChild(label);
     }
 
@@ -547,6 +815,18 @@ export function createHistoryController(deps) {
       els.historyPointsGraphLegend,
       els.historyPointsGraphMeta,
     );
+    clearGraphPanel(
+      els.historyPositionGraphPanel,
+      els.historyPositionGraph,
+      els.historyPositionGraphLegend,
+      els.historyPositionGraphMeta,
+    );
+    clearHeatmapPanel(
+      els.historyHeatmapPanel,
+      els.historyHeatmap,
+      els.historyHeatmapTitle,
+      els.historyHeatmapMeta,
+    );
     if (els.historyInsights) {
       els.historyInsights.innerHTML = "";
       els.historyInsights.hidden = true;
@@ -595,12 +875,118 @@ export function createHistoryController(deps) {
       });
     }
 
+    const positionSeries = buildPositionGraphSeries();
+    renderGraphPanel({
+      panelEl: els.historyPositionGraphPanel,
+      graphEl: els.historyPositionGraph,
+      titleEl: els.historyPositionGraphTitle,
+      metaEl: els.historyPositionGraphMeta,
+      legendEl: els.historyPositionGraphLegend,
+      title: "Position by Round",
+      metaText: isPhase10()
+        ? "X: rounds  Y: standing position (phase first, points break ties)"
+        : `X: rounds  Y: standing position (${state.teams ? "teams" : "players"}, 1st is best)`,
+      ariaLabel: `Round position graph with ${state.rounds.length} rounds and ${positionSeries.length} ${state.teams ? "teams" : "players"}.`,
+      series: positionSeries,
+      mode: "rank-position",
+    });
+    renderHistoryHeatmap();
+
     const analysis = isPhase10()
       ? analyzePhase10History(primarySeries)
       : analyzeHistory(primarySeries);
     renderHistoryInsights(analysis);
     renderHistoryStatsTable(primarySeries, analysis);
     els.historyGraphWrap.hidden = false;
+  }
+
+  function renderHistoryHeatmap() {
+    if (
+      !els.historyHeatmapPanel ||
+      !els.historyHeatmap ||
+      !els.historyHeatmapTitle ||
+      !els.historyHeatmapMeta
+    ) {
+      return;
+    }
+
+    const matrix = buildHeatmapMatrix();
+    if (!matrix.length || !state.rounds.length) return;
+
+    els.historyHeatmapTitle.textContent = "Swing Heatmap";
+    els.historyHeatmapMeta.textContent = isPhase10()
+      ? "Greener cells are stronger rounds. Lower points are better. PH+ marks a completed phase."
+      : `Greener cells are stronger rounds. ${heatmapLowIsBetter() ? "Lower" : "Higher"} ${state.teams ? "team" : "player"} scores are better.`;
+
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    const corner = document.createElement("th");
+    corner.textContent = state.teams ? "Team" : "Player";
+    headRow.appendChild(corner);
+    for (let idx = 0; idx < state.rounds.length; idx += 1) {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.textContent = `R${idx + 1}`;
+      headRow.appendChild(th);
+    }
+    thead.appendChild(headRow);
+    els.historyHeatmap.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const row of matrix) {
+      const tr = document.createElement("tr");
+
+      const rowHead = document.createElement("th");
+      rowHead.scope = "row";
+      rowHead.className = "history-heatmap-rowhead";
+      const rowLabel = document.createElement("span");
+      rowLabel.className = "history-heatmap-rowlabel";
+      const swatch = document.createElement("span");
+      swatch.className = "history-heatmap-swatch";
+      swatch.style.background = row.color;
+      rowLabel.appendChild(swatch);
+      rowLabel.append(document.createTextNode(row.label));
+      rowHead.appendChild(rowLabel);
+      tr.appendChild(rowHead);
+
+      for (const cell of row.cells) {
+        const td = document.createElement("td");
+        td.className = "history-heatmap-cell";
+        if (cell.isNeutral) td.classList.add("is-neutral");
+        if (cell.tone) {
+          td.style.setProperty("--heatmap-bg", cell.tone.bg);
+          td.style.setProperty("--heatmap-border", cell.tone.border);
+        }
+        td.title = `${row.label} scored ${heatmapValueLabel(cell.value)} in Round ${cell.roundN}`;
+
+        const value = document.createElement("span");
+        value.className = "history-heatmap-cell-value";
+        value.textContent = heatmapValueLabel(cell.value);
+        td.appendChild(value);
+
+        const meta = document.createElement("span");
+        meta.className = "history-heatmap-cell-meta";
+        if (cell.phaseCompleted) {
+          const badge = document.createElement("span");
+          badge.className = "history-score-badge phase10";
+          badge.textContent = "PH+";
+          meta.appendChild(badge);
+        }
+        if (cell.skyjoWentOut) {
+          const badge = document.createElement("span");
+          badge.className = "history-score-badge out";
+          badge.textContent = "OUT";
+          meta.appendChild(badge);
+        }
+        td.appendChild(meta);
+
+        tr.appendChild(td);
+      }
+
+      tbody.appendChild(tr);
+    }
+    els.historyHeatmap.appendChild(tbody);
+    els.historyHeatmapPanel.hidden = false;
   }
 
   function formatStatValue(n) {

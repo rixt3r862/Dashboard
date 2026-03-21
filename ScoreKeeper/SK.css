@@ -988,6 +988,87 @@ summary::-webkit-details-marker{ display:none; }
   border-radius: 999px;
   border: 1px solid transparent;
 }
+.history-heatmap-scroll{
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.history-heatmap{
+  width: 100%;
+  min-width: 560px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: rgba(255,255,255,.42);
+}
+.history-heatmap th,
+.history-heatmap td{
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid rgba(148,163,184,.2);
+  text-align: center;
+  vertical-align: middle;
+  font-size: 12px;
+}
+.history-heatmap thead th{
+  background: rgba(248,250,252,.9);
+  color: var(--muted);
+  font-weight: 700;
+}
+.history-heatmap thead th:first-child{
+  text-align: left;
+}
+.history-heatmap tr:last-child td,
+.history-heatmap tr:last-child th{
+  border-bottom: none;
+}
+.history-heatmap th:last-child,
+.history-heatmap td:last-child{
+  border-right: none;
+}
+.history-heatmap-rowhead{
+  min-width: 132px;
+  text-align: left;
+  background: rgba(255,255,255,.82);
+}
+.history-heatmap-rowlabel{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+.history-heatmap-swatch{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+.history-heatmap-cell{
+  background: var(--heatmap-bg, rgba(248,250,252,.7));
+  box-shadow: inset 0 0 0 1px var(--heatmap-border, rgba(148,163,184,.25));
+  color: var(--text);
+}
+.history-heatmap-cell.is-neutral{
+  background: rgba(226,232,240,.4);
+  box-shadow: inset 0 0 0 1px rgba(148,163,184,.25);
+}
+.history-heatmap-cell-value{
+  display: block;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.history-heatmap-cell-meta{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  min-height: 16px;
+}
+.history-heatmap .history-score-badge{
+  margin-left: 0;
+}
 .history-insights{
   margin-top: 10px;
   display: grid;
@@ -1179,6 +1260,9 @@ summary::-webkit-details-marker{ display:none; }
 #scoreboardCard.phase10-mode .history-insight-label,
 #scoreboardCard.phase10-mode .history-insight-value,
 #scoreboardCard.phase10-mode .history-insight-meta,
+#scoreboardCard.phase10-mode .history-heatmap th,
+#scoreboardCard.phase10-mode .history-heatmap td,
+#scoreboardCard.phase10-mode .history-heatmap-rowlabel,
 #scoreboardCard.phase10-mode .history-stats-table th,
 #scoreboardCard.phase10-mode .history-stats-table td{
   color: #f8fafc !important;
@@ -1189,6 +1273,14 @@ summary::-webkit-details-marker{ display:none; }
 #scoreboardCard.phase10-mode .history-stats-table th{
   background: rgba(15,23,42,.75);
   border-bottom-color: rgba(148,163,184,.45);
+}
+#scoreboardCard.phase10-mode .history-heatmap thead th,
+#scoreboardCard.phase10-mode .history-heatmap-rowhead{
+  background: rgba(15,23,42,.75);
+  border-bottom-color: rgba(148,163,184,.45);
+}
+#scoreboardCard.phase10-mode .history-heatmap-scroll{
+  border-color: rgba(148,163,184,.45);
 }
 #scoreboardCard.phase10-mode .history-stats-table td{
   background: rgba(15,23,42,.08);
@@ -1313,6 +1405,10 @@ summary::-webkit-details-marker{ display:none; }
   opacity: 1;
   box-shadow: 0 0 0 1px rgba(255,255,255,.35);
 }
+#scoreboardCard.phase10-mode .history-heatmap .history-score-badge{
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.35);
+}
 #scoreboardCard.phase10-mode .history-card-score .history-score-badge{
   opacity: 1;
   box-shadow: 0 0 0 1px rgba(255,255,255,.35);
@@ -1330,7 +1426,25 @@ summary::-webkit-details-marker{ display:none; }
   letter-spacing: .02em;
   text-shadow: 0 1px 0 rgba(0,0,0,.28);
 }
+#scoreboardCard.phase10-mode .history-heatmap .history-score-badge.phase10{
+  color: #f8fafc;
+  background: linear-gradient(
+    135deg,
+    rgba(37,99,235,.9),
+    rgba(138,58,249,.9)
+  );
+  border: 1px solid rgba(191,219,254,.8);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-shadow: 0 1px 0 rgba(0,0,0,.28);
+}
 .history-table .history-score-badge.out{
+  color: #312e81;
+  background: rgba(79,70,229,.2);
+  border: 1px solid rgba(79,70,229,.45);
+}
+.history-heatmap .history-score-badge.out{
   color: #312e81;
   background: rgba(79,70,229,.2);
   border: 1px solid rgba(79,70,229,.45);
@@ -1341,6 +1455,11 @@ summary::-webkit-details-marker{ display:none; }
   border: 1px solid rgba(194,65,12,.45);
 }
 .history-table .history-score-badge.phase10{
+  color: #064e3b;
+  background: rgba(5,150,105,.2);
+  border: 1px solid rgba(5,150,105,.45);
+}
+.history-heatmap .history-score-badge.phase10{
   color: #064e3b;
   background: rgba(5,150,105,.2);
   border: 1px solid rgba(5,150,105,.45);
@@ -1890,6 +2009,42 @@ td .sub{
   .history-table{
     min-width: 0 !important;
   }
+  .history-heatmap{
+    min-width: 0 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .history-heatmap-scroll{
+    overflow: visible !important;
+    border: 1px solid #cbd5e1 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .history-heatmap th,
+  .history-heatmap td{
+    padding: 6px !important;
+    font-size: 11px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .history-heatmap-cell-value{
+    font-size: 11px !important;
+  }
+  .history-heatmap-rowhead{
+    width: 110px !important;
+  }
+  .history-heatmap-cell{
+    background: var(--heatmap-bg, #fff) !important;
+    border-color: var(--heatmap-border, #cbd5e1) !important;
+    box-shadow: inset 0 0 0 1px var(--heatmap-border, #cbd5e1) !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .history-heatmap-swatch,
+  .history-heatmap .history-score-badge{
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
   #scoreboardCard,
   #scoreboardCard *{
@@ -1918,22 +2073,33 @@ td .sub{
   #scoreboardCard .history-insight-label,
   #scoreboardCard .history-insight-value,
   #scoreboardCard .history-insight-meta,
+  #scoreboardCard .history-heatmap th,
+  #scoreboardCard .history-heatmap td,
   #scoreboardCard .history-stats-table th,
   #scoreboardCard .history-stats-table td{
     color: #000 !important;
     -webkit-text-fill-color: #000 !important;
   }
   #scoreboardCard .history-stats-table th *,
+  #scoreboardCard .history-heatmap th *,
+  #scoreboardCard .history-heatmap td *,
   #scoreboardCard .history-stats-table td *{
     color: #000 !important;
     -webkit-text-fill-color: #000 !important;
   }
   #scoreboardCard .history-stats-table th,
+  #scoreboardCard .history-heatmap th,
   #scoreboardCard .history-stats-table td,
   #scoreboardCard .history-story,
   #scoreboardCard .history-insight-card,
   #scoreboardCard .history-graph-legend-item{
     background: #fff !important;
+    border-color: #cbd5e1 !important;
+  }
+  #scoreboardCard .history-heatmap td{
+    border-color: #cbd5e1 !important;
+  }
+  #scoreboardCard .history-heatmap-scroll{
     border-color: #cbd5e1 !important;
   }
   #scoreboardCard .history-graph-axis{
