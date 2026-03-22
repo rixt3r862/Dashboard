@@ -1217,6 +1217,7 @@ export function createHistoryController(deps) {
     let leadChanges = 0;
     let lastUniqueLeaderId = null;
     let biggestSwing = null;
+    const doubleTrouble = Object.fromEntries(rows.map((row) => [row.id, 0]));
 
     // Walk each round once to build the summary metrics that power both the
     // "game story" text and the per-player stats table below it.
@@ -1254,6 +1255,20 @@ export function createHistoryController(deps) {
         }
       } else {
         for (const row of rows) currentStreaks[row.id] = 0;
+      }
+
+      if (state.presetKey === "skyjo" && !state.teams) {
+        const round = state.rounds[idx];
+        const wentOutId = round?.skyjoWentOutPlayerId || null;
+        if (wentOutId && wentOutId in doubleTrouble) {
+          const rawValue = Number(round?.scores?.[wentOutId] ?? 0);
+          const adjustedValue = Number(
+            adjustSkyjoRoundScores(state.players, round)?.[wentOutId] ?? rawValue,
+          );
+          if (Number.isFinite(rawValue) && Number.isFinite(adjustedValue) && adjustedValue > rawValue) {
+            doubleTrouble[wentOutId] += 1;
+          }
+        }
       }
 
       const cumulativeEntries = rows.map((row) => ({
@@ -1319,6 +1334,55 @@ export function createHistoryController(deps) {
         ? rows.filter((row) => bestStreaks[row.id] === topStreakValue).map((row) => row.id)
         : [];
 
+    const doubleTroubleValues = Object.values(doubleTrouble);
+    const topDoubleTroubleCount = doubleTroubleValues.length
+      ? Math.max(...doubleTroubleValues)
+      : 0;
+    const topDoubleTroubleIds =
+      topDoubleTroubleCount > 0
+        ? rows
+            .filter((row) => doubleTrouble[row.id] === topDoubleTroubleCount)
+            .map((row) => row.id)
+        : [];
+
+    const positionSeries = buildPositionGraphSeries();
+    let totalRankMovement = 0;
+    for (const entry of positionSeries) {
+      for (let idx = 1; idx < entry.values.length; idx += 1) {
+        totalRankMovement += Math.abs(
+          Number(entry.values[idx] ?? 0) - Number(entry.values[idx - 1] ?? 0),
+        );
+      }
+    }
+    const maxPossibleRankMovement =
+      Math.max(0, state.rounds.length - 1) *
+      rows.length *
+      Math.max(1, rows.length - 1);
+    const movementRatio = maxPossibleRankMovement
+      ? totalRankMovement / maxPossibleRankMovement
+      : 0;
+    const finalTotals = rows.map((row) =>
+      Math.abs(
+        Number(
+          seriesById.get(row.id)?.values?.at(-1) ??
+            row.rounds.reduce((sum, score) => sum + score, 0),
+        ),
+      ),
+    );
+    const scaleBase = Math.max(
+      10,
+      Number(state.target) || 0,
+      ...finalTotals,
+      Number(biggestSwing?.spread ?? 0),
+    );
+    const leadChaos = Math.min(30, leadChanges * 10);
+    const swingChaos = Math.min(
+      35,
+      Math.round((Number(biggestSwing?.spread ?? 0) / scaleBase) * 90),
+    );
+    const movementChaos = Math.min(35, Math.round(movementRatio * 70));
+    const chaosIndex = Math.max(0, Math.min(100, leadChaos + swingChaos + movementChaos));
+
     // Turn the numeric summary into a short natural-language recap so the
     // history panel explains what happened instead of only showing raw stats.
     const roundsLabel = `${state.rounds.length} ${state.rounds.length === 1 ? "round" : "rounds"}`;
@@ -1372,6 +1436,10 @@ export function createHistoryController(deps) {
       hasContinuedTargetWins,
       topStreakIds,
       topStreakValue,
+      doubleTrouble,
+      topDoubleTroubleIds,
+      topDoubleTroubleCount,
+      chaosIndex,
       story: roundWinText ? `${headline} ${leadChangeText} ${roundWinText}` : `${headline} ${leadChangeText}`,
     };
   }
@@ -1478,6 +1546,11 @@ export function createHistoryController(deps) {
           : "The lead has stayed with one side so far",
       },
       {
+        label: "Chaos Index",
+        value: `${formatStatValue(analysis.chaosIndex)} / 100`,
+        meta: "How crazy was this game? Lead changes, swing size, and rank movement",
+      },
+      {
         label:
           state.mode === "finished" && state.gameState !== "free_play"
             ? "Winning Margin"
@@ -1499,6 +1572,18 @@ export function createHistoryController(deps) {
             : "None yet",
         meta: "Rounds won outright",
       },
+      ...(state.presetKey === "skyjo"
+        ? [
+            {
+              label: "Double Trouble",
+              value:
+                analysis.topDoubleTroubleCount > 0
+                  ? `${formatEntityList(analysis.topDoubleTroubleIds, analysis.labelById)} · ${analysis.topDoubleTroubleCount}`
+                  : "None yet",
+              meta: "Went out and still got doubled",
+            },
+          ]
+        : []),
       ...(analysis.hasContinuedTargetWins
         ? [
             {
