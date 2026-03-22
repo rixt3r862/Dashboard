@@ -362,6 +362,40 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return base || "scorekeeper-session";
   }
 
+  function exportDateStamp(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function exportTimeStamp(date = new Date()) {
+    const rawHours = Number(date.getHours()) || 0;
+    const suffix = rawHours >= 12 ? "PM" : "AM";
+    const hours12 = rawHours % 12 || 12;
+    const hours = String(hours12).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${hours}${minutes}${suffix}`;
+  }
+
+  function exportPlayerNameSegment(payload = state) {
+    const names = Array.isArray(payload?.players)
+      ? payload.players
+          .map((player) => sanitizeFileName(normalizeName(player?.name)).slice(0, 8))
+          .filter(Boolean)
+      : [];
+    return names.length ? names.join("_") : "session";
+  }
+
+  function exportFileNameForSession(exportable, when = new Date()) {
+    const payload = exportable?.payload || state;
+    const date = exportDateStamp(when);
+    const game = sanitizeFileName(displayGameLabel(payload));
+    const players = exportPlayerNameSegment(payload);
+    const time = exportTimeStamp(when);
+    return `${date}_${game}_${players}_${time}.json`;
+  }
+
   function formatSessionTimestamp(ts) {
     const date = new Date(Number(ts) || Date.now());
     return date.toLocaleString([], {
@@ -1395,7 +1429,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${sanitizeFileName(exportable.name)}.json`;
+    link.download = exportFileNameForSession(exportable);
     document.body.appendChild(link);
     link.click();
     link.remove();
