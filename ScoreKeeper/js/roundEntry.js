@@ -14,7 +14,9 @@ export function createRoundEntryController(deps) {
     onSkyjoMarkGoOut,
     onRoundInputsChanged,
     activePlayers,
+    inactivePlayers,
     retirePlayer,
+    unretirePlayer,
     save,
   } = deps;
   let draggingRoundEntryPlayerId = null;
@@ -244,6 +246,12 @@ export function createRoundEntryController(deps) {
     closeRoundHelperForm();
   }
 
+  function roundActionUnretirePlayer(playerId) {
+    if (!playerId) return;
+    unretirePlayer?.(playerId);
+    closeRoundHelperForm();
+  }
+
   function openRoundHelperForm(action) {
     state.activeRoundHelper = action;
     if (action === "set_all") {
@@ -318,6 +326,26 @@ export function createRoundEntryController(deps) {
       return;
     }
 
+    if (action === "unretire_player") {
+      const options = inactivePlayers()
+        .map(
+          (p) =>
+            `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`,
+        )
+        .join("");
+      els.roundHelperForm.innerHTML = `
+        <div class="round-helper-form-row">
+          <select id="helperUnretirePlayer" class="round-helper-input" aria-label="Player to unretire">${options}</select>
+          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_unretire_player" aria-label="Bring selected player back">Bring Back</button>
+          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel unretire player">Cancel</button>
+        </div>
+      `;
+      els.roundHelperForm.style.display = "block";
+      const sel = $("helperUnretirePlayer");
+      if (sel) sel.focus();
+      return;
+    }
+
   }
 
   function renderRoundHelpers() {
@@ -349,11 +377,18 @@ export function createRoundEntryController(deps) {
         ariaLabel: "Mark winner as zero for this round",
       });
     }
-    if (!state.teams && activePlayers().length > 2) {
+    if (state.mode === "playing" && !state.teams && activePlayers().length > 2) {
       actions.push({
         key: "retire_player",
         label: "Retire...",
         ariaLabel: "Retire a player from future rounds",
+      });
+    }
+    if (state.mode === "playing" && !state.teams && inactivePlayers().length) {
+      actions.push({
+        key: "unretire_player",
+        label: "Unretire...",
+        ariaLabel: "Bring a retired player back into future rounds",
       });
     }
     els.roundHelperButtons.innerHTML = actions
@@ -649,6 +684,7 @@ export function createRoundEntryController(deps) {
       if (action === "hearts_moon") openRoundHelperForm("hearts_moon");
       if (action === "mark_winner_zero") openRoundHelperForm("mark_winner_zero");
       if (action === "retire_player") openRoundHelperForm("retire_player");
+      if (action === "unretire_player") openRoundHelperForm("unretire_player");
     });
 
     els.roundHelperForm.addEventListener("click", (e) => {
@@ -684,6 +720,11 @@ export function createRoundEntryController(deps) {
         roundActionRetirePlayer(playerId);
         return;
       }
+      if (action === "apply_unretire_player") {
+        const playerId = $("helperUnretirePlayer")?.value ?? "";
+        roundActionUnretirePlayer(playerId);
+        return;
+      }
     });
 
     els.roundHelperForm.addEventListener("keydown", (e) => {
@@ -710,6 +751,10 @@ export function createRoundEntryController(deps) {
       if (state.activeRoundHelper === "retire_player") {
         const playerId = $("helperRetirePlayer")?.value ?? "";
         roundActionRetirePlayer(playerId);
+      }
+      if (state.activeRoundHelper === "unretire_player") {
+        const playerId = $("helperUnretirePlayer")?.value ?? "";
+        roundActionUnretirePlayer(playerId);
       }
     });
 

@@ -18,6 +18,7 @@ export function createScoreboardController(deps) {
     leaderIdFromTotals,
     isPlayerRetired,
     retiredAfterRound,
+    isPlayerActiveInRound,
     entityName,
     renderHistoryTable,
   } = deps;
@@ -223,11 +224,10 @@ export function createScoreboardController(deps) {
       tdTotal.innerHTML = `<div class="total">${e.total}</div>`;
 
       const tdThis = document.createElement("td");
-      const retiredSinceRound = retiredAfterRound?.(e.id) ?? null;
       const showRetiredBlank =
         !!e.retired &&
-        Number.isInteger(retiredSinceRound) &&
-        state.rounds.length > retiredSinceRound;
+        state.rounds.length > 0 &&
+        !isPlayerActiveInRound?.(e.id, state.rounds.length);
       if (showRetiredBlank) {
         tdThis.textContent = "—";
       } else if (isPhase10() && !state.teams) {

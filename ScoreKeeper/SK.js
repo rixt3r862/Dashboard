@@ -199,7 +199,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     currentRoundScores: {}, // in-progress round entry values
     currentRoundPhase10Completed: {}, // in-progress Phase 10 completion flags
     roundEntryOrder: [], // player ids for round-entry display only
-    retiredPlayers: {}, // { [playerId]: retiredAfterRoundNumber }
+    playerInactiveRanges: {}, // { [playerId]: [{ startRound, endRound|null }] }
     winnerId: null, // playerId or teamId (depending on mode)
     gameState: "in_progress", // in_progress | completed | extended | free_play
     firstWinnerAt: null, // { winnerId, roundN, target, ts }
@@ -240,7 +240,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     onSkyjoMarkGoOut: (playerId) => markSkyjoWentOutForCurrentRound(playerId),
     onRoundInputsChanged: () => updateAddRoundButtonState(),
     activePlayers,
+    inactivePlayers,
     retirePlayer: (playerId) => retirePlayer(playerId),
+    unretirePlayer: (playerId) => unretirePlayer(playerId),
     save,
   });
   const history = createHistoryController({
@@ -270,6 +272,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     leaderIdFromTotals,
     isPlayerRetired,
     retiredAfterRound,
+    isPlayerActiveInRound,
     entityName,
     renderHistoryTable: () => history.renderHistoryTable(),
   });
@@ -301,7 +304,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       winMode: state.winMode,
       players: state.players,
       roundEntryOrder: state.roundEntryOrder,
-      retiredPlayers: state.retiredPlayers,
+      playerInactiveRanges: state.playerInactiveRanges,
       teams: state.teams,
       rounds: state.rounds,
       winnerId: state.winnerId,
@@ -343,35 +346,160 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return normalized;
   }
 
-  function normalizedRetiredPlayers(retiredPlayers = state.retiredPlayers, players = state.players) {
+  function normalizedPlayerInactiveRanges(
+    inactiveRanges = state.playerInactiveRanges,
+    players = state.players,
+    legacyRetiredPlayers = null,
+  ) {
     const validIds = new Set(players.map((p) => p.id));
     const out = {};
-    if (!retiredPlayers || typeof retiredPlayers !== "object") return out;
-    for (const [playerId, retiredAfterRound] of Object.entries(retiredPlayers)) {
-      if (!validIds.has(playerId)) continue;
-      const roundN = Number.parseInt(retiredAfterRound, 10);
-      if (!Number.isInteger(roundN) || roundN < 0) continue;
-      out[playerId] = roundN;
+
+    if (inactiveRanges && typeof inactiveRanges === "object") {
+      for (const [playerId, ranges] of Object.entries(inactiveRanges)) {
+        if (!validIds.has(playerId) || !Array.isArray(ranges)) continue;
+        const normalizedRanges = ranges
+          .map((range) => {
+            const startRound = Number.parseInt(range?.startRound, 10);
+            const rawEndRound = range?.endRound;
+            const endRound =
+              rawEndRound === null || rawEndRound === undefined || rawEndRound === ""
+                ? null
+                : Number.parseInt(rawEndRound, 10);
+            if (!Number.isInteger(startRound) || startRound < 1) return null;
+            if (endRound !== null && (!Number.isInteger(endRound) || endRound < startRound)) {
+              return null;
+            }
+            return { startRound, endRound };
+          })
+          .filter(Boolean)
+          .sort((a, b) => {
+            if (a.startRound !== b.startRound) return a.startRound - b.startRound;
+            if (a.endRound === null) return 1;
+            if (b.endRound === null) return -1;
+            return a.endRound - b.endRound;
+          });
+        if (normalizedRanges.length) out[playerId] = normalizedRanges;
+      }
+    }
+
+    if (!Object.keys(out).length && legacyRetiredPlayers && typeof legacyRetiredPlayers === "object") {
+      for (const [playerId, retiredAfterRound] of Object.entries(legacyRetiredPlayers)) {
+        if (!validIds.has(playerId)) continue;
+        const roundN = Number.parseInt(retiredAfterRound, 10);
+        if (!Number.isInteger(roundN) || roundN < 0) continue;
+        out[playerId] = [{ startRound: roundN + 1, endRound: null }];
+      }
     }
     return out;
   }
 
+  function inactiveRangesForPlayer(playerId) {
+    return Array.isArray(state.playerInactiveRanges?.[playerId])
+      ? state.playerInactiveRanges[playerId]
+      : [];
+  }
+
+  function currentParticipationRound() {
+    return state.rounds.length + 1;
+  }
+
+  function currentInactiveRange(playerId) {
+    const roundN = currentParticipationRound();
+    return (
+      inactiveRangesForPlayer(playerId).find(
+        (range) =>
+          range.startRound <= roundN &&
+          (range.endRound === null || range.endRound >= roundN),
+      ) || null
+    );
+  }
+
   function retiredAfterRound(playerId) {
-    const value = Number(state.retiredPlayers?.[playerId]);
-    return Number.isInteger(value) ? value : null;
+    const range = currentInactiveRange(playerId);
+    return range ? Math.max(0, range.startRound - 1) : null;
   }
 
   function isPlayerRetired(playerId) {
-    return retiredAfterRound(playerId) !== null;
+    return !!currentInactiveRange(playerId);
   }
 
   function isPlayerActiveInRound(playerId, roundN) {
-    const retiredAfter = retiredAfterRound(playerId);
-    return retiredAfter === null || retiredAfter >= roundN;
+    if (!Number.isInteger(roundN) || roundN < 1) return !isPlayerRetired(playerId);
+    return !inactiveRangesForPlayer(playerId).some(
+      (range) =>
+        range.startRound <= roundN &&
+        (range.endRound === null || range.endRound >= roundN),
+    );
   }
 
   function activePlayers() {
     return state.players.filter((player) => !isPlayerRetired(player.id));
+  }
+
+  function inactivePlayers() {
+    return state.players.filter((player) => isPlayerRetired(player.id));
+  }
+
+  function setInactiveRangesForPlayer(playerId, ranges) {
+    const normalized = Array.isArray(ranges)
+      ? ranges
+          .filter(
+            (range) =>
+              Number.isInteger(range?.startRound) &&
+              range.startRound >= 1 &&
+              (range.endRound === null ||
+                (Number.isInteger(range.endRound) &&
+                  range.endRound >= range.startRound)),
+          )
+          .map((range) => ({
+            startRound: range.startRound,
+            endRound: range.endRound ?? null,
+          }))
+      : [];
+    if (normalized.length) {
+      state.playerInactiveRanges[playerId] = normalized;
+    } else {
+      delete state.playerInactiveRanges[playerId];
+    }
+  }
+
+  function retirePlayerFromNextRound(playerId) {
+    const ranges = [...inactiveRangesForPlayer(playerId)];
+    const nextRound = currentParticipationRound();
+    if (
+      ranges.some(
+        (range) =>
+          range.startRound <= nextRound &&
+          (range.endRound === null || range.endRound >= nextRound),
+      )
+    ) {
+      return;
+    }
+    ranges.push({ startRound: nextRound, endRound: null });
+    ranges.sort((a, b) => a.startRound - b.startRound);
+    setInactiveRangesForPlayer(playerId, ranges);
+  }
+
+  function restorePlayerForNextRound(playerId) {
+    const ranges = [...inactiveRangesForPlayer(playerId)];
+    const nextRound = currentParticipationRound();
+    const idx = ranges.findIndex(
+      (range) =>
+        range.startRound <= nextRound &&
+        (range.endRound === null || range.endRound >= nextRound),
+    );
+    if (idx < 0) return false;
+    const range = ranges[idx];
+    if (range.startRound > state.rounds.length) {
+      ranges.splice(idx, 1);
+    } else {
+      ranges[idx] = {
+        startRound: range.startRound,
+        endRound: state.rounds.length,
+      };
+    }
+    setInactiveRangesForPlayer(playerId, ranges);
+    return true;
   }
 
   function defaultSessionName(payload = snapshotState()) {
@@ -1166,9 +1294,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
         payload.roundEntryOrder,
         state.players,
       );
-      state.retiredPlayers = normalizedRetiredPlayers(
-        payload.retiredPlayers,
+      state.playerInactiveRanges = normalizedPlayerInactiveRanges(
+        payload.playerInactiveRanges,
         state.players,
+        payload.retiredPlayers,
       );
       state.teams = Array.isArray(payload.teams)
         ? payload.teams.map((t) => ({
@@ -1586,7 +1715,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.winMode = "high";
     state.players = [];
     state.roundEntryOrder = [];
-    state.retiredPlayers = {};
+    state.playerInactiveRanges = {};
     state.teams = null;
     state.rounds = [];
     state.lastRoundScores = {};
@@ -1647,7 +1776,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     // Fresh IDs prevent “stale input bindings”
     state.players = names.map((name) => ({ id: uid(), name }));
     state.roundEntryOrder = state.players.map((p) => p.id);
-    state.retiredPlayers = {};
+    state.playerInactiveRanges = {};
     state.teams = buildTeamsIfNeeded(state.players);
 
     // Reset score state
@@ -2121,7 +2250,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     state.players = names.map((name) => ({ id: uid(), name }));
     state.roundEntryOrder = state.players.map((p) => p.id);
-    state.retiredPlayers = {};
+    state.playerInactiveRanges = {};
     state.teams = buildTeamsIfNeeded(state.players);
 
     state.rounds = [];
@@ -2225,7 +2354,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     );
     if (!confirmed) return;
 
-    state.retiredPlayers[playerId] = state.rounds.length;
+    retirePlayerFromNextRound(playerId);
     state.currentRoundScores[playerId] = 0;
     state.currentRoundPhase10Completed[playerId] = 0;
     if (state.skyjoCurrentRoundWentOutPlayerId === playerId) {
@@ -2236,6 +2365,32 @@ import { createScoreboardController } from "./js/scoreboard.js";
     renderAll();
     showMsg(els.roundMsg, `${player.name} retired from future rounds.`);
     setLive(`${player.name} retired from future rounds.`);
+  }
+
+  function unretirePlayer(playerId) {
+    if (state.mode !== "playing") return;
+    if (state.teams) {
+      showMsg(els.roundMsg, "Unretiring players is not available in team games yet.");
+      return;
+    }
+    const player = state.players.find((entry) => entry.id === playerId);
+    if (!player || !isPlayerRetired(playerId)) return;
+
+    const confirmed = window.confirm(
+      `Bring ${player.name} back into future rounds? Missed rounds will stay blank in history.`,
+    );
+    if (!confirmed) return;
+
+    const restored = restorePlayerForNextRound(playerId);
+    if (!restored) return;
+
+    state.currentRoundScores[playerId] = 0;
+    state.currentRoundPhase10Completed[playerId] = 0;
+    syncWinnerLifecycleAfterLoad();
+    save();
+    renderAll();
+    showMsg(els.roundMsg, `${player.name} can join again starting next round.`);
+    setLive(`${player.name} can join again starting next round.`);
   }
 
   function markSkyjoWentOutForCurrentRound(playerId) {

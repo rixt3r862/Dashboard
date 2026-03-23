@@ -41,14 +41,34 @@ export function createHistoryController(deps) {
     return !isPhase10();
   }
 
+  function inactiveRangesForPlayer(playerId) {
+    return Array.isArray(state.playerInactiveRanges?.[playerId])
+      ? state.playerInactiveRanges[playerId]
+      : [];
+  }
+
+  function currentInactiveRange(playerId) {
+    const roundN = state.rounds.length + 1;
+    return (
+      inactiveRangesForPlayer(playerId).find(
+        (range) =>
+          range.startRound <= roundN &&
+          (range.endRound === null || range.endRound >= roundN),
+      ) || null
+    );
+  }
+
   function retiredAfterRound(playerId) {
-    const value = Number(state.retiredPlayers?.[playerId]);
-    return Number.isInteger(value) ? value : null;
+    const range = currentInactiveRange(playerId);
+    return range ? Math.max(0, range.startRound - 1) : null;
   }
 
   function playerActiveInRound(playerId, roundN) {
-    const retiredAfter = retiredAfterRound(playerId);
-    return retiredAfter === null || retiredAfter >= roundN;
+    return !inactiveRangesForPlayer(playerId).some(
+      (range) =>
+        range.startRound <= roundN &&
+        (range.endRound === null || range.endRound >= roundN),
+    );
   }
 
   function normalizePhase10GameState(hasWinner = false) {
