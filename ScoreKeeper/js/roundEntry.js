@@ -17,6 +17,7 @@ export function createRoundEntryController(deps) {
     inactivePlayers,
     retirePlayer,
     unretirePlayer,
+    renamePlayer,
     save,
   } = deps;
   let draggingRoundEntryPlayerId = null;
@@ -252,6 +253,12 @@ export function createRoundEntryController(deps) {
     closeRoundHelperForm();
   }
 
+  function roundActionRenamePlayer(playerId, nextName) {
+    if (!playerId) return;
+    const renamed = renamePlayer?.(playerId, nextName);
+    if (renamed) closeRoundHelperForm();
+  }
+
   function openRoundHelperForm(action) {
     state.activeRoundHelper = action;
     if (action === "set_all") {
@@ -303,6 +310,31 @@ export function createRoundEntryController(deps) {
       els.roundHelperForm.style.display = "block";
       const sel = $("helperWinnerPlayer");
       if (sel) sel.focus();
+      return;
+    }
+
+    if (action === "rename_player") {
+      const options = state.players
+        .map(
+          (p) =>
+            `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`,
+        )
+        .join("");
+      const initialName = escapeHtml(state.players[0]?.name ?? "");
+      els.roundHelperForm.innerHTML = `
+        <div class="round-helper-form-row">
+          <select id="helperRenamePlayer" class="round-helper-input" aria-label="Player to rename">${options}</select>
+          <input id="helperRenamePlayerValue" class="round-helper-input" type="text" value="${initialName}" placeholder="New player name" aria-label="New player name" maxlength="40" />
+          <button type="button" class="round-helper-btn primary" data-helper-form-action="apply_rename_player" aria-label="Rename selected player">Rename</button>
+          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel rename player">Cancel</button>
+        </div>
+      `;
+      els.roundHelperForm.style.display = "block";
+      const input = $("helperRenamePlayerValue");
+      if (input) {
+        input.focus();
+        input.select();
+      }
       return;
     }
 
@@ -361,6 +393,7 @@ export function createRoundEntryController(deps) {
       { key: "repeat_last", label: "🔁 Repeat Last", ariaLabel: "Repeat last round scores" },
       { key: "set_all", label: "🧮 Set All...", ariaLabel: "Set all players to one score" },
       { key: "zero_all", label: "🧹 Zero All", ariaLabel: "Set all players to zero" },
+      { key: "rename_player", label: "✏️ Rename...", ariaLabel: "Rename a player" },
     ];
 
     if (state.presetKey === "hearts") {
@@ -681,6 +714,7 @@ export function createRoundEntryController(deps) {
       if (action === "repeat_last") roundActionRepeatLast();
       if (action === "set_all") openRoundHelperForm("set_all");
       if (action === "zero_all") roundActionZeroAll();
+      if (action === "rename_player") openRoundHelperForm("rename_player");
       if (action === "hearts_moon") openRoundHelperForm("hearts_moon");
       if (action === "mark_winner_zero") openRoundHelperForm("mark_winner_zero");
       if (action === "retire_player") openRoundHelperForm("retire_player");
@@ -713,6 +747,12 @@ export function createRoundEntryController(deps) {
       if (action === "apply_mark_winner_zero") {
         const winnerId = $("helperWinnerPlayer")?.value ?? "";
         roundActionMarkWinnerZero(winnerId);
+        return;
+      }
+      if (action === "apply_rename_player") {
+        const playerId = $("helperRenamePlayer")?.value ?? "";
+        const nextName = $("helperRenamePlayerValue")?.value ?? "";
+        roundActionRenamePlayer(playerId, nextName);
         return;
       }
       if (action === "apply_retire_player") {
@@ -748,6 +788,11 @@ export function createRoundEntryController(deps) {
         const winnerId = $("helperWinnerPlayer")?.value ?? "";
         roundActionMarkWinnerZero(winnerId);
       }
+      if (state.activeRoundHelper === "rename_player") {
+        const playerId = $("helperRenamePlayer")?.value ?? "";
+        const nextName = $("helperRenamePlayerValue")?.value ?? "";
+        roundActionRenamePlayer(playerId, nextName);
+      }
       if (state.activeRoundHelper === "retire_player") {
         const playerId = $("helperRetirePlayer")?.value ?? "";
         roundActionRetirePlayer(playerId);
@@ -763,6 +808,18 @@ export function createRoundEntryController(deps) {
       'input[data-preview-action="input"]',
     );
     bindSelectOnFocusAndClick(els.roundHelperForm, "input.round-helper-input");
+
+    els.roundHelperForm.addEventListener("change", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLSelectElement)) return;
+      if (target.id !== "helperRenamePlayer") return;
+      const player = state.players.find((entry) => entry.id === target.value);
+      const input = $("helperRenamePlayerValue");
+      if (!(input instanceof HTMLInputElement)) return;
+      input.value = player?.name ?? "";
+      input.focus();
+      input.select();
+    });
 
     els.roundPreviewBody.addEventListener("dragstart", (e) => {
       const target = e.target;

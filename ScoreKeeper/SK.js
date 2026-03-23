@@ -243,6 +243,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     inactivePlayers,
     retirePlayer: (playerId) => retirePlayer(playerId),
     unretirePlayer: (playerId) => unretirePlayer(playerId),
+    renamePlayer: (playerId, nextName) => renamePlayer(playerId, nextName),
     save,
   });
   const history = createHistoryController({
@@ -2422,6 +2423,38 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return state.teams.find((t) => t.id === id)?.name ?? "Unknown Team";
     }
     return state.players.find((p) => p.id === id)?.name ?? "Unknown";
+  }
+
+  function renamePlayer(playerId, nextName) {
+    if (state.mode !== "playing" && state.mode !== "finished") return false;
+    const player = state.players.find((entry) => entry.id === playerId);
+    if (!player) return false;
+
+    const normalized = normalizeName(nextName);
+    if (!normalized) {
+      showMsg(els.roundMsg, "Enter a player name.");
+      return false;
+    }
+    const duplicate = state.players.some(
+      (entry) =>
+        entry.id !== playerId &&
+        normalizeName(entry.name).toLowerCase() === normalized.toLowerCase(),
+    );
+    if (duplicate) {
+      showMsg(els.roundMsg, APP_MESSAGES.setup.uniqueNames);
+      return false;
+    }
+    if (player.name === normalized) return true;
+
+    player.name = normalized;
+    if (state.teams?.length) {
+      state.teams = buildTeamsIfNeeded(state.players);
+    }
+    save();
+    renderAll();
+    showMsg(els.roundMsg, `${normalized} updated.`);
+    setLive(`Renamed player to ${normalized}.`);
+    return true;
   }
 
   function validateRoundScores(scores, opts = {}) {
