@@ -393,7 +393,12 @@ export function createRoundEntryController(deps) {
       { key: "repeat_last", label: "🔁 Repeat Last", ariaLabel: "Repeat last round scores" },
       { key: "set_all", label: "🧮 Set All...", ariaLabel: "Set all players to one score" },
       { key: "zero_all", label: "🧹 Zero All", ariaLabel: "Set all players to zero" },
-      { key: "rename_player", label: "✏️ Rename...", ariaLabel: "Rename a player" },
+      {
+        key: "rename_player",
+        label: "✏️ Rename...",
+        ariaLabel: "Rename a player",
+        tooltip: "Change a player's name without affecting past scores.",
+      },
     ];
 
     if (state.presetKey === "hearts") {
@@ -415,6 +420,7 @@ export function createRoundEntryController(deps) {
         key: "retire_player",
         label: "Retire...",
         ariaLabel: "Retire a player from future rounds",
+        tooltip: "Remove a player from future rounds while keeping their history.",
       });
     }
     if (state.mode === "playing" && !state.teams && inactivePlayers().length) {
@@ -422,12 +428,13 @@ export function createRoundEntryController(deps) {
         key: "unretire_player",
         label: "Unretire...",
         ariaLabel: "Bring a retired player back into future rounds",
+        tooltip: "Bring a retired player back for future rounds without filling missed rounds.",
       });
     }
     els.roundHelperButtons.innerHTML = actions
       .map(
         (a) =>
-          `<button type="button" class="round-helper-btn" data-round-helper="${a.key}" aria-label="${escapeHtml(a.ariaLabel)}">${escapeHtml(a.label)}</button>`,
+          `<button type="button" class="round-helper-btn" data-round-helper="${a.key}" aria-label="${escapeHtml(a.ariaLabel)}"${a.tooltip ? ` title="${escapeHtml(a.tooltip)}"` : ""}>${escapeHtml(a.label)}</button>`,
       )
       .join("");
     els.roundHelperBar.style.display = "block";
