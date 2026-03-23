@@ -41,6 +41,16 @@ export function createHistoryController(deps) {
     return !isPhase10();
   }
 
+  function retiredAfterRound(playerId) {
+    const value = Number(state.retiredPlayers?.[playerId]);
+    return Number.isInteger(value) ? value : null;
+  }
+
+  function playerActiveInRound(playerId, roundN) {
+    const retiredAfter = retiredAfterRound(playerId);
+    return retiredAfter === null || retiredAfter >= roundN;
+  }
+
   function normalizePhase10GameState(hasWinner = false) {
     if (canContinueFinishedGame()) return;
     if (state.gameState === "extended" || state.gameState === "free_play") {
@@ -177,10 +187,12 @@ export function createHistoryController(deps) {
         total: teamTotals[t.id] ?? 0,
       }));
     } else {
-      entries = state.players.map((p) => ({
-        id: p.id,
-        total: playerTotals[p.id] ?? 0,
-      }));
+      entries = state.players
+        .filter((p) => retiredAfterRound(p.id) === null)
+        .map((p) => ({
+          id: p.id,
+          total: playerTotals[p.id] ?? 0,
+        }));
     }
 
     const syncWinnerAnchors = () => {
@@ -312,6 +324,10 @@ export function createHistoryController(deps) {
     return state.players.map((player, idx) => {
       const values = [];
       for (const round of state.rounds) {
+        if (!playerActiveInRound(player.id, round.n)) {
+          values.push(null);
+          continue;
+        }
         const adjusted = adjustedRoundScoresForGraph(round);
         totalsByPlayer[player.id] += Number(adjusted?.[player.id] ?? 0);
         values.push(totalsByPlayer[player.id]);
@@ -331,6 +347,10 @@ export function createHistoryController(deps) {
     return state.players.map((player, idx) => {
       const values = [];
       for (const round of state.rounds) {
+        if (!playerActiveInRound(player.id, round.n)) {
+          values.push(null);
+          continue;
+        }
         const adjusted = adjustedRoundScoresForGraph(round);
         totalsByPlayer[player.id] += Number(adjusted?.[player.id] ?? 0);
         values.push(totalsByPlayer[player.id]);
@@ -410,12 +430,15 @@ export function createHistoryController(deps) {
         const adjusted = adjustedRoundScoresForGraph(round);
         const completedMap = phase10CompletionMap(state.players, round);
         for (const player of state.players) {
+          if (!playerActiveInRound(player.id, round.n)) continue;
           pointsTotals[player.id] += Number(adjusted?.[player.id] ?? 0);
           if (completedMap[player.id]) completionTotals[player.id] += 1;
         }
 
         const positionById = positionMapForEntries(
-          state.players.map((player) => ({
+          state.players
+            .filter((player) => playerActiveInRound(player.id, round.n))
+            .map((player) => ({
             id: player.id,
             label: player.name || "Player",
             total: pointsTotals[player.id] ?? 0,
@@ -423,7 +446,11 @@ export function createHistoryController(deps) {
           })),
         );
         for (const player of state.players) {
-          valuesByPlayerId[player.id].push(positionById.get(player.id) ?? 1);
+          valuesByPlayerId[player.id].push(
+            playerActiveInRound(player.id, round.n)
+              ? positionById.get(player.id) ?? 1
+              : null,
+          );
         }
       }
 
@@ -476,18 +503,25 @@ export function createHistoryController(deps) {
     for (const round of state.rounds) {
       const adjusted = adjustedRoundScoresForGraph(round);
       for (const player of state.players) {
+        if (!playerActiveInRound(player.id, round.n)) continue;
         playerTotals[player.id] += Number(adjusted?.[player.id] ?? 0);
       }
 
       const positionById = positionMapForEntries(
-        state.players.map((player) => ({
-          id: player.id,
-          label: player.name || "Player",
-          total: playerTotals[player.id] ?? 0,
-        })),
+        state.players
+          .filter((player) => playerActiveInRound(player.id, round.n))
+          .map((player) => ({
+            id: player.id,
+            label: player.name || "Player",
+            total: playerTotals[player.id] ?? 0,
+          })),
       );
       for (const player of state.players) {
-        valuesByPlayerId[player.id].push(positionById.get(player.id) ?? 1);
+        valuesByPlayerId[player.id].push(
+          playerActiveInRound(player.id, round.n)
+            ? positionById.get(player.id) ?? 1
+            : null,
+        );
       }
     }
 
@@ -546,10 +580,13 @@ export function createHistoryController(deps) {
         const finiteRoundValues = roundValues.filter(Number.isFinite);
         const min = finiteRoundValues.length ? Math.min(...finiteRoundValues) : 0;
         const max = finiteRoundValues.length ? Math.max(...finiteRoundValues) : 0;
-        const value = Number.isFinite(rawValue) ? rawValue : 0;
+        const retired = !Number.isFinite(rawValue);
+        const value = Number.isFinite(rawValue) ? rawValue : null;
         const tone = heatmapCellTone(value, min, max);
-        const isBest = heatmapLowIsBetter() ? value === min : value === max;
-        const isWorst = heatmapLowIsBetter() ? value === max : value === min;
+        const isBest =
+          !retired && (heatmapLowIsBetter() ? value === min : value === max);
+        const isWorst =
+          !retired && (heatmapLowIsBetter() ? value === max : value === min);
         const phaseCompleted = !!phaseRowsById.get(row.id)?.[roundIdx];
         const skyjoWentOut =
           state.presetKey === "skyjo" &&
@@ -558,7 +595,8 @@ export function createHistoryController(deps) {
         return {
           value,
           tone,
-          isNeutral: min === max,
+          retired,
+          isNeutral: retired || min === max,
           isBest,
           isWorst,
           phaseCompleted,
@@ -659,7 +697,9 @@ export function createHistoryController(deps) {
     if (panelEl) panelEl.hidden = true;
 
     const normalizedSeries = series.filter(
-      (entry) => Array.isArray(entry.values) && entry.values.length,
+      (entry) =>
+        Array.isArray(entry.values) &&
+        entry.values.some((value) => Number.isFinite(value)),
     );
     if (!normalizedSeries.length) return false;
 
@@ -750,10 +790,23 @@ export function createHistoryController(deps) {
     }
 
     for (const entry of normalizedSeries) {
-      const points = entry.values.map((value, idx) => [xFor(idx), yFor(value)]);
-      const d = points
-        .map(([x, y], idx) =>
-          `${idx === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`,
+      const segments = [];
+      let currentSegment = [];
+      entry.values.forEach((value, idx) => {
+        if (!Number.isFinite(value)) {
+          if (currentSegment.length) segments.push(currentSegment);
+          currentSegment = [];
+          return;
+        }
+        currentSegment.push([xFor(idx), yFor(value)]);
+      });
+      if (currentSegment.length) segments.push(currentSegment);
+
+      const d = segments
+        .flatMap((segment) =>
+          segment.map(([x, y], idx) =>
+            `${idx === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`,
+          ),
         )
         .join(" ");
 
@@ -764,7 +817,8 @@ export function createHistoryController(deps) {
       });
       graphEl.appendChild(path);
 
-      for (const [x, y] of points) {
+      for (const segment of segments) {
+        for (const [x, y] of segment) {
         const point = createSvgNode("circle", {
           cx: x.toFixed(2),
           cy: y.toFixed(2),
@@ -773,6 +827,7 @@ export function createHistoryController(deps) {
           fill: entry.color,
         });
         graphEl.appendChild(point);
+        }
       }
 
       const legendItem = document.createElement("span");
@@ -957,11 +1012,13 @@ export function createHistoryController(deps) {
           td.style.setProperty("--heatmap-bg", cell.tone.bg);
           td.style.setProperty("--heatmap-border", cell.tone.border);
         }
-        td.title = `${row.label} scored ${heatmapValueLabel(cell.value)} in Round ${cell.roundN}`;
+        td.title = cell.retired
+          ? `${row.label} retired before Round ${cell.roundN}`
+          : `${row.label} scored ${heatmapValueLabel(cell.value)} in Round ${cell.roundN}`;
 
         const value = document.createElement("span");
         value.className = "history-heatmap-cell-value";
-        value.textContent = heatmapValueLabel(cell.value);
+        value.textContent = cell.retired ? "—" : heatmapValueLabel(cell.value);
         td.appendChild(value);
 
         const meta = document.createElement("span");
@@ -1013,6 +1070,13 @@ export function createHistoryController(deps) {
   function formatPercent(value) {
     if (!Number.isFinite(value)) return "0%";
     return `${Math.round(value * 100)}%`;
+  }
+
+  function lastFiniteValue(values = []) {
+    for (let idx = values.length - 1; idx >= 0; idx -= 1) {
+      if (Number.isFinite(values[idx])) return Number(values[idx]);
+    }
+    return null;
   }
 
   function phase10Target() {
@@ -1073,7 +1137,11 @@ export function createHistoryController(deps) {
     return state.players.map((player) => ({
       id: player.id,
       label: player.name || "Player",
-      rounds: rounds.map((scores) => Number(scores?.[player.id] ?? 0)),
+      rounds: rounds.map((scores, idx) =>
+        playerActiveInRound(player.id, idx + 1)
+          ? Number(scores?.[player.id] ?? 0)
+          : null,
+      ),
     }));
   }
 
@@ -1082,7 +1150,11 @@ export function createHistoryController(deps) {
       id: player.id,
       label: player.name || "Player",
       rounds: state.rounds.map((round) =>
-        phase10CompletionMap(state.players, round)[player.id] ? 1 : 0,
+        playerActiveInRound(player.id, round.n)
+          ? phase10CompletionMap(state.players, round)[player.id]
+            ? 1
+            : 0
+          : null,
       ),
     }));
   }
@@ -1117,8 +1189,9 @@ export function createHistoryController(deps) {
       const cumulativeEntries = rows.map((row) => ({
         id: row.id,
         label: row.label,
-        value: Number(seriesById.get(row.id)?.values?.[idx] ?? 0),
-      }));
+        value: seriesById.get(row.id)?.values?.[idx],
+      }))
+      .filter((entry) => Number.isFinite(entry.value));
       const leaderState = pickBestIds(cumulativeEntries);
       if (leaderState.ids.length === 1) {
         const leaderId = leaderState.ids[0];
@@ -1131,7 +1204,7 @@ export function createHistoryController(deps) {
       id: row.id,
       label: row.label,
       value: completionCounts[row.id] ?? 0,
-    }));
+    })).filter((row) => playerActiveInRound(row.id, state.rounds.length));
     const topCompletion = pickBestIds(completionEntries);
     const topCompletionCount = Number(topCompletion.bestValue ?? 0);
 
@@ -1141,7 +1214,7 @@ export function createHistoryController(deps) {
       value: state.rounds.length
         ? (completionCounts[row.id] ?? 0) / state.rounds.length
         : 0,
-    }));
+    })).filter((row) => playerActiveInRound(row.id, state.rounds.length));
     const topRate = pickBestIds(rateEntries);
     const topRateValue = Number(topRate.bestValue ?? 0);
 
@@ -1149,7 +1222,7 @@ export function createHistoryController(deps) {
       id: row.id,
       label: row.label,
       value: phase10CurrentPhaseFromCompleted(completionCounts[row.id] ?? 0),
-    }));
+    })).filter((row) => playerActiveInRound(row.id, state.rounds.length));
     const furthestPhase = pickBestIds(phaseEntries);
     const furthestPhaseValue = Number(furthestPhase.bestValue ?? 1);
 
@@ -1274,8 +1347,9 @@ export function createHistoryController(deps) {
       const cumulativeEntries = rows.map((row) => ({
         id: row.id,
         label: row.label,
-        value: Number(seriesById.get(row.id)?.values?.[idx] ?? 0),
-      }));
+        value: seriesById.get(row.id)?.values?.[idx],
+      }))
+      .filter((entry) => Number.isFinite(entry.value));
       const leaderState = pickBestIds(cumulativeEntries);
       if (leaderState.ids.length === 1) {
         const leaderId = leaderState.ids[0];
@@ -1288,11 +1362,14 @@ export function createHistoryController(deps) {
       rows.map((row) => ({
         id: row.id,
         label: row.label,
-        value: Number(
-          seriesById.get(row.id)?.values?.at(-1) ??
-            row.rounds.reduce((sum, score) => sum + score, 0),
-        ),
-      })),
+        value:
+          lastFiniteValue(seriesById.get(row.id)?.values || []) ??
+          row.rounds.reduce(
+            (sum, score) => sum + (Number.isFinite(score) ? score : 0),
+            0,
+          ),
+      }))
+      .filter((row) => playerActiveInRound(row.id, state.rounds.length)),
     );
     const leaderIds = pickBestIds(standings).ids;
     const leaderId = leaderIds.length === 1 ? leaderIds[0] : null;
@@ -1737,7 +1814,7 @@ export function createHistoryController(deps) {
       tr.appendChild(nameTd);
 
       const roundValues = row.rounds.filter((v) => Number.isFinite(v));
-      const totalFromSeries = Number(seriesById.get(row.id)?.values?.at(-1) ?? 0);
+      const totalFromSeries = lastFiniteValue(seriesById.get(row.id)?.values || []);
       const total = Number.isFinite(totalFromSeries)
         ? totalFromSeries
         : roundValues.reduce((sum, v) => sum + v, 0);
@@ -1943,39 +2020,49 @@ export function createHistoryController(deps) {
 
       let heartsMoonShooterId = null;
       if (state.presetKey === "hearts" && cols.length) {
-        const heartsTotal = cols.reduce((sum, pid) => sum + rawScoresById[pid], 0);
-        const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
+        const activeCols = cols.filter((pid) => playerActiveInRound(pid, r.n));
+        const heartsTotal = activeCols.reduce(
+          (sum, pid) => sum + rawScoresById[pid],
+          0,
+        );
+        const shootMoonTotal = 26 * Math.max(0, activeCols.length - 1);
         if (heartsTotal === shootMoonTotal) {
-          const minScore = Math.min(...cols.map((pid) => rawScoresById[pid]));
-          const minPids = cols.filter((pid) => rawScoresById[pid] === minScore);
+          const minScore = Math.min(...activeCols.map((pid) => rawScoresById[pid]));
+          const minPids = activeCols.filter((pid) => rawScoresById[pid] === minScore);
           if (minPids.length === 1) heartsMoonShooterId = minPids[0];
         }
       }
 
       const cells = cols.map((pid) => {
+        const retired = !playerActiveInRound(pid, r.n);
         const rawV = rawScoresById[pid];
         const displayV =
-          state.presetKey === "skyjo"
+          retired
+            ? null
+            : state.presetKey === "skyjo"
             ? Number(adjustedScores?.[pid] ?? rawV)
             : rawV;
         runningTotalsById[pid] += Number.isFinite(displayV) ? displayV : 0;
         const isSkyjo = state.presetKey === "skyjo";
-        const isWentOutCell = isSkyjo && r.skyjoWentOutPlayerId === pid;
+        const isWentOutCell = !retired && isSkyjo && r.skyjoWentOutPlayerId === pid;
         const isDoubledCell =
-          isSkyjo && Number.isFinite(rawV) && Number.isFinite(displayV)
+          !retired && isSkyjo && Number.isFinite(rawV) && Number.isFinite(displayV)
             ? displayV > rawV
             : false;
-        const isPhase10CompleteCell = !!(isPhase10() && phase10CompletedMap?.[pid]);
-        const isHeartsMoonShooter = heartsMoonShooterId === pid;
+        const isPhase10CompleteCell =
+          !retired && !!(isPhase10() && phase10CompletedMap?.[pid]);
+        const isHeartsMoonShooter = !retired && heartsMoonShooterId === pid;
         const isHeartsMoonRecipient =
+          !retired &&
           state.presetKey === "hearts" &&
           !!heartsMoonShooterId &&
           pid !== heartsMoonShooterId &&
           rawV > 0;
         return {
           pid,
-          rawV,
+          rawV: retired ? null : rawV,
           displayV,
+          retired,
           totalAfterRound: Number(runningTotalsById[pid] ?? 0),
           playerName: state.players.find((p) => p.id === pid)?.name ?? "Player",
           phaseN: Number(phaseNumberById[pid] ?? 0),
@@ -2087,6 +2174,19 @@ export function createHistoryController(deps) {
   }
 
   function appendReadOnlyScore(parent, cell, classTarget) {
+    if (cell.retired) {
+      const valueText = document.createElement("span");
+      valueText.className = "history-score-value";
+      valueText.textContent = "—";
+      parent.appendChild(valueText);
+
+      const retiredBadge = document.createElement("span");
+      retiredBadge.className = "history-score-badge retired";
+      retiredBadge.textContent = "RET";
+      parent.appendChild(retiredBadge);
+      return;
+    }
+
     if (cell.isWentOutCell) classTarget.classList.add("history-score-went-out");
     if (cell.isDoubledCell) classTarget.classList.add("history-score-doubled");
     if (cell.isPhase10CompleteCell)

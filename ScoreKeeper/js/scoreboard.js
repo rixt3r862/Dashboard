@@ -16,6 +16,8 @@ export function createScoreboardController(deps) {
     totalsByPlayerId,
     totalsByTeamId,
     leaderIdFromTotals,
+    isPlayerRetired,
+    retiredAfterRound,
     entityName,
     renderHistoryTable,
   } = deps;
@@ -151,6 +153,7 @@ export function createScoreboardController(deps) {
         name: p.name,
         total: playerTotals[p.id] ?? 0,
         phaseCompleted: phase10ByPlayerId[p.id]?.completedPhases ?? 0,
+        retired: isPlayerRetired?.(p.id) || false,
       }));
       for (const p of state.players) {
         thisRoundById[p.id] = Number(adjustedLastRoundScores[p.id] ?? 0);
@@ -163,6 +166,7 @@ export function createScoreboardController(deps) {
         id: e.id,
         total: e.total,
         phaseCompleted: e.phaseCompleted,
+        retired: e.retired,
       })),
     );
     const winner = state.winnerId;
@@ -171,6 +175,7 @@ export function createScoreboardController(deps) {
     if (state.sortByTotal) {
       if (isPhase10()) {
         entriesToShow.sort((a, b) => {
+          if (!!a.retired !== !!b.retired) return a.retired ? 1 : -1;
           const phaseDiff =
             Number(b.phaseCompleted ?? 0) - Number(a.phaseCompleted ?? 0);
           if (phaseDiff !== 0) return phaseDiff;
@@ -179,9 +184,10 @@ export function createScoreboardController(deps) {
           return String(a.name || "").localeCompare(String(b.name || ""));
         });
       } else {
-        entriesToShow.sort((a, b) =>
-          state.winMode === "low" ? a.total - b.total : b.total - a.total,
-        );
+        entriesToShow.sort((a, b) => {
+          if (!!a.retired !== !!b.retired) return a.retired ? 1 : -1;
+          return state.winMode === "low" ? a.total - b.total : b.total - a.total;
+        });
       }
     }
 
@@ -190,6 +196,7 @@ export function createScoreboardController(deps) {
       const tr = document.createElement("tr");
       if (e.id === winner) tr.classList.add("winner");
       else if (e.id === leader) tr.classList.add("leader");
+      if (e.retired) tr.classList.add("retired");
 
       const tdName = document.createElement("td");
       if (isPhase10() && !state.teams) {
@@ -201,16 +208,29 @@ export function createScoreboardController(deps) {
           phaseStatus.completedPhases >= state.target
             ? `Completed all ${state.target} phases`
             : `Current phase: ${phaseStatus.currentPhase} of ${state.target}`;
-        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div><div class="sub">${escapeHtml(phaseSummary)}</div>`;
+        const retiredSummary = e.retired
+          ? `Retired after Round ${retiredAfterRound?.(e.id) ?? 0}`
+          : phaseSummary;
+        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div><div class="sub">${escapeHtml(retiredSummary)}</div>`;
       } else {
-        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div>`;
+        const retiredSummary = e.retired
+          ? `<div class="sub">Retired after Round ${retiredAfterRound?.(e.id) ?? 0}</div>`
+          : "";
+        tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div>${retiredSummary}`;
       }
 
       const tdTotal = document.createElement("td");
       tdTotal.innerHTML = `<div class="total">${e.total}</div>`;
 
       const tdThis = document.createElement("td");
-      if (isPhase10() && !state.teams) {
+      const retiredSinceRound = retiredAfterRound?.(e.id) ?? null;
+      const showRetiredBlank =
+        !!e.retired &&
+        Number.isInteger(retiredSinceRound) &&
+        state.rounds.length > retiredSinceRound;
+      if (showRetiredBlank) {
+        tdThis.textContent = "—";
+      } else if (isPhase10() && !state.teams) {
         const lastPoints = Number(thisRoundById[e.id] ?? 0);
         const completionText = lastPhase10CompletionMap[e.id] ? " · Phase+" : "";
         tdThis.textContent = `${lastPoints}${completionText}`;

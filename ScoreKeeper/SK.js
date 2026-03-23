@@ -198,6 +198,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     lastRoundScores: {}, // for display only
     currentRoundScores: {}, // in-progress round entry values
     currentRoundPhase10Completed: {}, // in-progress Phase 10 completion flags
+    roundEntryOrder: [], // player ids for round-entry display only
+    retiredPlayers: {}, // { [playerId]: retiredAfterRoundNumber }
     winnerId: null, // playerId or teamId (depending on mode)
     gameState: "in_progress", // in_progress | completed | extended | free_play
     firstWinnerAt: null, // { winnerId, roundN, target, ts }
@@ -237,6 +239,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     onAddRound: () => addRound(),
     onSkyjoMarkGoOut: (playerId) => markSkyjoWentOutForCurrentRound(playerId),
     onRoundInputsChanged: () => updateAddRoundButtonState(),
+    activePlayers,
+    retirePlayer: (playerId) => retirePlayer(playerId),
+    save,
   });
   const history = createHistoryController({
     state,
@@ -263,6 +268,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     totalsByPlayerId,
     totalsByTeamId,
     leaderIdFromTotals,
+    isPlayerRetired,
+    retiredAfterRound,
     entityName,
     renderHistoryTable: () => history.renderHistoryTable(),
   });
@@ -293,6 +300,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       target: state.target,
       winMode: state.winMode,
       players: state.players,
+      roundEntryOrder: state.roundEntryOrder,
+      retiredPlayers: state.retiredPlayers,
       teams: state.teams,
       rounds: state.rounds,
       winnerId: state.winnerId,
@@ -321,6 +330,48 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const customName = normalizeCustomGameName(payload?.customGameName);
     if (payload?.presetKey === "custom" && customName) return customName;
     return PRESETS[payload?.presetKey]?.label || "Custom";
+  }
+
+  function normalizedRoundEntryOrder(order = state.roundEntryOrder, players = state.players) {
+    const validIds = new Set(players.map((p) => p.id));
+    const normalized = Array.isArray(order)
+      ? order.filter((id) => validIds.has(id))
+      : [];
+    for (const player of players) {
+      if (!normalized.includes(player.id)) normalized.push(player.id);
+    }
+    return normalized;
+  }
+
+  function normalizedRetiredPlayers(retiredPlayers = state.retiredPlayers, players = state.players) {
+    const validIds = new Set(players.map((p) => p.id));
+    const out = {};
+    if (!retiredPlayers || typeof retiredPlayers !== "object") return out;
+    for (const [playerId, retiredAfterRound] of Object.entries(retiredPlayers)) {
+      if (!validIds.has(playerId)) continue;
+      const roundN = Number.parseInt(retiredAfterRound, 10);
+      if (!Number.isInteger(roundN) || roundN < 0) continue;
+      out[playerId] = roundN;
+    }
+    return out;
+  }
+
+  function retiredAfterRound(playerId) {
+    const value = Number(state.retiredPlayers?.[playerId]);
+    return Number.isInteger(value) ? value : null;
+  }
+
+  function isPlayerRetired(playerId) {
+    return retiredAfterRound(playerId) !== null;
+  }
+
+  function isPlayerActiveInRound(playerId, roundN) {
+    const retiredAfter = retiredAfterRound(playerId);
+    return retiredAfter === null || retiredAfter >= roundN;
+  }
+
+  function activePlayers() {
+    return state.players.filter((player) => !isPlayerRetired(player.id));
   }
 
   function defaultSessionName(payload = snapshotState()) {
@@ -801,9 +852,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function buildWinnerEntries(playerTotals) {
+    const eligiblePlayers = activePlayers();
     if (isPhase10()) {
       const progress = phase10Progress();
-      return state.players.map((p) => ({
+      return eligiblePlayers.map((p) => ({
         id: p.id,
         total: playerTotals[p.id] ?? 0,
         phaseCompleted: progress[p.id]?.completedPhases ?? 0,
@@ -816,7 +868,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
         total: teamTotals[t.id] ?? 0,
       }));
     }
-    return state.players.map((p) => ({
+    return eligiblePlayers.map((p) => ({
       id: p.id,
       total: playerTotals[p.id] ?? 0,
     }));
@@ -1110,6 +1162,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
         id: String(p.id),
         name: String(p.name),
       }));
+      state.roundEntryOrder = normalizedRoundEntryOrder(
+        payload.roundEntryOrder,
+        state.players,
+      );
+      state.retiredPlayers = normalizedRetiredPlayers(
+        payload.retiredPlayers,
+        state.players,
+      );
       state.teams = Array.isArray(payload.teams)
         ? payload.teams.map((t) => ({
             id: String(t.id),
@@ -1525,6 +1585,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.target = APP_LIMITS.defaultTarget;
     state.winMode = "high";
     state.players = [];
+    state.roundEntryOrder = [];
+    state.retiredPlayers = {};
     state.teams = null;
     state.rounds = [];
     state.lastRoundScores = {};
@@ -1584,6 +1646,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     // Fresh IDs prevent “stale input bindings”
     state.players = names.map((name) => ({ id: uid(), name }));
+    state.roundEntryOrder = state.players.map((p) => p.id);
+    state.retiredPlayers = {};
     state.teams = buildTeamsIfNeeded(state.players);
 
     // Reset score state
@@ -2056,6 +2120,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.target = target;
 
     state.players = names.map((name) => ({ id: uid(), name }));
+    state.roundEntryOrder = state.players.map((p) => p.id);
+    state.retiredPlayers = {};
     state.teams = buildTeamsIfNeeded(state.players);
 
     state.rounds = [];
@@ -2103,24 +2169,26 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function leaderIdFromTotals(entries) {
+    const eligibleEntries = entries.filter((entry) => !entry.retired);
+    if (!eligibleEntries.length) return null;
     if (isPhase10()) {
       const bestPhase = Math.max(
-        ...entries.map((entry) => Number(entry.phaseCompleted ?? 0)),
+        ...eligibleEntries.map((entry) => Number(entry.phaseCompleted ?? 0)),
       );
-      const leaders = entries.filter(
+      const leaders = eligibleEntries.filter(
         (entry) => Number(entry.phaseCompleted ?? 0) === bestPhase,
       );
       return leaders.length === 1 ? leaders[0]?.id ?? null : null;
     }
 
     let best = null;
-    for (const e of entries) {
+    for (const e of eligibleEntries) {
       const t = e.total ?? 0;
       if (best === null) {
         best = e.id;
         continue;
       }
-      const bestTotal = entries.find((x) => x.id === best)?.total ?? 0;
+      const bestTotal = eligibleEntries.find((x) => x.id === best)?.total ?? 0;
 
       if (state.winMode === "low") {
         if (t < bestTotal) best = e.id;
@@ -2134,14 +2202,45 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function determineWinnerFromTotals(entries) {
     if (state.gameState === "free_play") return null;
     if (isPhase10()) {
-      return determinePhase10Winner(state.players, state.rounds, state.target);
+      return determinePhase10Winner(activePlayers(), state.rounds, state.target);
     }
     return resolveWinnerFromTotals(entries, state.winMode, state.target);
   }
 
+  function retirePlayer(playerId) {
+    if (state.mode !== "playing") return;
+    if (state.teams) {
+      showMsg(els.roundMsg, "Retiring players is not available in team games yet.");
+      return;
+    }
+    const player = state.players.find((entry) => entry.id === playerId);
+    if (!player || isPlayerRetired(playerId)) return;
+    const remaining = activePlayers().filter((entry) => entry.id !== playerId);
+    if (remaining.length < 2) {
+      showMsg(els.roundMsg, "At least two active players are required to continue.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Retire ${player.name} from future rounds? Past scores and history will be kept.`,
+    );
+    if (!confirmed) return;
+
+    state.retiredPlayers[playerId] = state.rounds.length;
+    state.currentRoundScores[playerId] = 0;
+    state.currentRoundPhase10Completed[playerId] = 0;
+    if (state.skyjoCurrentRoundWentOutPlayerId === playerId) {
+      state.skyjoCurrentRoundWentOutPlayerId = null;
+    }
+    syncWinnerLifecycleAfterLoad();
+    save();
+    renderAll();
+    showMsg(els.roundMsg, `${player.name} retired from future rounds.`);
+    setLive(`${player.name} retired from future rounds.`);
+  }
+
   function markSkyjoWentOutForCurrentRound(playerId) {
     if (state.presetKey !== "skyjo" || state.mode !== "playing") return;
-    if (!state.players.some((p) => p.id === playerId)) return;
+    if (!activePlayers().some((p) => p.id === playerId)) return;
 
     state.skyjoCurrentRoundWentOutPlayerId = playerId;
     const name = entityName(playerId);
@@ -2174,7 +2273,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const { contextLabel = "round" } = opts;
     return validateScoresByRules({
       scores,
-      players: state.players,
+      players: activePlayers(),
       presetKey: state.presetKey,
       contextLabel,
       minScore: APP_LIMITS.scoreMin,
@@ -2190,7 +2289,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return { ok: true, scores };
     }
 
-    const zeroIds = state.players
+    const eligiblePlayers = activePlayers();
+    const zeroIds = eligiblePlayers
       .map((p) => p.id)
       .filter((pid) => Number(scores?.[pid] ?? 0) === 0);
     if (zeroIds.length !== 1) {
@@ -2202,7 +2302,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
 
     const winnerId = zeroIds[0];
-    const winnerPoints = state.players.reduce((sum, p) => {
+    const winnerPoints = eligiblePlayers.reduce((sum, p) => {
       if (p.id === winnerId) return sum;
       return sum + Number(scores?.[p.id] ?? 0);
     }, 0);
@@ -2218,6 +2318,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function addRoundBlockReason(scores = null) {
     if (state.mode !== "playing") return "Start a game to add rounds.";
     const roundScores = scores || roundEntry.readRoundScores();
+    const players = activePlayers();
 
     if (
       state.presetKey === "skyjo" &&
@@ -2227,18 +2328,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
 
     if (state.presetKey === "hearts") {
-      const total = state.players.reduce(
+      const total = players.reduce(
         (sum, p) => sum + Number(roundScores?.[p.id] ?? 0),
         0,
       );
-      const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
+      const shootMoonTotal = 26 * Math.max(0, players.length - 1);
       if (total !== 26 && total !== shootMoonTotal) {
         return `Hearts: round total must be 26 (or ${shootMoonTotal} for shoot the moon).`;
       }
     }
 
     if (state.presetKey === "uno" || state.presetKey === "crazy8s") {
-      const zeroCount = state.players.filter(
+      const zeroCount = players.filter(
         (p) => Number(roundScores?.[p.id] ?? 0) === 0,
       ).length;
       if (zeroCount !== 1) {
@@ -2268,7 +2369,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return;
     }
     if (state.presetKey === "hearts") {
-      const normalized = normalizeHeartsShootMoonScores(state.players, scores);
+      const normalized = normalizeHeartsShootMoonScores(activePlayers(), scores);
       scores = normalized.scores;
     }
     const winnerOnlyNormalized = normalizeWinnerOnlyScores(scores);

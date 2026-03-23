@@ -13,7 +13,70 @@ export function createRoundEntryController(deps) {
     onAddRound,
     onSkyjoMarkGoOut,
     onRoundInputsChanged,
+    activePlayers,
+    retirePlayer,
+    save,
   } = deps;
+  let draggingRoundEntryPlayerId = null;
+
+  function clearRoundEntryDragIndicators() {
+    els.roundPreviewBody
+      .querySelectorAll(".round-preview-item.drop-before, .round-preview-item.drop-after")
+      .forEach((row) => {
+        row.classList.remove("drop-before", "drop-after");
+      });
+  }
+
+  function orderedPlayers() {
+    const playersById = new Map(activePlayers().map((p) => [p.id, p]));
+    const ordered = Array.isArray(state.roundEntryOrder)
+      ? state.roundEntryOrder
+          .map((id) => playersById.get(id))
+          .filter(Boolean)
+      : [];
+    for (const player of activePlayers()) {
+      if (!ordered.some((entry) => entry.id === player.id)) ordered.push(player);
+    }
+    state.roundEntryOrder = ordered.map((player) => player.id);
+    return ordered;
+  }
+
+  function moveRoundEntryPlayer(playerId, direction) {
+    const orderedIds = orderedPlayers().map((player) => player.id);
+    const currentIdx = orderedIds.indexOf(playerId);
+    if (currentIdx < 0) return;
+    const nextIdx = currentIdx + direction;
+    if (nextIdx < 0 || nextIdx >= orderedIds.length) return;
+    [orderedIds[currentIdx], orderedIds[nextIdx]] = [
+      orderedIds[nextIdx],
+      orderedIds[currentIdx],
+    ];
+    state.roundEntryOrder = orderedIds;
+    save?.();
+    renderRoundPreview();
+    setLive(`Moved ${activePlayers().find((player) => player.id === playerId)?.name || "player"} ${direction < 0 ? "up" : "down"} in round entry.`);
+  }
+
+  function reorderRoundEntryPlayer(draggedId, targetId, placeAfter = false) {
+    const orderedIds = orderedPlayers().map((player) => player.id);
+    const fromIdx = orderedIds.indexOf(draggedId);
+    const targetIdx = orderedIds.indexOf(targetId);
+    if (fromIdx < 0 || targetIdx < 0) return;
+
+    const [dragged] = orderedIds.splice(fromIdx, 1);
+    let insertIdx = targetIdx;
+    if (fromIdx < targetIdx) insertIdx -= 1;
+    if (placeAfter) insertIdx += 1;
+    insertIdx = Math.max(0, Math.min(orderedIds.length, insertIdx));
+    orderedIds.splice(insertIdx, 0, dragged);
+
+    state.roundEntryOrder = orderedIds;
+    save?.();
+    renderRoundPreview();
+    const playerName =
+      activePlayers().find((player) => player.id === draggedId)?.name || "player";
+    setLive(`Moved ${playerName} in round entry.`);
+  }
 
   function ensureCurrentRoundScores() {
     const next = {};
@@ -50,16 +113,16 @@ export function createRoundEntryController(deps) {
 
   function renderHeartsRoundTotal(scoresByPlayerId) {
     if (!els.roundHeartsTotal) return;
-    if (!state.players.length || state.presetKey !== "hearts") {
+    if (!activePlayers().length || state.presetKey !== "hearts") {
       els.roundHeartsTotal.hidden = true;
       els.roundHeartsTotal.textContent = "";
       return;
     }
-    const total = state.players.reduce(
+    const total = activePlayers().reduce(
       (sum, p) => sum + Number(scoresByPlayerId?.[p.id] ?? 0),
       0,
     );
-    const shootMoonTotal = 26 * Math.max(0, state.players.length - 1);
+    const shootMoonTotal = 26 * Math.max(0, activePlayers().length - 1);
     const isShootMoonTotal = shootMoonTotal > 26 && total === shootMoonTotal;
     els.roundHeartsTotal.hidden = false;
     els.roundHeartsTotal.textContent = isShootMoonTotal
@@ -110,11 +173,11 @@ export function createRoundEntryController(deps) {
   }
 
   function roundActionZeroAll() {
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    const scores = Object.fromEntries(activePlayers().map((p) => [p.id, 0]));
     applyRoundScores(scores);
     if (isPhase10()) {
       applyPhase10Completions(
-        Object.fromEntries(state.players.map((p) => [p.id, 0])),
+        Object.fromEntries(activePlayers().map((p) => [p.id, 0])),
       );
     }
     showMsg(els.roundMsg, "");
@@ -129,7 +192,7 @@ export function createRoundEntryController(deps) {
     const lastRound = state.rounds[state.rounds.length - 1];
     applyRoundScores(lastRound.scores || {});
     if (isPhase10()) {
-      applyPhase10Completions(phase10CompletionMap(state.players, lastRound));
+      applyPhase10Completions(phase10CompletionMap(activePlayers(), lastRound));
     }
     closeRoundHelperForm();
     showMsg(els.roundMsg, "");
@@ -142,7 +205,7 @@ export function createRoundEntryController(deps) {
       showMsg(els.roundMsg, "Enter a whole number.");
       return;
     }
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, n]));
+    const scores = Object.fromEntries(activePlayers().map((p) => [p.id, n]));
     applyRoundScores(scores);
     closeRoundHelperForm();
     showMsg(els.roundMsg, "");
@@ -151,7 +214,7 @@ export function createRoundEntryController(deps) {
 
   function roundActionHeartsShootMoon(shooterId) {
     if (!shooterId) return;
-    const scores = Object.fromEntries(state.players.map((p) => [p.id, 26]));
+    const scores = Object.fromEntries(activePlayers().map((p) => [p.id, 26]));
     scores[shooterId] = 0;
     applyRoundScores(scores);
     closeRoundHelperForm();
@@ -175,6 +238,12 @@ export function createRoundEntryController(deps) {
     closeRoundHelperForm();
   }
 
+  function roundActionRetirePlayer(playerId) {
+    if (!playerId) return;
+    retirePlayer?.(playerId);
+    closeRoundHelperForm();
+  }
+
   function openRoundHelperForm(action) {
     state.activeRoundHelper = action;
     if (action === "set_all") {
@@ -192,7 +261,7 @@ export function createRoundEntryController(deps) {
     }
 
     if (action === "hearts_moon") {
-      const options = state.players
+      const options = activePlayers()
         .map(
           (p) =>
             `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`,
@@ -210,7 +279,7 @@ export function createRoundEntryController(deps) {
     }
 
     if (action === "mark_winner_zero") {
-      const options = state.players
+      const options = activePlayers()
         .map(
           (p) =>
             `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`,
@@ -229,11 +298,31 @@ export function createRoundEntryController(deps) {
       return;
     }
 
+    if (action === "retire_player") {
+      const options = activePlayers()
+        .map(
+          (p) =>
+            `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`,
+        )
+        .join("");
+      els.roundHelperForm.innerHTML = `
+        <div class="round-helper-form-row">
+          <select id="helperRetirePlayer" class="round-helper-input" aria-label="Player to retire">${options}</select>
+          <button type="button" class="round-helper-btn danger" data-helper-form-action="apply_retire_player" aria-label="Retire selected player">Retire Player</button>
+          <button type="button" class="round-helper-btn" data-helper-form-action="cancel" aria-label="Cancel retire player">Cancel</button>
+        </div>
+      `;
+      els.roundHelperForm.style.display = "block";
+      const sel = $("helperRetirePlayer");
+      if (sel) sel.focus();
+      return;
+    }
+
   }
 
   function renderRoundHelpers() {
     const playing = state.mode === "playing" || state.mode === "finished";
-    if (!playing || !state.players.length) {
+    if (!playing || !activePlayers().length) {
       els.roundHelperBar.style.display = "none";
       els.roundHelperButtons.innerHTML = "";
       closeRoundHelperForm();
@@ -260,6 +349,13 @@ export function createRoundEntryController(deps) {
         ariaLabel: "Mark winner as zero for this round",
       });
     }
+    if (!state.teams && activePlayers().length > 2) {
+      actions.push({
+        key: "retire_player",
+        label: "Retire...",
+        ariaLabel: "Retire a player from future rounds",
+      });
+    }
     els.roundHelperButtons.innerHTML = actions
       .map(
         (a) =>
@@ -277,7 +373,7 @@ export function createRoundEntryController(deps) {
   }
 
   function renderRoundPreview() {
-    if (!state.players.length) {
+    if (!activePlayers().length) {
       els.roundPreview.style.display = "none";
       els.roundPreviewBody.innerHTML = "";
       renderHeartsRoundTotal(null);
@@ -292,13 +388,36 @@ export function createRoundEntryController(deps) {
     const isSkyjo = state.presetKey === "skyjo" && !isPhase10();
     const valueLabel = isPhase10() ? "Points & Phase" : "Score";
 
-    const rows = state.players
+    const ordered = orderedPlayers();
+    const rows = ordered
       .map((p) => {
         const rawVal = Number(scores[p.id] ?? 0);
         const val = Number.isFinite(rawVal) ? rawVal : 0;
         const phaseComplete = Number(phase10Completions[p.id] ?? 0) > 0;
         const displayVal = isPhase10() ? (phaseComplete ? "PH+" : "") : "";
         const playerNameEsc = escapeHtml(p.name);
+        const moveControls = `
+          <button
+            type="button"
+            class="round-preview-order-handle"
+            draggable="true"
+            data-preview-action="drag-handle"
+            data-player-id="${p.id}"
+            aria-label="Drag to reorder ${playerNameEsc}. Use arrow keys to move."
+            title="Drag to reorder"
+          >
+            <span class="round-preview-order-dots" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+          </button>
+        `;
+        const playerCell = `
+          <span class="round-preview-player">
+            <span class="round-preview-name">${playerNameEsc}</span>
+          </span>
+        `;
         const skyjoWentOutUi = isSkyjo
           ? `
             <label class="round-preview-out">
@@ -342,25 +461,27 @@ export function createRoundEntryController(deps) {
 
         if (isSkyjo) {
           return `
-            <div class="round-preview-item skyjo">
-              <span class="round-preview-name">${playerNameEsc}</span>
+            <div class="round-preview-item skyjo" data-preview-row="${p.id}">
+              ${playerCell}
               <span class="round-preview-right">
-                <span class="round-preview-value">${displayVal}</span>
-                <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
-              </span>
-              ${skyjoWentOutUi}
-            </div>
+              <span class="round-preview-value">${displayVal}</span>
+              <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
+            </span>
+            ${skyjoWentOutUi}
+            ${moveControls}
+          </div>
           `;
         }
 
         return `
-          <div class="round-preview-item">
-            <span class="round-preview-name">${playerNameEsc}</span>
+          <div class="round-preview-item" data-preview-row="${p.id}">
+            ${playerCell}
             <span class="round-preview-right">
-              <span class="round-preview-value">${displayVal}</span>
-              <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
-            </span>
-          </div>
+            <span class="round-preview-value">${displayVal}</span>
+            <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
+          </span>
+          ${moveControls}
+        </div>
         `;
       })
       .join("");
@@ -403,6 +524,7 @@ export function createRoundEntryController(deps) {
       if (!btn) return;
 
       const action = btn.getAttribute("data-preview-action");
+      if (action === "drag-handle") return;
       const playerId = btn.getAttribute("data-player-id");
       if (!playerId) return;
 
@@ -458,6 +580,23 @@ export function createRoundEntryController(deps) {
 
     els.roundPreviewBody.addEventListener("keydown", (e) => {
       const target = e.target;
+      if (
+        target instanceof HTMLButtonElement &&
+        target.getAttribute("data-preview-action") === "drag-handle"
+      ) {
+        const playerId = target.getAttribute("data-player-id");
+        if (!playerId) return;
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          moveRoundEntryPlayer(playerId, -1);
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          moveRoundEntryPlayer(playerId, 1);
+          return;
+        }
+      }
       if (!(target instanceof HTMLInputElement)) return;
       if (target.getAttribute("data-preview-action") !== "input") return;
 
@@ -509,6 +648,7 @@ export function createRoundEntryController(deps) {
       if (action === "zero_all") roundActionZeroAll();
       if (action === "hearts_moon") openRoundHelperForm("hearts_moon");
       if (action === "mark_winner_zero") openRoundHelperForm("mark_winner_zero");
+      if (action === "retire_player") openRoundHelperForm("retire_player");
     });
 
     els.roundHelperForm.addEventListener("click", (e) => {
@@ -539,6 +679,11 @@ export function createRoundEntryController(deps) {
         roundActionMarkWinnerZero(winnerId);
         return;
       }
+      if (action === "apply_retire_player") {
+        const playerId = $("helperRetirePlayer")?.value ?? "";
+        roundActionRetirePlayer(playerId);
+        return;
+      }
     });
 
     els.roundHelperForm.addEventListener("keydown", (e) => {
@@ -562,6 +707,10 @@ export function createRoundEntryController(deps) {
         const winnerId = $("helperWinnerPlayer")?.value ?? "";
         roundActionMarkWinnerZero(winnerId);
       }
+      if (state.activeRoundHelper === "retire_player") {
+        const playerId = $("helperRetirePlayer")?.value ?? "";
+        roundActionRetirePlayer(playerId);
+      }
     });
 
     bindSelectOnFocusAndClick(
@@ -569,6 +718,69 @@ export function createRoundEntryController(deps) {
       'input[data-preview-action="input"]',
     );
     bindSelectOnFocusAndClick(els.roundHelperForm, "input.round-helper-input");
+
+    els.roundPreviewBody.addEventListener("dragstart", (e) => {
+      const target = e.target;
+      const handle =
+        target instanceof Element
+          ? target.closest('[data-preview-action="drag-handle"]')
+          : null;
+      if (!(handle instanceof HTMLElement)) return;
+      const playerId = handle.getAttribute("data-player-id");
+      if (!playerId) return;
+      draggingRoundEntryPlayerId = playerId;
+      const row = handle.closest("[data-preview-row]");
+      if (row instanceof HTMLElement) row.classList.add("is-dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", playerId);
+        if (row instanceof HTMLElement) {
+          const rect = row.getBoundingClientRect();
+          const offsetX = Math.max(12, Math.round(e.clientX - rect.left));
+          const offsetY = Math.max(12, Math.round(e.clientY - rect.top));
+          e.dataTransfer.setDragImage(row, offsetX, offsetY);
+        }
+      }
+    });
+
+    els.roundPreviewBody.addEventListener("dragover", (e) => {
+      const target =
+        e.target instanceof Element
+          ? e.target.closest("[data-preview-row]")
+          : null;
+      if (!(target instanceof HTMLElement) || !draggingRoundEntryPlayerId) return;
+      e.preventDefault();
+      const targetId = target.getAttribute("data-preview-row");
+      clearRoundEntryDragIndicators();
+      if (!targetId || targetId === draggingRoundEntryPlayerId) return;
+      const rect = target.getBoundingClientRect();
+      const placeAfter = e.clientY > rect.top + rect.height / 2;
+      target.classList.add(placeAfter ? "drop-after" : "drop-before");
+    });
+
+    els.roundPreviewBody.addEventListener("drop", (e) => {
+      const target =
+        e.target instanceof Element
+          ? e.target.closest("[data-preview-row]")
+          : null;
+      if (!(target instanceof HTMLElement) || !draggingRoundEntryPlayerId) return;
+      e.preventDefault();
+      const targetId = target.getAttribute("data-preview-row");
+      clearRoundEntryDragIndicators();
+      if (!targetId || targetId === draggingRoundEntryPlayerId) return;
+      const rect = target.getBoundingClientRect();
+      const placeAfter = e.clientY > rect.top + rect.height / 2;
+      reorderRoundEntryPlayer(draggingRoundEntryPlayerId, targetId, placeAfter);
+      draggingRoundEntryPlayerId = null;
+    });
+
+    els.roundPreviewBody.addEventListener("dragend", () => {
+      draggingRoundEntryPlayerId = null;
+      clearRoundEntryDragIndicators();
+      els.roundPreviewBody
+        .querySelectorAll(".round-preview-item.is-dragging")
+        .forEach((row) => row.classList.remove("is-dragging"));
+    });
   }
 
   return {
