@@ -23,6 +23,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 (() => {
   const AUTOSAVE_KEY = "scorekeeper.v3.autosave";
   const SESSIONS_KEY = "scorekeeper.v3.sessions";
+  const AUTO_EXPORT_ON_SAVE_KEY = "scorekeeper.v3.autoExportOnSave";
   const LEGACY_AUTOSAVE_KEY = "scorekeeper.v2";
   const EXPORT_VERSION = 1;
 
@@ -40,13 +41,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
     btnToggleSort: $("btnToggleSort"),
     btnLoadSaved: $("btnLoadSaved"),
     btnSaveSession: $("btnSaveSession"),
-    btnExportSession: $("btnExportSession"),
     btnImportSession: $("btnImportSession"),
     btnBrowseSessions: $("btnBrowseSessions"),
     btnBrowseSessionsCount: $("btnBrowseSessionsCount"),
     btnLoadSession: $("btnLoadSession"),
     btnDeleteSession: $("btnDeleteSession"),
     btnSessionModalClose: $("btnSessionModalClose"),
+    btnSaveSessionConfirm: $("btnSaveSessionConfirm"),
+    btnSaveSessionCancel: $("btnSaveSessionCancel"),
     importSessionFile: $("importSessionFile"),
     savedSessionSelect: $("savedSessionSelect"),
     sessionBrowserSearch: $("sessionBrowserSearch"),
@@ -108,12 +110,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
     winnerMilestones: $("winnerMilestones"),
     continueModal: $("continueModal"),
     sessionModal: $("sessionModal"),
+    saveSessionModal: $("saveSessionModal"),
     continueModalContext: $("continueModalContext"),
     continueModalIntro: $("continueModalIntro"),
     continueTargetRequirement: $("continueTargetRequirement"),
     continueTargetRequirementText: $("continueTargetRequirementText"),
     continueModalPrompt: $("continueModalPrompt"),
     continueTargetPoints: $("continueTargetPoints"),
+    saveSessionName: $("saveSessionName"),
+    saveSessionAutoExport: $("saveSessionAutoExport"),
     btnContinueRaiseTarget: $("btnContinueRaiseTarget"),
     btnContinueFreePlay: $("btnContinueFreePlay"),
     btnContinueNewGame: $("btnContinueNewGame"),
@@ -716,6 +721,24 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
   }
 
+  function autoExportOnSavePreference() {
+    try {
+      const raw = localStorage.getItem(AUTO_EXPORT_ON_SAVE_KEY);
+      if (raw === "true") return true;
+      if (raw === "false") return false;
+    } catch {}
+    return null;
+  }
+
+  function setAutoExportOnSavePreference(value) {
+    try {
+      localStorage.setItem(AUTO_EXPORT_ON_SAVE_KEY, value ? "true" : "false");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function updateSessionControls(preferredId = state.selectedSessionId) {
     const sessions = getStoredSessions();
     state.savedSessionCount = sessions.length;
@@ -749,7 +772,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const hasCurrent = hasSnapshotData();
     const hasSelected = !!selectedId;
     els.btnSaveSession.disabled = !hasCurrent;
-    els.btnExportSession.disabled = !(hasCurrent || hasSelected);
     els.btnLoadSession.disabled = !hasSelected;
     els.btnDeleteSession.disabled = !hasSelected;
 
@@ -1172,6 +1194,31 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.sessionModal.hidden = true;
   }
 
+  function openSaveSessionModal() {
+    if (!hasSnapshotData() || !els.saveSessionModal) return;
+    const sessions = getStoredSessions();
+    const existing = state.currentSessionId
+      ? sessions.find((session) => session.id === state.currentSessionId)
+      : null;
+    const name = existing?.name || defaultSessionName();
+    if (els.saveSessionName) {
+      els.saveSessionName.value = name;
+    }
+    if (els.saveSessionAutoExport) {
+      els.saveSessionAutoExport.checked = autoExportOnSavePreference() === true;
+    }
+    els.saveSessionModal.hidden = false;
+    els.saveSessionModal.classList.add("is-open");
+    els.saveSessionName?.focus();
+    els.saveSessionName?.select?.();
+  }
+
+  function closeSaveSessionModal() {
+    if (!els.saveSessionModal) return;
+    els.saveSessionModal.classList.remove("is-open");
+    els.saveSessionModal.hidden = true;
+  }
+
   function continueWithRaisedTarget() {
     if (!canContinueFinishedGame()) {
       closeContinueModal();
@@ -1434,10 +1481,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return ok;
   }
 
-  function saveNamedSession() {
+  function saveNamedSession(options = {}) {
+    const {
+      name: providedName = "",
+      autoExport = false,
+      persistAutoExportPreference = false,
+    } = options;
     if (!hasSnapshotData()) {
       showStatusMessage("Start or load a game before saving a session.");
-      return;
+      return false;
     }
 
     const sessions = getStoredSessions();
@@ -1445,11 +1497,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
       ? sessions.find((session) => session.id === state.currentSessionId)
       : null;
 
-    let name = existing?.name || defaultSessionName();
-    if (!existing) {
-      const answer = window.prompt("Name this saved session:", name);
-      if (answer === null) return;
-      name = normalizeName(answer) || name;
+    let name = normalizeName(providedName) || existing?.name || defaultSessionName();
+    if (!name) {
+      showStatusMessage("Session name cannot be empty.");
+      return false;
     }
 
     const now = Date.now();
@@ -1470,15 +1521,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     if (!setStoredSessions(nextSessions)) {
       showStatusMessage("Unable to save this session.");
-      return;
+      return false;
     }
 
     state.currentSessionId = id;
     state.selectedSessionId = id;
     save();
     updateSessionControls(id);
-    showStatusMessage(`Session saved: ${name}.`);
-    setLive(`Session saved: ${name}.`);
+    if (persistAutoExportPreference) {
+      setAutoExportOnSavePreference(autoExport);
+    }
+    handlePostSaveSession(name, id, { autoExport });
+    return true;
   }
 
   function renameSessionById(sessionId) {
@@ -1596,10 +1650,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
     };
   }
 
-  function exportSessionFile(sessionId = "") {
+  function exportSessionFile(sessionId = "", opts = {}) {
+    const { suppressStatus = false, suppressLive = false } = opts;
     const exportable = resolveExportSession(sessionId);
     if (!exportable) {
-      showStatusMessage("Nothing to export yet.");
+      if (!suppressStatus) showStatusMessage("Nothing to export yet.");
       return;
     }
 
@@ -1625,8 +1680,26 @@ import { createScoreboardController } from "./js/scoreboard.js";
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
 
-    showStatusMessage(`Exported session: ${exportable.name}.`);
-    setLive(`Exported session: ${exportable.name}.`);
+    if (!suppressStatus) showStatusMessage(`Exported session: ${exportable.name}.`);
+    if (!suppressLive) setLive(`Exported session: ${exportable.name}.`);
+    return exportable;
+  }
+
+  function handlePostSaveSession(name, sessionId, opts = {}) {
+    const { autoExport = autoExportOnSavePreference() === true } = opts;
+    if (autoExport) {
+      const exported = exportSessionFile(sessionId, {
+        suppressStatus: true,
+        suppressLive: true,
+      });
+      if (exported) {
+        showStatusMessage(`Session saved and backed up: ${name}.`);
+        setLive(`Session saved and backed up: ${name}.`);
+        return;
+      }
+    }
+    showStatusMessage(`Session saved: ${name}.`);
+    setLive(`Session saved: ${name}.`);
   }
 
   function parseImportedSession(json, filename = "") {
@@ -2695,9 +2768,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
         : "Sort: Totals"
       : "Sort: Off";
     els.btnSaveSession.disabled = !hasSnapshotData();
-    els.btnExportSession.disabled = !(
-      hasSnapshotData() || !!state.selectedSessionId
-    );
     els.btnLoadSession.disabled = !state.selectedSessionId;
     els.btnDeleteSession.disabled = !state.selectedSessionId;
     els.savedSessionSelect.disabled = state.savedSessionCount === 0;
@@ -2934,6 +3004,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
     if (e.key === "Escape" && els.sessionModal && !els.sessionModal.hidden) {
       closeSessionModal();
+      return;
+    }
+    if (e.key === "Escape" && els.saveSessionModal && !els.saveSessionModal.hidden) {
+      closeSaveSessionModal();
     }
   });
 
@@ -3069,11 +3143,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   });
 
   els.btnSaveSession.addEventListener("click", () => {
-    saveNamedSession();
-  });
-
-  els.btnExportSession.addEventListener("click", () => {
-    exportSessionFile();
+    openSaveSessionModal();
   });
 
   els.btnImportSession.addEventListener("click", () => {
@@ -3104,6 +3174,38 @@ import { createScoreboardController } from "./js/scoreboard.js";
   if (els.sessionModal) {
     els.sessionModal.addEventListener("click", (e) => {
       if (e.target === els.sessionModal) closeSessionModal();
+    });
+  }
+  if (els.saveSessionModal) {
+    els.saveSessionModal.addEventListener("click", (e) => {
+      if (e.target === els.saveSessionModal) closeSaveSessionModal();
+    });
+  }
+  if (els.btnSaveSessionCancel) {
+    els.btnSaveSessionCancel.addEventListener("click", () => {
+      closeSaveSessionModal();
+    });
+  }
+  if (els.btnSaveSessionConfirm) {
+    els.btnSaveSessionConfirm.addEventListener("click", () => {
+      const ok = saveNamedSession({
+        name: els.saveSessionName?.value || "",
+        autoExport: !!els.saveSessionAutoExport?.checked,
+        persistAutoExportPreference: true,
+      });
+      if (ok) closeSaveSessionModal();
+    });
+  }
+  if (els.saveSessionName) {
+    els.saveSessionName.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const ok = saveNamedSession({
+        name: els.saveSessionName?.value || "",
+        autoExport: !!els.saveSessionAutoExport?.checked,
+        persistAutoExportPreference: true,
+      });
+      if (ok) closeSaveSessionModal();
     });
   }
 

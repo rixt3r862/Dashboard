@@ -837,6 +837,20 @@ tr:last-child td{ border-bottom:none; }
   gap: 8px;
   flex-wrap: wrap;
 }
+.save-session-check{
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.save-session-check input{
+  inline-size: 16px;
+  block-size: 16px;
+  accent-color: var(--accent);
+}
 
 details{
   border: 1px solid var(--line);

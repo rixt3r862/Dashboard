@@ -51,9 +51,6 @@
         <button class="btn" id="btnSaveSession" type="button" title="Save a named session snapshot. Sessions are saved in this browser on this device. Export JSON to back up or move them.">
           Save Session
         </button>
-        <button class="btn" id="btnExportSession" type="button" title="Export the current game as JSON">
-          Export
-        </button>
         <button class="btn" id="btnImportSession" type="button" title="Import a saved ScoreKeeper session">
           Import
         </button>
@@ -176,6 +173,37 @@
             No saved sessions match this filter yet.
           </div>
         </section>
+      </div>
+    </div>
+
+    <div class="continue-modal" id="saveSessionModal" hidden>
+      <div class="continue-modal-card" role="dialog" aria-modal="true" aria-labelledby="saveSessionModalTitle">
+        <h3 id="saveSessionModalTitle">Save Session</h3>
+        <p class="muted continue-modal-copy">
+          Save this game on this device and optionally download a JSON backup copy.
+        </p>
+        <div class="field">
+          <label for="saveSessionName">Session name</label>
+          <input
+            id="saveSessionName"
+            type="text"
+            placeholder="Enter a session name"
+            autocomplete="off"
+            maxlength="80"
+          />
+        </div>
+        <label class="save-session-check">
+          <input id="saveSessionAutoExport" type="checkbox" />
+          <span>Also download backup JSON</span>
+        </label>
+        <div class="continue-modal-actions">
+          <button class="btn primary" id="btnSaveSessionConfirm" type="button">
+            Save Session
+          </button>
+          <button class="btn" id="btnSaveSessionCancel" type="button">
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
 
