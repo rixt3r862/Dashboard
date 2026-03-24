@@ -7,6 +7,7 @@
     location.hostname === "localhost" ||
     location.hostname === "127.0.0.1" ||
     location.hostname === "[::1]";
+  let refreshing = false;
 
   window.addEventListener("load", () => {
     if (isLocalhost) {
@@ -24,6 +25,17 @@
       }
       return;
     }
-    navigator.serviceWorker.register(swUrl).catch(() => {});
+    navigator.serviceWorker
+      .register(swUrl, { updateViaCache: "none" })
+      .then((registration) => {
+        registration.update().catch(() => {});
+
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
+      })
+      .catch(() => {});
   });
 })();

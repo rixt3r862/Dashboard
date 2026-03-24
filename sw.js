@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v1";
+const VERSION = "dashboard-v2";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -73,6 +73,10 @@ self.addEventListener("fetch", (event) => {
       event.respondWith(networkFirst(request, CORE_CACHE, "./offline.html"));
       return;
     }
+    if (isAppShellAsset(url)) {
+      event.respondWith(networkFirst(request, RUNTIME_CACHE));
+      return;
+    }
     event.respondWith(cacheFirst(request, CORE_CACHE, RUNTIME_CACHE));
     return;
   }
@@ -95,6 +99,17 @@ async function networkFirst(request, cacheName, fallbackUrl) {
     if (fallback) return fallback;
     throw new Error("Offline");
   }
+}
+
+function isAppShellAsset(url) {
+  const path = url.pathname.toLowerCase();
+  return (
+    path.endsWith(".html") ||
+    path.endsWith(".js") ||
+    path.endsWith(".mjs") ||
+    path.endsWith(".css") ||
+    path.endsWith(".webmanifest")
+  );
 }
 
 async function cacheFirst(request, primaryCache, secondaryCache) {
