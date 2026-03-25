@@ -2254,6 +2254,17 @@ export function createHistoryController(deps) {
       outBadge.className = "history-score-badge out";
       outBadge.textContent = "OUT";
       parent.appendChild(outBadge);
+
+      if (
+        state.presetKey === "skyjo" &&
+        Number.isFinite(cell.displayV) &&
+        Number(cell.displayV) <= 0
+      ) {
+        const tip = document.createElement("span");
+        tip.className = "history-score-note skyjo-note";
+        tip.textContent = "2x does not apply for 0 or - out scores.";
+        parent.appendChild(tip);
+      }
     }
     if (cell.isPhase10CompleteCell) {
       const phaseBadge = document.createElement("span");

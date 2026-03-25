@@ -471,6 +471,10 @@ export function createRoundEntryController(deps) {
         const phaseComplete = Number(phase10Completions[p.id] ?? 0) > 0;
         const displayVal = isPhase10() ? (phaseComplete ? "PH+" : "") : "";
         const playerNameEsc = escapeHtml(p.name);
+        const showSkyjoNegativeOutHint =
+          isSkyjo &&
+          state.skyjoCurrentRoundWentOutPlayerId === p.id &&
+          val <= 0;
         const moveControls = `
           <button
             type="button"
@@ -541,6 +545,11 @@ export function createRoundEntryController(deps) {
               <span class="round-preview-right">
               <span class="round-preview-value">${displayVal}</span>
               <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
+              ${
+                showSkyjoNegativeOutHint
+                  ? `<span class="round-preview-note skyjo-note">2x does not apply for 0 or - out scores.</span>`
+                  : ""
+              }
             </span>
             ${skyjoWentOutUi}
             ${moveControls}

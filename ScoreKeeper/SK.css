@@ -1357,6 +1357,17 @@ summary::-webkit-details-marker{ display:none; }
   font-size: 11px;
   line-height: 1.3;
 }
+.history-score-note{
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+.history-score-note.skyjo-note{
+  color: #7c2d12;
+}
 .history-score-badge{
   display: inline-block;
   margin-left: 6px;
@@ -1788,9 +1799,11 @@ summary::-webkit-details-marker{ display:none; }
 }
 .round-preview-item.skyjo .round-preview-right{
   display: flex;
+  flex-direction: column;
   width: 100%;
   min-width: 0;
   justify-content: center;
+  align-items: center;
 }
 .round-preview-value{
   min-width: 28px;
@@ -1822,6 +1835,17 @@ summary::-webkit-details-marker{ display:none; }
   display: inline-flex;
   gap: 6px;
   flex-wrap: nowrap;
+}
+.round-preview-note{
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--muted);
+  text-align: center;
+}
+.round-preview-note.skyjo-note{
+  color: #7c2d12;
 }
 .round-preview-actions.phase10{
   flex-wrap: wrap;
