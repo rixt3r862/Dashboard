@@ -133,6 +133,35 @@ export function createRoundEntryController(deps) {
       : `Round Total: ${total} / 26`;
   }
 
+  function shouldShowSkyjoNegativeOutHint(playerId) {
+    if (state.presetKey !== "skyjo" || isPhase10()) return false;
+    if (state.skyjoCurrentRoundWentOutPlayerId !== playerId) return false;
+    const score = Number(state.currentRoundScores?.[playerId] ?? 0);
+    return Number.isFinite(score) && score <= 0;
+  }
+
+  function syncSkyjoOutScoreHints() {
+    if (!els.roundPreviewBody) return;
+    els.roundPreviewBody.querySelectorAll("[data-preview-row]").forEach((row) => {
+      if (!(row instanceof HTMLElement)) return;
+      const playerId = row.getAttribute("data-preview-row");
+      if (!playerId) return;
+      const right = row.querySelector(".round-preview-right");
+      if (!(right instanceof HTMLElement)) return;
+      const existing = right.querySelector(".round-preview-note.skyjo-note");
+      if (shouldShowSkyjoNegativeOutHint(playerId)) {
+        if (!existing) {
+          const note = document.createElement("span");
+          note.className = "round-preview-note skyjo-note";
+          note.textContent = "2x does not apply for 0 or - out scores.";
+          right.appendChild(note);
+        }
+      } else if (existing) {
+        existing.remove();
+      }
+    });
+  }
+
   function setRoundScoreInputValue(playerId, value, opts = {}) {
     const { silent = false } = opts;
     if (!state.players.some((p) => p.id === playerId)) return;
@@ -144,6 +173,7 @@ export function createRoundEntryController(deps) {
       return;
     }
     renderHeartsRoundTotal(state.currentRoundScores);
+    syncSkyjoOutScoreHints();
   }
 
   function setPhase10CompletionValue(playerId, value, opts = {}) {
@@ -471,10 +501,7 @@ export function createRoundEntryController(deps) {
         const phaseComplete = Number(phase10Completions[p.id] ?? 0) > 0;
         const displayVal = isPhase10() ? (phaseComplete ? "PH+" : "") : "";
         const playerNameEsc = escapeHtml(p.name);
-        const showSkyjoNegativeOutHint =
-          isSkyjo &&
-          state.skyjoCurrentRoundWentOutPlayerId === p.id &&
-          val <= 0;
+        const showSkyjoNegativeOutHint = shouldShowSkyjoNegativeOutHint(p.id);
         const moveControls = `
           <button
             type="button"
