@@ -349,6 +349,18 @@
                 <option value="spades">Spades</option>
               </select>
             </div>
+            <div class="field" style="max-width: 220px">
+              <label for="preRoundTargetPoints">Target<br /><em>(Can be changed before Round 1)</em></label>
+              <input
+                id="preRoundTargetPoints"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                enterkeyhint="done"
+                autocomplete="off"
+                min="1"
+              />
+            </div>
             <div class="field" id="preRoundSpadesTeamRow" style="display: none; max-width: 320px">
               <label id="preRoundSpadesPartnerLabel" for="preRoundSpadesPartner">Assign Teams (Spades)</label>
               <select id="preRoundSpadesPartner"></select>

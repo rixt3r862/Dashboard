@@ -79,6 +79,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     preRoundCustomGameName: $("preRoundCustomGameName"),
     preRoundCustomWinModeRow: $("preRoundCustomWinModeRow"),
     preRoundCustomWinModeSelect: $("preRoundCustomWinModeSelect"),
+    preRoundTargetPoints: $("preRoundTargetPoints"),
     winModeText: $("winModeText"),
 
     playerCount: $("playerCount"),
@@ -2012,7 +2013,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.presetKey = key in PRESETS ? key : "custom";
 
     if (Number.isInteger(preset.target)) {
-      els.targetPoints.value = preset.target;
+      state.target = preset.target;
+      els.targetPoints.value = String(preset.target);
+      if (els.preRoundTargetPoints) {
+        els.preRoundTargetPoints.value = String(preset.target);
+      }
     }
     els.presetSelect.value = state.presetKey;
     if (els.preRoundPresetSelect) {
@@ -2750,6 +2755,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (allowPreRoundPresetChange && els.preRoundPresetSelect) {
       els.preRoundPresetSelect.value = state.presetKey;
     }
+    if (allowPreRoundPresetChange && els.preRoundTargetPoints) {
+      els.preRoundTargetPoints.value = String(state.target);
+    }
     renderCustomGameNameUi(allowPreRoundPresetChange);
     renderCustomWinModeUi(allowPreRoundPresetChange);
     renderPreRoundSpadesTeamPicker(
@@ -2917,11 +2925,67 @@ import { createScoreboardController } from "./js/scoreboard.js";
       }
     });
   };
+  const selectPreRoundTargetValue = () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement === els.preRoundTargetPoints) {
+        els.preRoundTargetPoints.select();
+      }
+    });
+  };
+  const syncPreRoundTarget = (raw, opts = {}) => {
+    const { commit = false } = opts;
+    const value = String(raw ?? "").trim();
+    if (value === "") {
+      if (commit && els.preRoundTargetPoints) {
+        els.preRoundTargetPoints.value = String(state.target);
+      }
+      return;
+    }
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed)) {
+      if (commit && els.preRoundTargetPoints) {
+        els.preRoundTargetPoints.value = String(state.target);
+      }
+      return;
+    }
+    const nextTarget = clampInt(
+      parsed,
+      APP_LIMITS.targetMin,
+      APP_LIMITS.targetMax,
+    );
+    state.target = nextTarget;
+    els.targetPoints.value = String(nextTarget);
+    if (els.preRoundTargetPoints) {
+      els.preRoundTargetPoints.value = String(nextTarget);
+    }
+    els.targetPill.textContent = String(nextTarget);
+    save();
+  };
   els.targetPoints.addEventListener("focus", selectTargetValue);
   els.targetPoints.addEventListener("click", selectTargetValue);
   els.targetPoints.addEventListener("touchend", selectTargetValue);
 
   els.targetPoints.addEventListener("input", () => updateStartButtonState());
+  if (els.preRoundTargetPoints) {
+    els.preRoundTargetPoints.addEventListener("focus", selectPreRoundTargetValue);
+    els.preRoundTargetPoints.addEventListener("click", selectPreRoundTargetValue);
+    els.preRoundTargetPoints.addEventListener("touchend", selectPreRoundTargetValue);
+    els.preRoundTargetPoints.addEventListener("input", () => {
+      if (state.mode === "playing" && state.rounds.length === 0) {
+        syncPreRoundTarget(els.preRoundTargetPoints.value);
+      }
+    });
+    els.preRoundTargetPoints.addEventListener("change", () => {
+      if (state.mode === "playing" && state.rounds.length === 0) {
+        syncPreRoundTarget(els.preRoundTargetPoints.value, { commit: true });
+      }
+    });
+    els.preRoundTargetPoints.addEventListener("blur", () => {
+      if (state.mode === "playing" && state.rounds.length === 0) {
+        syncPreRoundTarget(els.preRoundTargetPoints.value, { commit: true });
+      }
+    });
+  }
 
   els.btnStart.addEventListener("click", startGame);
   els.btnAddRound.addEventListener("click", addRound);
