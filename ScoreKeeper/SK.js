@@ -1999,7 +1999,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     // Phase 10 reference (hints/reminders)
     if (els.phase10Ref) {
-      els.phase10Ref.style.display = isPhase10() ? "block" : "none";
+      els.phase10Ref.hidden = !isPhase10();
     }
   }
 
