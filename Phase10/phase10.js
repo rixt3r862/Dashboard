@@ -16,6 +16,8 @@ const BOT_NAMES = [
   "Blaze",
 ];
 
+const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
+
 const STORAGE_KEY = "phase10.table.v1";
 const SESSIONS_KEY = "phase10.table.sessions.v1";
 const EXPORT_VERSION = 1;
@@ -108,11 +110,13 @@ const state = {
   selectedSkipTargetId: null,
   pendingSkipPlayerIds: [],
   logs: [],
+  roundHistory: [],
   pendingRoundSummary: null,
   winnerId: null,
   transientNotice: null,
   handSortMode: "color",
   setupBotNames: BOT_NAMES.slice(0, 3),
+  setupBotDifficulties: ["medium", "medium", "medium"],
   currentSessionId: null,
   selectedSessionId: "",
   sessionStatusMessage: "",
@@ -140,6 +144,8 @@ const els = {
   discardPreview: document.getElementById("discardPreview"),
   drawDeckBtn: document.getElementById("drawDeckBtn"),
   takeDiscardBtn: document.getElementById("takeDiscardBtn"),
+  actionDrawDeckBtn: document.getElementById("actionDrawDeckBtn"),
+  actionTakeDiscardBtn: document.getElementById("actionTakeDiscardBtn"),
   layPhaseBtn: document.getElementById("layPhaseBtn"),
   discardBtn: document.getElementById("discardBtn"),
   nextRoundBtn: document.getElementById("nextRoundBtn"),
@@ -155,12 +161,13 @@ const els = {
   eventNotice: document.getElementById("eventNotice"),
   selectedDiscard: document.getElementById("selectedDiscard"),
   suggestedDiscard: document.getElementById("suggestedDiscard"),
-  logList: document.getElementById("logList"),
   playersBoard: document.getElementById("playersBoard"),
   leaderText: document.getElementById("leaderText"),
   humanSeatSummary: document.getElementById("humanSeatSummary"),
   humanHand: document.getElementById("humanHand"),
   handSummary: document.getElementById("handSummary"),
+  roundHistorySummary: document.getElementById("roundHistorySummary"),
+  roundHistoryWrap: document.getElementById("roundHistoryWrap"),
 };
 
 bindEvents();
@@ -176,17 +183,35 @@ function bindEvents() {
   });
 
   els.botCount.addEventListener("change", () => {
-    syncSetupBotNamesFromInputs();
+    syncSetupBotConfigFromInputs();
     renderBotNameFields();
   });
   els.botNameFields.addEventListener("input", (event) => {
     const input = event.target.closest("input[id^='botName']");
-    if (!input) return;
-    const match = input.id.match(/^botName(\d)$/);
+    if (input) {
+      const match = input.id.match(/^botName(\d)$/);
+      if (!match) return;
+      const index = Number(match[1]) - 1;
+      if (index < 0 || index > 2) return;
+      state.setupBotNames[index] = input.value;
+      return;
+    }
+    const select = event.target.closest("select[id^='botDifficulty']");
+    if (!select) return;
+    const match = select.id.match(/^botDifficulty(\d)$/);
     if (!match) return;
     const index = Number(match[1]) - 1;
     if (index < 0 || index > 2) return;
-    state.setupBotNames[index] = input.value;
+    state.setupBotDifficulties[index] = normalizeBotDifficulty(select.value);
+  });
+  els.botNameFields.addEventListener("change", (event) => {
+    const select = event.target.closest("select[id^='botDifficulty']");
+    if (!select) return;
+    const match = select.id.match(/^botDifficulty(\d)$/);
+    if (!match) return;
+    const index = Number(match[1]) - 1;
+    if (index < 0 || index > 2) return;
+    state.setupBotDifficulties[index] = normalizeBotDifficulty(select.value);
   });
   els.resetTableBtn.addEventListener("click", resetTable);
   els.saveSessionBtn.addEventListener("click", saveNamedSession);
@@ -210,6 +235,8 @@ function bindEvents() {
   });
   els.drawDeckBtn.addEventListener("click", () => humanDraw("deck"));
   els.takeDiscardBtn.addEventListener("click", () => humanDraw("discard"));
+  els.actionDrawDeckBtn.addEventListener("click", () => humanDraw("deck"));
+  els.actionTakeDiscardBtn.addEventListener("click", () => humanDraw("discard"));
   els.layPhaseBtn.addEventListener("click", humanLayPhase);
   els.discardBtn.addEventListener("click", humanDiscardSelected);
   els.nextRoundBtn.addEventListener("click", beginNextRound);
@@ -265,36 +292,61 @@ function bindEvents() {
   });
 }
 
-function renderBotNameFields(preferredNames = null) {
+function renderBotNameFields(preferredNames = null, preferredDifficulties = null) {
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
   let currentNames;
+  let currentDifficulties;
   if (preferredNames) {
     state.setupBotNames = Array.from({ length: 3 }, (_, index) => {
       const fallbackName = BOT_NAMES[index] ?? `Bot ${index + 1}`;
       return preferredNames[index] ?? state.setupBotNames[index] ?? fallbackName;
     });
+  }
+  if (preferredDifficulties) {
+    state.setupBotDifficulties = Array.from({ length: 3 }, (_, index) =>
+      normalizeBotDifficulty(preferredDifficulties[index] ?? state.setupBotDifficulties[index]),
+    );
+  }
+  if (preferredNames || preferredDifficulties) {
     currentNames = [...state.setupBotNames];
+    currentDifficulties = [...state.setupBotDifficulties];
   } else {
-    currentNames = els.botNameFields.children.length
-      ? syncSetupBotNamesFromInputs()
-      : [...state.setupBotNames];
+    const currentConfig = els.botNameFields.children.length
+      ? syncSetupBotConfigFromInputs()
+      : {
+          names: [...state.setupBotNames],
+          difficulties: [...state.setupBotDifficulties],
+        };
+    currentNames = currentConfig.names;
+    currentDifficulties = currentConfig.difficulties;
   }
 
   els.botNameFields.innerHTML = Array.from({ length: botCount }, (_, index) => {
     const fallbackName = BOT_NAMES[index] ?? `Bot ${index + 1}`;
     const value = currentNames[index] ?? fallbackName;
+    const difficulty = normalizeBotDifficulty(currentDifficulties[index]);
     return `
-      <label class="field">
-        <span>Bot ${index + 1} name</span>
-        <input
-          id="botName${index + 1}"
-          type="text"
-          maxlength="24"
-          autocomplete="off"
-          placeholder="${escapeHtml(fallbackName)}"
-          value="${escapeHtml(value)}"
-        />
-      </label>
+      <div class="bot-config-row">
+        <label class="field">
+          <span>Bot ${index + 1} name</span>
+          <input
+            id="botName${index + 1}"
+            type="text"
+            maxlength="24"
+            autocomplete="off"
+            placeholder="${escapeHtml(fallbackName)}"
+            value="${escapeHtml(value)}"
+          />
+        </label>
+        <label class="field bot-difficulty-field">
+          <span>Level</span>
+          <select id="botDifficulty${index + 1}">
+            ${BOT_DIFFICULTIES.map((entry) => `
+              <option value="${entry}" ${difficulty === entry ? "selected" : ""}>${difficultyLabel(entry)}</option>
+            `).join("")}
+          </select>
+        </label>
+      </div>
     `;
   }).join("");
 }
@@ -303,18 +355,31 @@ function botNameInput(index) {
   return els.botNameFields.querySelector(`#botName${index + 1}`);
 }
 
-function syncSetupBotNamesFromInputs() {
+function botDifficultyInput(index) {
+  return els.botNameFields.querySelector(`#botDifficulty${index + 1}`);
+}
+
+function syncSetupBotConfigFromInputs() {
   const nextNames = [...state.setupBotNames];
+  const nextDifficulties = [...state.setupBotDifficulties];
   for (let index = 0; index < 3; index += 1) {
-    const input = botNameInput(index);
-    if (input) {
-      nextNames[index] = input.value;
+    const nameInput = botNameInput(index);
+    const difficultyInput = botDifficultyInput(index);
+    if (nameInput) {
+      nextNames[index] = nameInput.value;
     } else if (!nextNames[index]) {
       nextNames[index] = BOT_NAMES[index] ?? `Bot ${index + 1}`;
     }
+    nextDifficulties[index] = difficultyInput
+      ? normalizeBotDifficulty(difficultyInput.value)
+      : normalizeBotDifficulty(nextDifficulties[index]);
   }
   state.setupBotNames = nextNames;
-  return nextNames;
+  state.setupBotDifficulties = nextDifficulties;
+  return {
+    names: nextNames,
+    difficulties: nextDifficulties,
+  };
 }
 
 function hydrateSavedGame() {
@@ -424,6 +489,7 @@ function snapshotState() {
     selectedSkipTargetId: state.selectedSkipTargetId,
     pendingSkipPlayerIds: state.pendingSkipPlayerIds,
     logs: state.logs,
+    roundHistory: state.roundHistory,
     pendingRoundSummary: state.pendingRoundSummary,
     winnerId: state.winnerId,
     handSortMode: state.handSortMode,
@@ -465,6 +531,7 @@ function hydrateStateFromPayload(payload, options = {}) {
   state.logs = Array.isArray(payload.logs)
     ? payload.logs.map((entry) => String(entry)).slice(0, 14)
     : [];
+  state.roundHistory = normalizeRoundHistory(payload.roundHistory);
   state.pendingRoundSummary =
     payload.pendingRoundSummary && typeof payload.pendingRoundSummary === "object"
       ? payload.pendingRoundSummary
@@ -488,15 +555,17 @@ function hydrateStateFromPayload(payload, options = {}) {
 }
 
 function normalizePlayerRecord(player, index) {
+  const isHuman = Boolean(player?.isHuman);
   return {
     id: String(player?.id ?? `restored-${index + 1}`),
     name: normalizeName(player?.name, index === 0 ? "Player 1" : `Player ${index + 1}`),
-    isHuman: Boolean(player?.isHuman),
+    isHuman,
     score: clampNumber(player?.score, 0, 999999, 0),
     phaseIndex: clampNumber(player?.phaseIndex, 0, PHASES.length, 0),
     hand: normalizeCardList(player?.hand),
     laidGroups: normalizeLaidGroups(player?.laidGroups),
     completedPhaseThisRound: Boolean(player?.completedPhaseThisRound),
+    difficulty: isHuman ? null : normalizeBotDifficulty(player?.difficulty),
   };
 }
 
@@ -526,6 +595,35 @@ function normalizeLaidGroups(groups) {
   return groups
     .map((group, index) => normalizeLaidGroup(group, index))
     .filter(Boolean);
+}
+
+function normalizeRoundHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .map((entry, index) => normalizeRoundHistoryEntry(entry, index))
+    .filter(Boolean);
+}
+
+function normalizeRoundHistoryEntry(entry, index) {
+  if (!entry || typeof entry !== "object") return null;
+  const normalizedResults = {};
+  if (entry.playerResults && typeof entry.playerResults === "object") {
+    Object.entries(entry.playerResults).forEach(([playerId, result]) => {
+      if (!result || typeof result !== "object") return;
+      normalizedResults[String(playerId)] = {
+        points: clampNumber(result.points, 0, 999999, 0),
+        completedPhaseNumber:
+          result.completedPhaseNumber == null
+            ? null
+            : clampNumber(result.completedPhaseNumber, 1, PHASES.length, 1),
+      };
+    });
+  }
+  return {
+    roundNumber: clampNumber(entry.roundNumber, 1, 999, index + 1),
+    outPlayerId: normalizeSelectedCardId(entry.outPlayerId),
+    playerResults: normalizedResults,
+  };
 }
 
 function normalizeLaidGroup(group, index) {
@@ -575,6 +673,10 @@ function normalizeHandSortMode(value) {
   return value === "number" ? "number" : "color";
 }
 
+function normalizeBotDifficulty(value) {
+  return BOT_DIFFICULTIES.includes(value) ? value : "medium";
+}
+
 function syncSetupControlsFromState() {
   const human = humanPlayer();
   if (human) {
@@ -585,7 +687,15 @@ function syncSetupControlsFromState() {
   if (botCount >= 1 && botCount <= 3) {
     els.botCount.value = String(botCount);
   }
-  renderBotNameFields(botPlayers.map((player) => player.name));
+  renderBotNameFields(
+    botPlayers.map((player) => player.name),
+    botPlayers.map((player) => player.difficulty),
+  );
+}
+
+function difficultyLabel(value) {
+  const normalized = normalizeBotDifficulty(value);
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function sessionOptionLabel(session) {
@@ -659,7 +769,9 @@ function startNewGame() {
   setSessionStatusMessage("");
   const humanName = normalizeName(els.humanName.value, "Player 1");
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
-  const customBotNames = syncSetupBotNamesFromInputs().slice(0, botCount);
+  const setupBotConfig = syncSetupBotConfigFromInputs();
+  const customBotNames = setupBotConfig.names.slice(0, botCount);
+  const customBotDifficulties = setupBotConfig.difficulties.slice(0, botCount);
   const usedNames = new Set([humanName.toLowerCase()]);
 
   state.players = [
@@ -669,6 +781,7 @@ function startNewGame() {
         `bot-${index + 1}`,
         resolveBotName(customBotNames[index], usedNames, index),
         false,
+        customBotDifficulties[index],
       ),
     ),
   ];
@@ -683,6 +796,7 @@ function startNewGame() {
   state.selectedSkipTargetId = null;
   state.pendingSkipPlayerIds = [];
   state.logs = [];
+  state.roundHistory = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
   state.currentSessionId = null;
@@ -707,6 +821,7 @@ function resetTable() {
   state.selectedSkipTargetId = null;
   state.pendingSkipPlayerIds = [];
   state.logs = [];
+  state.roundHistory = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
   state.currentSessionId = null;
@@ -933,11 +1048,12 @@ async function importSessionFile(file) {
   }
 }
 
-function createPlayer(id, name, isHuman) {
+function createPlayer(id, name, isHuman, difficulty = "medium") {
   return {
     id,
     name,
     isHuman,
+    difficulty: isHuman ? null : normalizeBotDifficulty(difficulty),
     score: 0,
     phaseIndex: 0,
     hand: [],
@@ -1227,11 +1343,20 @@ function advanceToNextActivePlayer() {
 
 function finishRound(outPlayer, finalDiscardWasSkip) {
   const leftoverScores = {};
+  const roundHistoryEntry = {
+    roundNumber: state.roundNumber,
+    outPlayerId: outPlayer.id,
+    playerResults: {},
+  };
   for (const player of state.players) {
     leftoverScores[player.id] = player.hand.reduce(
       (sum, card) => sum + cardPoints(card),
       0,
     );
+    roundHistoryEntry.playerResults[player.id] = {
+      points: leftoverScores[player.id],
+      completedPhaseNumber: player.completedPhaseThisRound ? player.phaseIndex + 1 : null,
+    };
     player.score += leftoverScores[player.id];
     if (player.completedPhaseThisRound && player.phaseIndex < PHASES.length) {
       player.phaseIndex += 1;
@@ -1250,6 +1375,7 @@ function finishRound(outPlayer, finalDiscardWasSkip) {
     leftoverScores,
     finalDiscardWasSkip,
   };
+  state.roundHistory = [...state.roundHistory, roundHistoryEntry];
   state.winnerId = winner?.id ?? null;
   state.roundStarterIndex = state.players.findIndex((player) => player.id === outPlayer.id);
   state.turnStage = winner ? "game-over" : "round-end";
@@ -1326,6 +1452,10 @@ async function queueBotTurnIfNeeded() {
   }
 }
 
+function botDifficulty(player) {
+  return normalizeBotDifficulty(player?.difficulty);
+}
+
 function chooseBotDrawSource(player) {
   const discard = topDiscard();
   if (!discard) return "deck";
@@ -1343,14 +1473,25 @@ function chooseBotDrawSource(player) {
   const withDiscard = Boolean(findBestPhaseMeld([...player.hand, discard], phase));
   if (!withoutDiscard && withDiscard) return "discard";
 
+  const difficulty = botDifficulty(player);
+  if (difficulty === "hard") {
+    const bestWithout = findBestPhaseMeld(player.hand, phase);
+    const bestWith = findBestPhaseMeld([...player.hand, discard], phase);
+    if (bestWith && bestWithout && bestWith.points > bestWithout.points + 8) {
+      return "discard";
+    }
+  }
+
   const keepScore = scoreCardKeepValue(discard, player, [...player.hand, discard]);
+  if (difficulty === "easy") return keepScore >= 68 ? "discard" : "deck";
+  if (difficulty === "hard") return keepScore >= 42 ? "discard" : "deck";
   return keepScore >= 52 ? "discard" : "deck";
 }
 
 function chooseBotDiscard(player) {
   const ordered = [...player.hand].sort((left, right) => {
-    const leftRank = scoreCardKeepValue(left, player, player.hand) - cardPoints(left) * 1.15;
-    const rightRank = scoreCardKeepValue(right, player, player.hand) - cardPoints(right) * 1.15;
+    const leftRank = discardRankForBot(left, player, player.hand);
+    const rightRank = discardRankForBot(right, player, player.hand);
     if (leftRank !== rightRank) return leftRank - rightRank;
     return cardPoints(right) - cardPoints(left);
   });
@@ -1360,6 +1501,9 @@ function chooseBotDiscard(player) {
 function chooseBotSkipTarget(player) {
   const targets = skipTargetsFor(player);
   if (!targets.length) return null;
+  if (botDifficulty(player) === "easy") {
+    return defaultSkipTargetFor(player);
+  }
 
   const scoredTargets = targets.map((target) => ({
     target,
@@ -1375,7 +1519,7 @@ function chooseBotSkipTarget(player) {
 }
 
 function layPhaseForPlayer(player, options = {}) {
-  const { autoPlayAfterLay = !player.isHuman } = options;
+  const { autoPlayAfterLay = !player.isHuman && botDifficulty(player) !== "easy" } = options;
   const phase = currentPhaseFor(player);
   if (!phase || player.laidGroups.length) return false;
   const bestMeld = findBestPhaseMeld(player.hand, phase);
@@ -1433,8 +1577,9 @@ function autoPlayExtras(player) {
   if (!player.laidGroups.length) return 0;
   let moved = 0;
   let foundMove = true;
+  const maxMoves = botDifficulty(player) === "easy" ? 1 : Infinity;
 
-  while (foundMove && player.hand.length > 1) {
+  while (foundMove && player.hand.length > 1 && moved < maxMoves) {
     foundMove = false;
     const candidates = [...player.hand].sort(
       (left, right) => cardPoints(right) - cardPoints(left),
@@ -1944,6 +2089,30 @@ function toggleHandSortMode() {
   render();
 }
 
+function discardRankForBot(card, player, hand) {
+  const keepScore = scoreCardKeepValue(card, player, hand);
+  const difficulty = botDifficulty(player);
+
+  if (difficulty === "easy") {
+    if (card.type === "wild") return keepScore - 34;
+    if (card.type === "skip") return keepScore - 12;
+    return keepScore - cardPoints(card) * 0.55;
+  }
+
+  if (difficulty === "hard") {
+    let rank = keepScore - cardPoints(card) * 0.9;
+    if (player.laidGroups.length && canCardBeHitAnywhere(card, player.id)) rank += 24;
+    if (card.type === "wild" && !player.laidGroups.length) rank += 18;
+    if (card.type === "skip") {
+      const target = chooseBotSkipTarget(player);
+      if ((target?.hand.length ?? 99) <= 3) rank += 12;
+    }
+    return rank;
+  }
+
+  return keepScore - cardPoints(card) * 1.15;
+}
+
 function scoreCardKeepValue(card, player, hand) {
   if (card.type === "wild") {
     return player.laidGroups.length ? 58 : 96;
@@ -2056,6 +2225,17 @@ function deckCardMarkup(deckCount) {
   `;
 }
 
+function miniPileButtonClass(card) {
+  if (!card) return "mini-pile-action mini-pile-action--discard";
+  return `mini-pile-action mini-pile-action--discard card-type-${card.type}`;
+}
+
+function miniPileButtonStyle(card) {
+  if (!card || card.type !== "number") return "";
+  const colorMeta = COLORS.find((entry) => entry.id === card.color);
+  return colorMeta?.css ? `--color: ${colorMeta.css};` : "";
+}
+
 function cardShortLabel(card) {
   if (!card) return "";
   if (card.type === "wild") return "W";
@@ -2078,7 +2258,7 @@ function render() {
   renderStatus();
   renderBoard();
   renderHand();
-  renderLog();
+  renderRoundHistory();
   persistGame();
 }
 
@@ -2247,11 +2427,17 @@ function renderStatus() {
   els.discardPreview.innerHTML = faceCardMarkup(discard);
   els.drawDeckBtn.setAttribute("aria-label", `Draw from deck: ${state.deck.length} cards remaining`);
   els.drawDeckBtn.title = `Draw from deck: ${state.deck.length} cards remaining`;
+  els.actionDrawDeckBtn.setAttribute("aria-label", els.drawDeckBtn.getAttribute("aria-label") ?? "Draw from deck");
+  els.actionDrawDeckBtn.title = els.drawDeckBtn.title;
   els.takeDiscardBtn.setAttribute(
     "aria-label",
     discard ? `Take discard: ${cardLabel(discard)}` : "Take discard",
   );
   els.takeDiscardBtn.title = discard ? `Take discard: ${cardLabel(discard)}` : "Take discard";
+  els.actionTakeDiscardBtn.setAttribute("aria-label", els.takeDiscardBtn.getAttribute("aria-label") ?? "Take discard");
+  els.actionTakeDiscardBtn.title = els.takeDiscardBtn.title;
+  els.actionTakeDiscardBtn.className = miniPileButtonClass(discard);
+  els.actionTakeDiscardBtn.style.cssText = miniPileButtonStyle(discard);
 
   els.drawDeckBtn.disabled = !isHumanTurn() || state.turnStage !== "draw" || state.busy;
   els.takeDiscardBtn.disabled =
@@ -2259,6 +2445,8 @@ function renderStatus() {
     state.turnStage !== "draw" ||
     state.busy ||
     !canTakeTopDiscard();
+  els.actionDrawDeckBtn.disabled = els.drawDeckBtn.disabled;
+  els.actionTakeDiscardBtn.disabled = els.takeDiscardBtn.disabled;
   els.layPhaseBtn.disabled =
     !isHumanTurn() ||
     state.turnStage !== "main" ||
@@ -2358,6 +2546,7 @@ function renderBoard() {
       const isSelectedSkipTarget = activeSkipTarget?.id === player.id;
       const badges = [
         `<span class="badge ${player.id === state.winnerId ? "gold" : ""}">${player.isHuman ? "Human" : "Bot"}</span>`,
+        !player.isHuman ? `<span class="badge">${escapeHtml(difficultyLabel(player.difficulty))}</span>` : "",
         player === currentPlayer() && state.turnStage !== "round-end" && state.turnStage !== "game-over"
           ? `<span class="badge gold">Current turn</span>`
           : "",
@@ -2488,14 +2677,63 @@ function renderHand() {
     .join("");
 }
 
-function renderLog() {
-  if (!state.logs.length) {
-    els.logList.innerHTML = `<li>The table log will appear here once play starts.</li>`;
+function renderRoundHistory() {
+  if (!state.players.length || !state.roundHistory.length) {
+    els.roundHistorySummary.textContent = state.gameStarted
+      ? "Complete a round to start the table history."
+      : "Start a game to track round-by-round results.";
+    els.roundHistoryWrap.innerHTML = `<div class="empty-board">Round results will appear here once a round ends.</div>`;
     return;
   }
-  els.logList.innerHTML = state.logs
-    .map((entry) => `<li>${escapeHtml(entry)}</li>`)
+
+  const rows = state.roundHistory
+    .map((entry) => {
+      const outPlayerName = state.players.find((player) => player.id === entry.outPlayerId)?.name ?? "Unknown";
+      const playerCells = state.players
+        .map((player) => {
+          const result = entry.playerResults[player.id];
+          const points = result ? `+${result.points}` : "-";
+          const phaseNote = result?.completedPhaseNumber
+            ? `Phase ${result.completedPhaseNumber}`
+            : "No phase";
+          return `
+            <td>
+              <div class="round-history-cell">
+                <strong>${escapeHtml(points)}</strong>
+                <span>${escapeHtml(phaseNote)}</span>
+              </div>
+            </td>
+          `;
+        })
+        .join("");
+
+      return `
+        <tr>
+          <th scope="row">R${entry.roundNumber}</th>
+          ${playerCells}
+          <td class="round-history-out">${escapeHtml(outPlayerName)}</td>
+        </tr>
+      `;
+    })
     .join("");
+
+  const headCells = state.players
+    .map((player) => `<th scope="col">${escapeHtml(player.name)}</th>`)
+    .join("");
+
+  els.roundHistorySummary.textContent = `${state.roundHistory.length} completed round${state.roundHistory.length === 1 ? "" : "s"} on this table.`;
+  els.roundHistoryWrap.innerHTML = `
+    <table class="round-history-table">
+      <thead>
+        <tr>
+          <th scope="col">Round</th>
+          ${headCells}
+          <th scope="col">Went Out</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
 
 function renderMeldStack(player, targetIds, selectedCard, options = {}) {

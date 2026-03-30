@@ -121,13 +121,6 @@
             </div>
           </section>
 
-          <section class="panel">
-            <div class="panel-head">
-              <h2>Action Log</h2>
-              <p>Recent table events, draws, lays, skips, and round endings.</p>
-            </div>
-            <ol id="logList" class="log-list"></ol>
-          </section>
         </aside>
 
         <section class="table-area">
@@ -185,13 +178,19 @@
                 <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
                 <div class="human-action-layout compact">
                   <div class="button-stack action-button-row compact">
+                    <button id="actionDrawDeckBtn" class="mini-pile-action mini-pile-action--deck" type="button">
+                      Draw Card
+                    </button>
+                    <button id="actionTakeDiscardBtn" class="mini-pile-action mini-pile-action--discard" type="button">
+                      Draw Discard
+                    </button>
                     <button id="layPhaseBtn" class="btn btn-primary" type="button">
-                      Lay Current Phase
+                      Lay Phase
                     </button>
                     <button id="discardBtn" class="btn" type="button">
-                      Discard Selected Card
+                      Discard Selected
                     </button>
-                    <button id="nextRoundBtn" class="btn" type="button">
+                    <button id="nextRoundBtn" class="btn action-span-two" type="button">
                       Deal Next Round
                     </button>
                   </div>
@@ -206,6 +205,16 @@
               </section>
             </div>
             <div id="humanHand" class="human-hand"></div>
+          </section>
+
+          <section class="panel round-history-panel">
+            <div class="panel-head">
+              <h2>Round History</h2>
+              <p id="roundHistorySummary">
+                Complete a round to start the table history.
+              </p>
+            </div>
+            <div id="roundHistoryWrap" class="round-history-wrap"></div>
           </section>
         </section>
       </main>
