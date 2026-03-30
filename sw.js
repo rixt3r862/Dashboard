@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v3";
+const VERSION = "dashboard-v4";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -19,6 +19,7 @@ const CORE_ASSETS = [
   "./QR%20Tool.html",
   "./Date%20Math%20Tool.html",
   "./Games/index.html",
+  "./TimeTools/index.html",
   "./Phase10/index.html",
   "./Phase10/phase10.css",
   "./Phase10/phase10.js",

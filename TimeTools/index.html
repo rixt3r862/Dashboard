@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Time Tools</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#9a3412" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="manifest" href="../app.webmanifest" />
+    <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%239a3412%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>⏱</text></svg>"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg-top: #f8eddc;
+        --bg-bottom: #f3d9bf;
+        --ink: #2f170e;
+        --muted: #735245;
+        --line: rgba(77, 35, 18, 0.12);
+        --panel: rgba(255, 251, 245, 0.84);
+        --panel-strong: rgba(255, 253, 250, 0.95);
+        --accent: #9a3412;
+        --accent-soft: rgba(154, 52, 18, 0.12);
+        --shadow: 0 24px 60px rgba(88, 41, 22, 0.16);
+      }
+
+      html.dark {
+        color-scheme: dark;
+        --bg-top: #1b100c;
+        --bg-bottom: #3a1d11;
+        --ink: #fff3ea;
+        --muted: #e6c4b2;
+        --line: rgba(255, 233, 220, 0.14);
+        --panel: rgba(34, 18, 12, 0.82);
+        --panel-strong: rgba(46, 24, 16, 0.92);
+        --accent: #fb923c;
+        --accent-soft: rgba(251, 146, 60, 0.12);
+        --shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.32), transparent 28%),
+          linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .page {
+        width: min(1100px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 1.5rem 0 3.5rem;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .crumbs {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .crumbs a {
+        font-weight: 700;
+      }
+
+      .theme-toggle {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel);
+        color: var(--ink);
+        padding: 0.7rem 1rem;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 32px;
+        padding: 2rem;
+        background:
+          radial-gradient(circle at top right, rgba(255, 255, 255, 0.3), transparent 30%),
+          linear-gradient(135deg, rgba(154, 52, 18, 0.16), rgba(154, 52, 18, 0.04)),
+          var(--panel-strong);
+        box-shadow: var(--shadow);
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: auto auto -3rem -2rem;
+        width: 11rem;
+        height: 11rem;
+        border-radius: 50%;
+        background: rgba(154, 52, 18, 0.08);
+      }
+
+      .hero-kicker {
+        margin: 0 0 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: var(--muted);
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(2.3rem, 4vw, 4.1rem);
+        line-height: 0.95;
+      }
+
+      .hero p {
+        max-width: 46rem;
+        margin: 1rem 0 0;
+        font-size: 1.05rem;
+        line-height: 1.75;
+        color: var(--muted);
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem;
+        margin-top: 1.5rem;
+      }
+
+      .hero-link,
+      .hero-link-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 0.85rem 1.15rem;
+        font-weight: 700;
+      }
+
+      .hero-link {
+        background: var(--accent);
+        color: #fff8f2;
+      }
+
+      .hero-link-secondary {
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .section {
+        margin-top: 1.5rem;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        font-size: 1.45rem;
+      }
+
+      .section-head p,
+      .section-note,
+      .footer-note {
+        color: var(--muted);
+      }
+
+      .section-head p {
+        margin: 0.35rem 0 0;
+      }
+
+      .hub-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+      }
+
+      .hub-card,
+      .idea-card {
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .hub-card {
+        display: block;
+        padding: 1.35rem;
+        transition:
+          transform 0.16s ease,
+          border-color 0.16s ease,
+          background 0.16s ease;
+      }
+
+      .hub-card:hover,
+      .hub-card:focus-visible {
+        transform: translateY(-4px);
+        border-color: rgba(154, 52, 18, 0.32);
+        background: var(--panel-strong);
+        outline: none;
+      }
+
+      .card-top {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .card-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 18px;
+        background: var(--accent-soft);
+        font-size: 1.5rem;
+      }
+
+      .card-tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .hub-card h3,
+      .idea-card h3 {
+        margin: 1rem 0 0.45rem;
+        font-size: 1.28rem;
+      }
+
+      .hub-card p,
+      .idea-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .meta-pill {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.45rem 0.7rem;
+        font-size: 0.86rem;
+        background: rgba(255, 255, 255, 0.55);
+      }
+
+      html.dark .meta-pill {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .ideas-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+      }
+
+      .idea-card {
+        padding: 1.2rem;
+      }
+
+      .idea-card strong {
+        display: block;
+        margin-bottom: 0.45rem;
+        font-size: 0.95rem;
+      }
+
+      .footer-note {
+        margin-top: 1rem;
+        font-size: 0.95rem;
+      }
+
+      @media (max-width: 860px) {
+        .hub-grid,
+        .ideas-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .section-head {
+          align-items: start;
+          flex-direction: column;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          width: min(100% - 1rem, 1100px);
+          padding-top: 1rem;
+        }
+
+        .topbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .theme-toggle,
+        .hero-link,
+        .hero-link-secondary {
+          width: 100%;
+        }
+
+        .hero {
+          padding: 1.4rem;
+          border-radius: 26px;
+        }
+
+        .hero-actions {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="../index.html">Dashboard</a>
+          <span>/</span>
+          <span>Time Tools</span>
+        </nav>
+        <button id="themeToggle" class="theme-toggle" type="button">
+          Toggle Theme
+        </button>
+      </header>
+
+      <main>
+        <section class="hero">
+          <p class="hero-kicker">Time Desk</p>
+          <h1>Time Tools</h1>
+          <p>
+            A single place for clocks, countdowns, quick time conversions, and
+            date math. The main dashboard stays lighter while the time-focused
+            utilities stay close together.
+          </p>
+          <div class="hero-actions">
+            <a class="hero-link" href="../clock.html" data-dashboard-url="./clock.html">
+              Open Clock
+            </a>
+            <a
+              class="hero-link-secondary"
+              href="../Timer.html"
+              data-dashboard-url="./Timer.html"
+            >
+              Open Timer
+            </a>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="timeAppsTitle">
+          <div class="section-head">
+            <div>
+              <h2 id="timeAppsTitle">Available Tools</h2>
+              <p>Everything here already exists in the dashboard, now grouped together.</p>
+            </div>
+            <div class="section-note">Launches from this page still feed dashboard recents.</div>
+          </div>
+          <div id="toolsGrid" class="hub-grid"></div>
+        </section>
+
+        <section class="section" aria-labelledby="futureTimeTitle">
+          <div class="section-head">
+            <div>
+              <h2 id="futureTimeTitle">Expansion Room</h2>
+              <p>This hub is ready if you add more date and scheduling helpers later.</p>
+            </div>
+          </div>
+          <div class="ideas-grid">
+            <article class="idea-card">
+              <strong>Future idea</strong>
+              <h3>Alarm or reminder app</h3>
+              <p>
+                This hub would be a natural home for simple reminders, alarms, or
+                shift timers.
+              </p>
+            </article>
+            <article class="idea-card">
+              <strong>Future idea</strong>
+              <h3>Timezone helper</h3>
+              <p>
+                If you ever add multiple time zones or meeting planning, it fits
+                right into this section.
+              </p>
+            </article>
+            <article class="idea-card">
+              <strong>Why bundle it</strong>
+              <h3>Cleaner top-level dashboard</h3>
+              <p>
+                One card on the main page now covers four related tools without
+                changing their actual file locations.
+              </p>
+            </article>
+          </div>
+          <p class="footer-note">
+            Existing app paths stay unchanged, so this reorganization is easy to
+            extend later.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <template id="toolCardTemplate">
+      <a class="hub-card" target="_self" rel="noopener">
+        <div class="card-top">
+          <span class="card-icon" aria-hidden="true"></span>
+          <span class="card-tag"></span>
+        </div>
+        <h3></h3>
+        <p></p>
+        <div class="card-meta"></div>
+      </a>
+    </template>
+
+    <script>
+      const DASHBOARD_THEME_KEY = "dash.theme";
+      const DASHBOARD_RECENTS_KEY = "dash.recentApps";
+      const TIME_APPS = [
+        {
+          name: "Clock",
+          href: "../clock.html",
+          dashboardUrl: "./clock.html",
+          icon: "⏰",
+          tag: "Display",
+          desc: "Quick access to the current time with a dedicated display view.",
+          meta: ["live time", "large display"],
+        },
+        {
+          name: "24h Time Helper",
+          href: "../Time Converter.html",
+          dashboardUrl: "./Time Converter.html",
+          icon: "🕒",
+          tag: "Convert",
+          desc: "Translate 24-hour time into 12-hour format without mental math.",
+          meta: ["24h to 12h", "fast lookup"],
+        },
+        {
+          name: "Timer",
+          href: "../Timer.html",
+          dashboardUrl: "./Timer.html",
+          icon: "⏳",
+          tag: "Countdown",
+          desc: "Run a focused countdown timer for quick tasks and routines.",
+          meta: ["countdown", "single-purpose"],
+        },
+        {
+          name: "Date Math Tool",
+          href: "../Date Math Tool.html",
+          dashboardUrl: "./Date Math Tool.html",
+          icon: "📅",
+          tag: "Calendar",
+          desc: "Add and subtract dates or calculate the gap between two days.",
+          meta: ["date offsets", "day differences"],
+        },
+      ];
+
+      (function initTheme() {
+        const userPref = localStorage.getItem(DASHBOARD_THEME_KEY);
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        if (userPref ? userPref === "dark" : prefersDark) {
+          document.documentElement.classList.add("dark");
+        }
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          document.documentElement.classList.toggle("dark");
+          localStorage.setItem(
+            DASHBOARD_THEME_KEY,
+            document.documentElement.classList.contains("dark")
+              ? "dark"
+              : "light",
+          );
+        });
+      })();
+
+      function readJson(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return fallback;
+          const parsed = JSON.parse(raw);
+          return parsed ?? fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function writeJson(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {}
+      }
+
+      function trackVisit(url) {
+        const next = [
+          { url, ts: Date.now() },
+          ...readJson(DASHBOARD_RECENTS_KEY, []).filter(
+            (entry) => entry && entry.url !== url && Number.isFinite(Number(entry.ts)),
+          ),
+        ].slice(0, 6);
+        writeJson(DASHBOARD_RECENTS_KEY, next);
+      }
+
+      function renderTools() {
+        const grid = document.getElementById("toolsGrid");
+        const template = document.getElementById("toolCardTemplate");
+        for (const tool of TIME_APPS) {
+          const card = template.content.firstElementChild.cloneNode(true);
+          card.href = tool.href;
+          card.dataset.dashboardUrl = tool.dashboardUrl;
+          card.querySelector(".card-icon").textContent = tool.icon;
+          card.querySelector(".card-tag").textContent = tool.tag;
+          card.querySelector("h3").textContent = tool.name;
+          card.querySelector("p").textContent = tool.desc;
+
+          const meta = card.querySelector(".card-meta");
+          for (const item of tool.meta) {
+            const chip = document.createElement("span");
+            chip.className = "meta-pill";
+            chip.textContent = item;
+            meta.appendChild(chip);
+          }
+          grid.appendChild(card);
+        }
+      }
+
+      renderTools();
+
+      document.addEventListener("click", (event) => {
+        const link = event.target.closest("[data-dashboard-url]");
+        if (!(link instanceof HTMLAnchorElement)) return;
+        const dashboardUrl = link.getAttribute("data-dashboard-url");
+        if (!dashboardUrl) return;
+        trackVisit(dashboardUrl);
+      });
+    </script>
+  </body>
+</html>
