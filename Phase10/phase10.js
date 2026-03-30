@@ -108,6 +108,7 @@ const state = {
   winnerId: null,
   transientNotice: null,
   handSortMode: "color",
+  setupBotNames: BOT_NAMES.slice(0, 3),
 };
 
 const els = {
@@ -160,7 +161,17 @@ function bindEvents() {
   });
 
   els.botCount.addEventListener("change", () => {
+    syncSetupBotNamesFromInputs();
     renderBotNameFields();
+  });
+  els.botNameFields.addEventListener("input", (event) => {
+    const input = event.target.closest("input[id^='botName']");
+    if (!input) return;
+    const match = input.id.match(/^botName(\d)$/);
+    if (!match) return;
+    const index = Number(match[1]) - 1;
+    if (index < 0 || index > 2) return;
+    state.setupBotNames[index] = input.value;
   });
   els.resetTableBtn.addEventListener("click", resetTable);
   els.drawDeckBtn.addEventListener("click", () => humanDraw("deck"));
@@ -204,7 +215,13 @@ function bindEvents() {
 
 function renderBotNameFields(preferredNames = null) {
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
-  const currentNames = preferredNames ?? readSetupBotNames(3);
+  if (preferredNames) {
+    state.setupBotNames = Array.from({ length: 3 }, (_, index) => {
+      const fallbackName = BOT_NAMES[index] ?? `Bot ${index + 1}`;
+      return preferredNames[index] ?? state.setupBotNames[index] ?? fallbackName;
+    });
+  }
+  const currentNames = syncSetupBotNamesFromInputs();
 
   els.botNameFields.innerHTML = Array.from({ length: botCount }, (_, index) => {
     const fallbackName = BOT_NAMES[index] ?? `Bot ${index + 1}`;
@@ -227,9 +244,27 @@ function renderBotNameFields(preferredNames = null) {
 
 function readSetupBotNames(count) {
   return Array.from({ length: count }, (_, index) => {
-    const input = document.getElementById(`botName${index + 1}`);
+    const input = botNameInput(index);
     return input ? input.value : "";
   });
+}
+
+function botNameInput(index) {
+  return els.botNameFields.querySelector(`#botName${index + 1}`);
+}
+
+function syncSetupBotNamesFromInputs() {
+  const nextNames = [...state.setupBotNames];
+  for (let index = 0; index < 3; index += 1) {
+    const input = botNameInput(index);
+    if (input) {
+      nextNames[index] = input.value;
+    } else if (!nextNames[index]) {
+      nextNames[index] = BOT_NAMES[index] ?? `Bot ${index + 1}`;
+    }
+  }
+  state.setupBotNames = nextNames;
+  return nextNames;
 }
 
 function hydrateSavedGame() {
@@ -432,7 +467,7 @@ function startNewGame() {
   clearTransientNotice();
   const humanName = normalizeName(els.humanName.value, "Player 1");
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
-  const customBotNames = readSetupBotNames(botCount);
+  const customBotNames = syncSetupBotNamesFromInputs().slice(0, botCount);
   const usedNames = new Set([humanName.toLowerCase()]);
 
   state.players = [
