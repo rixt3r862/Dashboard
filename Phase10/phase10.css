@@ -399,6 +399,45 @@ select {
   font-size: 0.92rem;
 }
 
+.session-tools {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.15rem;
+}
+
+.session-button-row {
+  gap: 0.45rem;
+}
+
+.session-tools .btn,
+.session-tools .field select {
+  font-size: 0.84rem;
+}
+
+.session-tools .btn {
+  padding: 0.56rem 0.72rem;
+  border-radius: 0.85rem;
+}
+
+.btn-danger {
+  border-color: rgba(217, 75, 75, 0.35);
+  background: rgba(217, 75, 75, 0.12);
+  color: #ffd7d7;
+}
+
+.btn-danger:hover {
+  background: rgba(217, 75, 75, 0.18);
+  border-color: rgba(217, 75, 75, 0.5);
+}
+
+.session-status {
+  margin: 0;
+  min-height: 2.8em;
+  color: var(--muted);
+  font-size: 0.79rem;
+  line-height: 1.4;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

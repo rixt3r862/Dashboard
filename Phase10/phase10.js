@@ -17,6 +17,8 @@ const BOT_NAMES = [
 ];
 
 const STORAGE_KEY = "phase10.table.v1";
+const SESSIONS_KEY = "phase10.table.sessions.v1";
+const EXPORT_VERSION = 1;
 let lastBannerStage = null;
 let transientNoticeTimer = null;
 
@@ -111,6 +113,9 @@ const state = {
   transientNotice: null,
   handSortMode: "color",
   setupBotNames: BOT_NAMES.slice(0, 3),
+  currentSessionId: null,
+  selectedSessionId: "",
+  sessionStatusMessage: "",
 };
 
 const els = {
@@ -120,6 +125,14 @@ const els = {
   botNameFields: document.getElementById("botNameFields"),
   startGameBtn: document.getElementById("startGameBtn"),
   resetTableBtn: document.getElementById("resetTableBtn"),
+  saveSessionBtn: document.getElementById("saveSessionBtn"),
+  downloadSessionBtn: document.getElementById("downloadSessionBtn"),
+  importSessionBtn: document.getElementById("importSessionBtn"),
+  loadSessionBtn: document.getElementById("loadSessionBtn"),
+  deleteSessionBtn: document.getElementById("deleteSessionBtn"),
+  savedSessionSelect: document.getElementById("savedSessionSelect"),
+  importSessionFile: document.getElementById("importSessionFile"),
+  sessionStatus: document.getElementById("sessionStatus"),
   statusText: document.getElementById("statusText"),
   roundValue: document.getElementById("roundValue"),
   turnValue: document.getElementById("turnValue"),
@@ -176,6 +189,25 @@ function bindEvents() {
     state.setupBotNames[index] = input.value;
   });
   els.resetTableBtn.addEventListener("click", resetTable);
+  els.saveSessionBtn.addEventListener("click", saveNamedSession);
+  els.downloadSessionBtn.addEventListener("click", () => {
+    exportSessionFile();
+  });
+  els.importSessionBtn.addEventListener("click", () => {
+    els.importSessionFile.click();
+  });
+  els.loadSessionBtn.addEventListener("click", () => {
+    loadSelectedSession();
+  });
+  els.deleteSessionBtn.addEventListener("click", deleteSelectedSession);
+  els.savedSessionSelect.addEventListener("change", () => {
+    state.selectedSessionId = els.savedSessionSelect.value || "";
+    render();
+  });
+  els.importSessionFile.addEventListener("change", () => {
+    const file = els.importSessionFile.files?.[0];
+    importSessionFile(file);
+  });
   els.drawDeckBtn.addEventListener("click", () => humanDraw("deck"));
   els.takeDiscardBtn.addEventListener("click", () => humanDraw("discard"));
   els.layPhaseBtn.addEventListener("click", humanLayPhase);
@@ -209,6 +241,15 @@ function bindEvents() {
     if (!groupId) return;
     humanPlaySelectedCardToGroup(groupId);
   });
+  els.playersBoard.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const skipTargetCard = event.target.closest("[data-skip-target-id]");
+    if (!skipTargetCard) return;
+    event.preventDefault();
+    const targetId = skipTargetCard.getAttribute("data-skip-target-id");
+    if (!targetId) return;
+    humanSelectSkipTarget(targetId);
+  });
 
   els.humanSeatSummary.addEventListener("click", (event) => {
     const sortToggle = event.target.closest("[data-hand-sort-toggle]");
@@ -226,13 +267,18 @@ function bindEvents() {
 
 function renderBotNameFields(preferredNames = null) {
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
+  let currentNames;
   if (preferredNames) {
     state.setupBotNames = Array.from({ length: 3 }, (_, index) => {
       const fallbackName = BOT_NAMES[index] ?? `Bot ${index + 1}`;
       return preferredNames[index] ?? state.setupBotNames[index] ?? fallbackName;
     });
+    currentNames = [...state.setupBotNames];
+  } else {
+    currentNames = els.botNameFields.children.length
+      ? syncSetupBotNamesFromInputs()
+      : [...state.setupBotNames];
   }
-  const currentNames = syncSetupBotNamesFromInputs();
 
   els.botNameFields.innerHTML = Array.from({ length: botCount }, (_, index) => {
     const fallbackName = BOT_NAMES[index] ?? `Bot ${index + 1}`;
@@ -251,13 +297,6 @@ function renderBotNameFields(preferredNames = null) {
       </label>
     `;
   }).join("");
-}
-
-function readSetupBotNames(count) {
-  return Array.from({ length: count }, (_, index) => {
-    const input = botNameInput(index);
-    return input ? input.value : "";
-  });
 }
 
 function botNameInput(index) {
@@ -282,45 +321,11 @@ function hydrateSavedGame() {
   const saved = readSavedGame();
   if (!saved) return;
 
-  state.gameStarted = Boolean(saved.gameStarted);
-  state.busy = false;
-  state.players = Array.isArray(saved.players) ? saved.players.map(normalizePlayerRecord) : [];
-  state.roundNumber = clampNumber(saved.roundNumber, 1, 999, 1);
-  state.currentPlayerIndex = clampNumber(
-    saved.currentPlayerIndex,
-    0,
-    Math.max(0, state.players.length - 1),
-    0,
-  );
-  state.roundStarterIndex = clampNumber(
-    saved.roundStarterIndex,
-    0,
-    Math.max(0, state.players.length - 1),
-    0,
-  );
-  state.turnStage = normalizeTurnStage(saved.turnStage);
-  state.deck = normalizeCardList(saved.deck);
-  state.discardPile = normalizeCardList(saved.discardPile);
-  state.selectedCardId = normalizeSelectedCardId(saved.selectedCardId);
-  state.lastDrawnCardId = normalizeSelectedCardId(saved.lastDrawnCardId);
-  state.selectedSkipTargetId = normalizeSelectedCardId(saved.selectedSkipTargetId);
-  state.pendingSkipPlayerIds = normalizeIdList(saved.pendingSkipPlayerIds);
-  state.logs = Array.isArray(saved.logs)
-    ? saved.logs.map((entry) => String(entry)).slice(0, 14)
-    : [];
-  state.pendingRoundSummary =
-    saved.pendingRoundSummary && typeof saved.pendingRoundSummary === "object"
-      ? saved.pendingRoundSummary
-      : null;
-  state.winnerId = saved.winnerId ? String(saved.winnerId) : null;
-  state.handSortMode = normalizeHandSortMode(saved.handSortMode);
-
-  if (!state.gameStarted || !state.players.length) {
+  const restored = hydrateStateFromPayload(saved, { syncSetupControls: true });
+  if (!restored) {
     clearSavedGame();
     return;
   }
-
-  syncSetupControlsFromState();
   appendLog("Saved game restored.");
 }
 
@@ -362,6 +367,47 @@ function clearSavedGame() {
   } catch {}
 }
 
+function readStoredSessions() {
+  try {
+    const raw = window.localStorage.getItem(SESSIONS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeSessionRecord).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredSessions(sessions) {
+  try {
+    window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeSessionRecord(session) {
+  if (!session || typeof session !== "object") return null;
+  if (typeof session.id !== "string" || !session.id) return null;
+  if (!session.payload || typeof session.payload !== "object") return null;
+  const createdAt = Number(session.createdAt) || Date.now();
+  const updatedAt = Number(session.updatedAt) || createdAt;
+  return {
+    id: session.id,
+    name: normalizeName(session.name, "Phase 10 Session"),
+    payload: cloneJson(session.payload),
+    createdAt,
+    updatedAt,
+  };
+}
+
+function getSessionById(sessionId) {
+  if (!sessionId) return null;
+  return readStoredSessions().find((session) => session.id === sessionId) ?? null;
+}
+
 function snapshotState() {
   return {
     gameStarted: state.gameStarted,
@@ -381,7 +427,64 @@ function snapshotState() {
     pendingRoundSummary: state.pendingRoundSummary,
     winnerId: state.winnerId,
     handSortMode: state.handSortMode,
+    currentSessionId: state.currentSessionId,
   };
+}
+
+function hydrateStateFromPayload(payload, options = {}) {
+  const { syncSetupControls = false, currentSessionId = null } = options;
+  if (!payload || typeof payload !== "object") return false;
+
+  const players = Array.isArray(payload.players)
+    ? payload.players.map(normalizePlayerRecord)
+    : [];
+
+  state.gameStarted = Boolean(payload.gameStarted);
+  state.busy = false;
+  state.players = players;
+  state.roundNumber = clampNumber(payload.roundNumber, 1, 999, 1);
+  state.currentPlayerIndex = clampNumber(
+    payload.currentPlayerIndex,
+    0,
+    Math.max(0, players.length - 1),
+    0,
+  );
+  state.roundStarterIndex = clampNumber(
+    payload.roundStarterIndex,
+    0,
+    Math.max(0, players.length - 1),
+    0,
+  );
+  state.turnStage = normalizeTurnStage(payload.turnStage);
+  state.deck = normalizeCardList(payload.deck);
+  state.discardPile = normalizeCardList(payload.discardPile);
+  state.selectedCardId = normalizeSelectedCardId(payload.selectedCardId);
+  state.lastDrawnCardId = normalizeSelectedCardId(payload.lastDrawnCardId);
+  state.selectedSkipTargetId = normalizeSelectedCardId(payload.selectedSkipTargetId);
+  state.pendingSkipPlayerIds = normalizeIdList(payload.pendingSkipPlayerIds);
+  state.logs = Array.isArray(payload.logs)
+    ? payload.logs.map((entry) => String(entry)).slice(0, 14)
+    : [];
+  state.pendingRoundSummary =
+    payload.pendingRoundSummary && typeof payload.pendingRoundSummary === "object"
+      ? payload.pendingRoundSummary
+      : null;
+  state.winnerId = payload.winnerId ? String(payload.winnerId) : null;
+  state.handSortMode = normalizeHandSortMode(payload.handSortMode);
+  state.currentSessionId =
+    currentSessionId != null
+      ? normalizeSelectedCardId(currentSessionId)
+      : normalizeSelectedCardId(payload.currentSessionId);
+
+  if (!state.gameStarted || !players.length) {
+    return false;
+  }
+
+  if (syncSetupControls) {
+    syncSetupControlsFromState();
+  }
+
+  return true;
 }
 
 function normalizePlayerRecord(player, index) {
@@ -485,8 +588,75 @@ function syncSetupControlsFromState() {
   renderBotNameFields(botPlayers.map((player) => player.name));
 }
 
+function sessionOptionLabel(session) {
+  const players = Array.isArray(session.payload?.players) ? session.payload.players.length : 0;
+  const round = clampNumber(session.payload?.roundNumber, 1, 999, 1);
+  return `${session.name} • ${players}P • Round ${round}`;
+}
+
+function defaultSessionName(payload = snapshotState()) {
+  const names = Array.isArray(payload.players)
+    ? payload.players.map((player) => normalizeName(player?.name, "")).filter(Boolean)
+    : [];
+  const lead = names.slice(0, 3).join(", ") || "Phase 10";
+  const round = clampNumber(payload.roundNumber, 1, 999, 1);
+  return `${lead} - Round ${round}`;
+}
+
+function sanitizeFileName(name) {
+  const base = String(name || "phase10-session")
+    .trim()
+    .replace(/[^a-z0-9._-]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "phase10-session";
+}
+
+function exportDateStamp(date = new Date()) {
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const year = date.getFullYear();
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}-${day}-${year}`;
+}
+
+function exportTimeStamp(date = new Date()) {
+  const rawHours = Number(date.getHours()) || 0;
+  const suffix = rawHours >= 12 ? "PM" : "AM";
+  const hours12 = rawHours % 12 || 12;
+  const hours = String(hours12).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}${minutes}${suffix}`;
+}
+
+function exportPlayerNameSegment(payload = snapshotState()) {
+  const names = Array.isArray(payload.players)
+    ? payload.players
+        .map((player) => sanitizeFileName(normalizeName(player?.name, "")).slice(0, 8))
+        .filter(Boolean)
+    : [];
+  return names.length ? names.join("_") : "session";
+}
+
+function exportFileNameForSession(exportable, when = new Date()) {
+  const payload = exportable?.payload || snapshotState();
+  const date = exportDateStamp(when);
+  const game = "phase10";
+  const players = exportPlayerNameSegment(payload);
+  const time = exportTimeStamp(when);
+  return `${date}_${game}_${players}_${time}.json`;
+}
+
+function setSessionStatusMessage(message) {
+  state.sessionStatusMessage = String(message || "");
+}
+
+function showSessionMessage(message) {
+  setSessionStatusMessage(message);
+  render();
+}
+
 function startNewGame() {
   clearTransientNotice();
+  setSessionStatusMessage("");
   const humanName = normalizeName(els.humanName.value, "Player 1");
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
   const customBotNames = syncSetupBotNamesFromInputs().slice(0, botCount);
@@ -515,12 +685,14 @@ function startNewGame() {
   state.logs = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
+  state.currentSessionId = null;
   appendLog(`New game started with ${humanName} and ${botCount} bot${botCount === 1 ? "" : "s"}.`);
   startRound();
 }
 
 function resetTable() {
   clearTransientNotice();
+  setSessionStatusMessage("");
   state.gameStarted = false;
   state.busy = false;
   state.players = [];
@@ -537,8 +709,228 @@ function resetTable() {
   state.logs = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
+  state.currentSessionId = null;
   clearSavedGame();
   render();
+}
+
+function saveNamedSession() {
+  if (!state.gameStarted || !state.players.length) {
+    showSessionMessage("Start or load a game before saving a session.");
+    return;
+  }
+
+  const currentSession = state.currentSessionId ? getSessionById(state.currentSessionId) : null;
+  const requestedName = window.prompt(
+    currentSession ? "Update saved session name:" : "Save this session as:",
+    currentSession?.name || defaultSessionName(),
+  );
+  if (requestedName == null) return;
+
+  const name = normalizeName(requestedName, defaultSessionName());
+  const id = currentSession?.id || uid();
+  const now = Date.now();
+  const nextRecord = {
+    id,
+    name,
+    payload: cloneJson({ ...snapshotState(), currentSessionId: id }),
+    createdAt: currentSession?.createdAt || now,
+    updatedAt: now,
+  };
+  const nextSessions = [
+    nextRecord,
+    ...readStoredSessions().filter((session) => session.id !== id),
+  ]
+    .map(normalizeSessionRecord)
+    .filter(Boolean)
+    .sort((left, right) => right.updatedAt - left.updatedAt);
+
+  if (!writeStoredSessions(nextSessions)) {
+    showSessionMessage("Unable to save this session.");
+    return;
+  }
+
+  state.currentSessionId = id;
+  state.selectedSessionId = id;
+  showSessionMessage(`Session saved: ${name}.`);
+}
+
+function loadSelectedSession() {
+  const session = state.selectedSessionId ? getSessionById(state.selectedSessionId) : null;
+  if (!session) {
+    showSessionMessage("Select a saved session to load.");
+    return;
+  }
+
+  clearTransientNotice();
+  const ok = hydrateStateFromPayload(cloneJson(session.payload), {
+    syncSetupControls: true,
+    currentSessionId: session.id,
+  });
+  if (!ok) {
+    showSessionMessage("That saved session could not be loaded.");
+    return;
+  }
+
+  state.selectedSessionId = session.id;
+  setSessionStatusMessage(`Session loaded: ${session.name}.`);
+  render();
+  resumeRestoredBotTurn();
+}
+
+function deleteSelectedSession() {
+  const session = state.selectedSessionId ? getSessionById(state.selectedSessionId) : null;
+  if (!session) {
+    showSessionMessage("Select a saved session to delete.");
+    return;
+  }
+
+  const proceed = window.confirm(`Delete saved session "${session.name}"?`);
+  if (!proceed) return;
+
+  const nextSessions = readStoredSessions().filter((entry) => entry.id !== session.id);
+  if (!writeStoredSessions(nextSessions)) {
+    showSessionMessage("Unable to delete that session.");
+    return;
+  }
+
+  if (state.currentSessionId === session.id) {
+    state.currentSessionId = null;
+  }
+  state.selectedSessionId = "";
+  showSessionMessage(`Deleted session: ${session.name}.`);
+}
+
+function resolveExportSession() {
+  if (state.gameStarted && state.players.length) {
+    const current = state.currentSessionId ? getSessionById(state.currentSessionId) : null;
+    return {
+      name: current?.name || defaultSessionName(),
+      id: current?.id || null,
+      payload: cloneJson(snapshotState()),
+    };
+  }
+
+  const selected = state.selectedSessionId ? getSessionById(state.selectedSessionId) : null;
+  if (!selected) return null;
+  return {
+    name: selected.name,
+    id: selected.id,
+    payload: cloneJson(selected.payload),
+  };
+}
+
+function exportSessionFile() {
+  const exportable = resolveExportSession();
+  if (!exportable) {
+    showSessionMessage("Nothing to export yet.");
+    return null;
+  }
+
+  const bundle = {
+    app: "phase10-table",
+    version: EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    session: {
+      id: exportable.id,
+      name: exportable.name,
+    },
+    payload: exportable.payload,
+  };
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = exportFileNameForSession(exportable);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  showSessionMessage(`Downloaded session JSON: ${exportable.name}.`);
+  return exportable;
+}
+
+function parseImportedSession(json, filename = "") {
+  if (!json || typeof json !== "object") return null;
+
+  const payload =
+    json.app === "phase10-table" && json.payload && typeof json.payload === "object"
+      ? json.payload
+      : json.payload && typeof json.payload === "object"
+        ? json.payload
+        : json;
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !Array.isArray(payload.players) ||
+    !Array.isArray(payload.deck) ||
+    !Array.isArray(payload.discardPile)
+  ) {
+    return null;
+  }
+
+  const fallbackName = filename
+    ? sanitizeFileName(filename.replace(/\.json$/i, ""))
+    : defaultSessionName(payload);
+  const providedName =
+    typeof json.session?.name === "string" && json.session.name.trim()
+      ? json.session.name.trim()
+      : typeof json.name === "string" && json.name.trim()
+        ? json.name.trim()
+        : fallbackName;
+  const id = uid();
+  const now = Date.now();
+  const clonedPayload = cloneJson(payload);
+  clonedPayload.currentSessionId = id;
+
+  return normalizeSessionRecord({
+    id,
+    name: providedName,
+    payload: clonedPayload,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function importSessionFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const imported = parseImportedSession(parsed, file.name);
+    if (!imported) {
+      showSessionMessage("That file is not a valid Phase 10 session.");
+      return;
+    }
+
+    const nextSessions = [imported, ...readStoredSessions().filter((session) => session.id !== imported.id)]
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+    if (!writeStoredSessions(nextSessions)) {
+      showSessionMessage("Unable to import that session.");
+      return;
+    }
+
+    clearTransientNotice();
+    const ok = hydrateStateFromPayload(cloneJson(imported.payload), {
+      syncSetupControls: true,
+      currentSessionId: imported.id,
+    });
+    if (!ok) {
+      showSessionMessage("Imported file could not be loaded.");
+      return;
+    }
+
+    state.selectedSessionId = imported.id;
+    setSessionStatusMessage(`Session imported: ${imported.name}.`);
+    render();
+    resumeRestoredBotTurn();
+  } catch {
+    showSessionMessage("Import failed. Check that the file contains valid JSON.");
+  } finally {
+    els.importSessionFile.value = "";
+  }
 }
 
 function createPlayer(id, name, isHuman) {
@@ -1394,10 +1786,6 @@ function currentPlayer() {
   return state.players[state.currentPlayerIndex] ?? null;
 }
 
-function playerById(playerId) {
-  return state.players.find((player) => player.id === playerId) ?? null;
-}
-
 function humanPlayer() {
   return state.players.find((player) => player.isHuman) ?? null;
 }
@@ -1685,12 +2073,61 @@ function miniCardLabel(card) {
 
 function render() {
   document.body.classList.toggle("game-active", state.gameStarted);
+  renderSessionControls();
   renderRoundBanner();
   renderStatus();
   renderBoard();
   renderHand();
   renderLog();
   persistGame();
+}
+
+function renderSessionControls() {
+  const sessions = readStoredSessions().sort((left, right) => right.updatedAt - left.updatedAt);
+  const selectedId =
+    state.selectedSessionId && sessions.some((session) => session.id === state.selectedSessionId)
+      ? state.selectedSessionId
+      : state.currentSessionId && sessions.some((session) => session.id === state.currentSessionId)
+        ? state.currentSessionId
+        : "";
+  state.selectedSessionId = selectedId;
+
+  els.savedSessionSelect.innerHTML = `<option value="">Saved sessions on this device</option>`;
+  sessions.forEach((session) => {
+    const option = document.createElement("option");
+    option.value = session.id;
+    option.textContent = sessionOptionLabel(session);
+    els.savedSessionSelect.appendChild(option);
+  });
+  els.savedSessionSelect.value = selectedId;
+
+  const currentSession = state.currentSessionId ? getSessionById(state.currentSessionId) : null;
+  const canLoadSelected = Boolean(selectedId);
+  const canExport = Boolean(resolveExportSession());
+
+  els.saveSessionBtn.textContent = currentSession ? "Update Session" : "Save Session";
+  els.loadSessionBtn.disabled = !canLoadSelected;
+  els.deleteSessionBtn.disabled = !canLoadSelected;
+  els.savedSessionSelect.disabled = sessions.length === 0;
+  els.downloadSessionBtn.disabled = !canExport;
+
+  if (state.sessionStatusMessage) {
+    els.sessionStatus.textContent = state.sessionStatusMessage;
+    return;
+  }
+
+  if (!sessions.length) {
+    els.sessionStatus.textContent = "No saved sessions yet. Save on this device or download a JSON backup copy.";
+    return;
+  }
+
+  const sessionNoun = sessions.length === 1 ? "session" : "sessions";
+  if (currentSession) {
+    els.sessionStatus.textContent = `${sessions.length} saved ${sessionNoun}. Current session: ${currentSession.name}.`;
+    return;
+  }
+
+  els.sessionStatus.textContent = `${sessions.length} saved ${sessionNoun} on this device.`;
 }
 
 function renderRoundBanner() {
@@ -2096,6 +2533,14 @@ function renderMeldStack(player, targetIds, selectedCard, options = {}) {
 function appendLog(message) {
   state.logs.unshift(message);
   state.logs = state.logs.slice(0, 14);
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function scoreSkipTarget(player, target) {
