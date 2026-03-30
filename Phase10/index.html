@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#184e3a" />
+    <title>Phase 10 Table</title>
+    <link rel="manifest" href="../app.webmanifest" />
+    <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <link rel="stylesheet" href="./phase10.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23184e3a%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>10</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Card Table</p>
+          <h1>Phase 10</h1>
+          <p class="hero-copy">
+            One human player, one to three bots, and a streamlined single-device
+            table that keeps the turns moving.
+          </p>
+        </div>
+        <div class="hero-note">
+          <p class="note-title">Assisted Play</p>
+          <p>
+            Human turns focus on drawing, laying your current phase, and choosing
+            the discard. Bots handle the same shortcuts automatically.
+          </p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>New Table</h2>
+              <p>Set your name, choose bot count, and deal a fresh game.</p>
+            </div>
+            <form id="setupForm" class="setup-form">
+              <label class="field">
+                <span>Human player</span>
+                <input
+                  id="humanName"
+                  type="text"
+                  maxlength="24"
+                  autocomplete="off"
+                  placeholder="Player 1"
+                  value="Rick"
+                />
+              </label>
+              <label class="field">
+                <span>Bot players</span>
+                <select id="botCount">
+                  <option value="1">1 bot</option>
+                  <option value="2" selected>2 bots</option>
+                  <option value="3">3 bots</option>
+                </select>
+              </label>
+              <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+              <div class="button-row">
+                <button id="startGameBtn" class="btn btn-primary" type="submit">
+                  Start Game
+                </button>
+                <button id="resetTableBtn" class="btn" type="button">
+                  Reset
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel status-panel">
+            <div class="panel-head">
+              <h2>Round Status</h2>
+              <p id="statusText">Deal a game to begin.</p>
+            </div>
+            <div class="status-grid">
+              <div class="status-chip">
+                <span class="chip-label">Round</span>
+                <strong id="roundValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Turn</span>
+                <strong id="turnValue">-</strong>
+              </div>
+            </div>
+            <div class="pile-row">
+              <button id="drawDeckBtn" class="deck-button" type="button" aria-label="Draw from deck">
+                <span id="deckPreview" class="pile-preview" aria-hidden="true"></span>
+              </button>
+              <button id="takeDiscardBtn" class="discard-button" type="button" aria-label="Take discard">
+                <span id="discardPreview" class="pile-preview" aria-hidden="true"></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Action Log</h2>
+              <p>Recent table events, draws, lays, skips, and round endings.</p>
+            </div>
+            <ol id="logList" class="log-list"></ol>
+          </section>
+        </aside>
+
+        <section class="table-area">
+          <section
+            id="roundBanner"
+            class="round-banner"
+            hidden
+            role="status"
+            aria-live="polite"
+          >
+            <div class="round-banner-copy">
+              <p id="roundBannerKicker" class="round-banner-kicker">Round Over</p>
+              <h2 id="roundBannerTitle" class="round-banner-title">Round complete</h2>
+              <p id="roundBannerText" class="round-banner-text">
+                Leftover points have been scored and the next action is ready.
+              </p>
+            </div>
+            <div id="roundBannerScores" class="round-banner-scores"></div>
+            <div class="round-banner-actions">
+              <button id="bannerNextRoundBtn" class="btn btn-primary" type="button">
+                Deal Next Round
+              </button>
+              <button id="bannerResetBtn" class="btn" type="button">
+                Start Fresh
+              </button>
+            </div>
+          </section>
+
+          <section class="board panel">
+            <div class="panel-head">
+              <h2>Players</h2>
+              <p id="leaderText">Scores and phases will appear here.</p>
+            </div>
+            <div id="playersBoard" class="players-board"></div>
+          </section>
+
+          <section class="hand-panel panel">
+            <div class="panel-head">
+              <h2 id="handPanelTitle">Your Hand</h2>
+              <p id="handSummary">
+                Start a game to see the human player hand.
+              </p>
+            </div>
+            <div id="humanSeatSummary" class="human-seat-summary"></div>
+            <div id="humanHand" class="human-hand"></div>
+          </section>
+
+          <section class="human-action-panel panel">
+            <div class="panel-head">
+              <h2>Actions</h2>
+              <p id="actionHint">
+                Your controls will appear here once the game starts.
+              </p>
+            </div>
+            <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
+            <div class="human-action-layout">
+              <div class="button-stack action-button-row">
+                <button id="layPhaseBtn" class="btn btn-primary" type="button">
+                  Lay Current Phase
+                </button>
+                <button id="discardBtn" class="btn" type="button">
+                  Discard Selected Card
+                </button>
+                <button id="nextRoundBtn" class="btn" type="button">
+                  Deal Next Round
+                </button>
+              </div>
+              <div class="selection-card action-summary-card">
+                <span class="selection-label">Selected card</span>
+                <strong id="selectedDiscard">None</strong>
+                <span id="suggestedDiscard" class="selection-meta">
+                  The table will suggest a discard when it is your turn.
+                </span>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./phase10.js?v=20260330a"></script>
+  </body>
+</html>

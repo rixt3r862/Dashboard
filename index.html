@@ -7,11 +7,7 @@
     <meta name="theme-color" content="#2563eb" />
     <link rel="manifest" href="./app.webmanifest" />
     <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
-    <script>
-      tailwind = { config: { darkMode: "class" } };
-    </script>
-    <!-- Tailwind via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./dashboard.generated.css" />
     <meta name="color-scheme" content="dark light" />
     <link
       rel="icon"
@@ -263,6 +259,12 @@
           iconImg: "./ScoreKeeper/img/scorekeeper-favicon.svg",
           icon: "♠️",
           desc: "Game score tracking utility",
+        },
+        {
+          name: "Phase 10 Table",
+          url: "./Phase10/index.html",
+          icon: "🔟",
+          desc: "Play a streamlined Phase 10 table against 1-3 bots",
         },
         {
           name: "Unit Converter",
