@@ -261,10 +261,17 @@
           desc: "Game score tracking utility",
         },
         {
+          name: "Game Room",
+          url: "./Games/index.html",
+          icon: "🎲",
+          desc: "Phase 10 and future game apps in one spot",
+        },
+        {
           name: "Phase 10 Table",
           url: "./Phase10/index.html",
           icon: "🔟",
           desc: "Play a streamlined Phase 10 table against 1-3 bots",
+          hidden: true,
         },
         {
           name: "Unit Converter",
@@ -506,6 +513,10 @@
         return LINKS;
       }
 
+      function visibleLinks() {
+        return allLinks().filter((item) => !item.hidden);
+      }
+
       function readJson(key, fallback) {
         try {
           const raw = localStorage.getItem(key);
@@ -701,7 +712,7 @@
         const pins = new Set(getPinnedUrls());
         // Pinned apps still participate in search, but float to the top of the
         // main grid so the launcher remains predictable.
-        const list = allLinks().filter(
+        const list = visibleLinks().filter(
           (l) =>
             !f ||
             l.name.toLowerCase().includes(f) ||
@@ -733,7 +744,7 @@
         if (e.key === "Enter") {
           const f = search.value.trim().toLowerCase();
           if (!f) return;
-          const list = allLinks().filter((l) => l.name.toLowerCase() === f);
+          const list = visibleLinks().filter((l) => l.name.toLowerCase() === f);
           if (list[0]) {
             trackVisit(list[0].url);
             renderSmartSections();

@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v2";
+const VERSION = "dashboard-v3";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -18,6 +18,10 @@ const CORE_ASSETS = [
   "./Notepad.html",
   "./QR%20Tool.html",
   "./Date%20Math%20Tool.html",
+  "./Games/index.html",
+  "./Phase10/index.html",
+  "./Phase10/phase10.css",
+  "./Phase10/phase10.js",
   "./ScoreKeeper/index.html",
   "./ScoreKeeper/SK.css",
   "./ScoreKeeper/SK.js",
