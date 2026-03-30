@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build:dashboard-css": "tailwindcss -i ./dashboard.tailwind.css -o ./dashboard.generated.css --minify"
+  },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.2",
     "tailwindcss": "^4.2.2"

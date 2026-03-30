@@ -137,7 +137,6 @@ async function staleWhileRevalidate(request, cacheName) {
 
 function isRuntimeRemote(url) {
   return [
-    "cdn.tailwindcss.com",
     "cdnjs.cloudflare.com",
     "cdn.jsdelivr.net",
     "fonts.googleapis.com",
