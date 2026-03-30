@@ -50,10 +50,6 @@ select {
 }
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.75fr);
-  gap: 0.75rem;
-  align-items: stretch;
   margin-bottom: 0.75rem;
 }
 
@@ -73,7 +69,6 @@ select {
 }
 
 .hero-copy,
-.hero-note p,
 .panel-head p,
 .selection-meta,
 .selection-label {
@@ -87,7 +82,6 @@ select {
   line-height: 1.45;
 }
 
-.hero-note,
 .panel {
   border: 1px solid var(--line);
   background:
@@ -95,17 +89,6 @@ select {
     var(--panel);
   border-radius: 1.4rem;
   box-shadow: var(--shadow);
-}
-
-.hero-note {
-  padding: 0.9rem 0.95rem;
-  align-self: end;
-}
-
-.note-title {
-  margin: 0 0 0.45rem;
-  font-weight: 700;
-  color: var(--accent-strong);
 }
 
 .layout {
@@ -246,14 +229,42 @@ select {
   font-size: 0.88rem;
 }
 
+.board .panel-head p,
+.hand-panel .panel-head p,
+.human-action-panel .panel-head p,
+.status-panel .panel-head p {
+  min-height: 2.4em;
+}
+
 .setup-form,
 .button-stack {
   display: grid;
   gap: 0.65rem;
 }
 
+.setup-form {
+  gap: 0.5rem;
+}
+
+.setup-panel .panel-head h2 {
+  font-size: 1.15rem;
+}
+
+.setup-panel .panel-head p {
+  margin-top: 0.24rem;
+  font-size: 0.82rem;
+  line-height: 1.32;
+}
+
 .human-action-panel {
   overflow: visible;
+}
+
+.hand-panel-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 0.75rem;
+  align-items: start;
 }
 
 .table-notice {
@@ -271,10 +282,20 @@ select {
     0 12px 28px rgba(0, 0, 0, 0.18),
     0 0 0 1px rgba(255, 214, 127, 0.08) inset;
   animation: round-banner-enter 220ms ease;
+  min-height: 3.2rem;
 }
 
 .table-notice strong {
   color: #ffe49d;
+}
+
+.table-notice[hidden] {
+  display: block;
+  visibility: hidden;
+  pointer-events: none;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .human-action-layout {
@@ -315,6 +336,12 @@ select {
   color: var(--text);
   border-radius: 0.95rem;
   padding: 0.75rem 0.9rem;
+}
+
+.setup-form .field input,
+.setup-form .field select {
+  padding: 0.62rem 0.78rem;
+  border-radius: 0.88rem;
 }
 
 .field input::placeholder {
@@ -360,6 +387,16 @@ select {
   border-color: rgba(255, 214, 127, 0.5);
   color: #2c1804;
   font-weight: 700;
+}
+
+.setup-form .button-row {
+  gap: 0.5rem;
+}
+
+.setup-form .button-row .btn {
+  padding: 0.62rem 0.78rem;
+  border-radius: 0.9rem;
+  font-size: 0.92rem;
 }
 
 .status-grid {
@@ -537,6 +574,7 @@ select {
   background: rgba(250, 246, 232, 0.06);
   display: grid;
   gap: 0.35rem;
+  min-height: 6.1rem;
 }
 
 .button-stack {
@@ -560,6 +598,63 @@ select {
     var(--panel);
 }
 
+.human-action-panel--embedded {
+  padding: 0.65rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(250, 246, 232, 0.08);
+  background: rgba(6, 24, 18, 0.34);
+  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.06) inset;
+  min-height: 14.4rem;
+}
+
+.human-action-panel--embedded .panel-head h2 {
+  font-size: 1rem;
+}
+
+.human-action-panel--embedded .panel-head p {
+  margin-top: 0.22rem;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  min-height: 3.1em;
+}
+
+.human-action-panel--embedded .table-notice {
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.human-action-panel--embedded .human-action-layout {
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+.human-action-panel--embedded .action-button-row {
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.human-action-panel--embedded .btn {
+  padding: 0.58rem 0.72rem;
+  border-radius: 0.85rem;
+  font-size: 0.84rem;
+}
+
+.human-action-panel--embedded .selection-card {
+  padding: 0.58rem 0.68rem;
+  gap: 0.22rem;
+}
+
+.human-action-panel--embedded .selection-card strong {
+  font-size: 0.92rem;
+}
+
+.human-action-panel--embedded .selection-label,
+.human-action-panel--embedded .selection-meta {
+  font-size: 0.75rem;
+}
+
 .hand-panel.current {
   border-color: rgba(255, 214, 127, 0.44);
   box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.2) inset;
@@ -569,6 +664,7 @@ select {
   display: grid;
   gap: 0.65rem;
   margin-top: 0.75rem;
+  min-height: 12.4rem;
 }
 
 .human-seat-copy {
@@ -596,13 +692,49 @@ select {
   border-radius: 1.15rem;
   padding: 0.8rem;
   background: rgba(4, 20, 15, 0.36);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.6rem;
+  min-height: 21.5rem;
 }
 
 .player-card.current {
   border-color: rgba(255, 214, 127, 0.44);
   box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.2) inset;
+}
+
+.player-card.skip-target {
+  cursor: pointer;
+  border-color: rgba(255, 214, 127, 0.52);
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 127, 0.12), transparent 55%),
+    rgba(250, 246, 232, 0.08);
+  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.14) inset;
+}
+
+.player-card.skip-target:hover,
+.player-card.skip-target:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  border-color: rgba(255, 214, 127, 0.7);
+  box-shadow:
+    0 14px 18px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(255, 214, 127, 0.22) inset;
+}
+
+.player-card.skip-target-selected {
+  border-color: rgba(255, 214, 127, 0.76);
+  box-shadow:
+    0 0 0 2px rgba(255, 214, 127, 0.16) inset,
+    0 14px 18px rgba(0, 0, 0, 0.18);
+}
+
+.player-card-target-note {
+  margin: auto 0 0;
+  font-size: 0.68rem;
+  color: var(--accent-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .player-card.human {
@@ -680,6 +812,7 @@ select {
 .phase-copy {
   display: grid;
   gap: 0.12rem;
+  min-height: 4.4rem;
 }
 
 .phase-copy p {
@@ -689,6 +822,14 @@ select {
 .meld-stack {
   display: grid;
   gap: 0.45rem;
+  min-height: 8.6rem;
+  align-content: start;
+}
+
+.empty-note {
+  min-height: 8.6rem;
+  display: flex;
+  align-items: center;
 }
 
 .meld-card {
@@ -874,8 +1015,6 @@ select {
 }
 
 body.game-active .hero {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.65fr);
-  gap: 0.6rem;
   margin-bottom: 0.55rem;
 }
 
@@ -890,15 +1029,6 @@ body.game-active .hero h1 {
 
 body.game-active .hero-copy {
   margin-top: 0.35rem;
-  font-size: 0.84rem;
-  line-height: 1.35;
-}
-
-body.game-active .hero-note {
-  padding: 0.72rem 0.8rem;
-}
-
-body.game-active .hero-note p {
   font-size: 0.84rem;
   line-height: 1.35;
 }
@@ -1000,6 +1130,22 @@ body.game-active .hero-note p {
   .table-area {
     order: 1;
   }
+
+  .hand-panel-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .player-card {
+    min-height: 0;
+  }
+
+  .human-seat-summary,
+  .human-action-panel--embedded,
+  .meld-stack,
+  .empty-note,
+  .selection-card {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1025,6 +1171,7 @@ body.game-active .hero-note p {
     width: 100%;
   }
 
+  .hand-panel-shell,
   .human-action-layout,
   .action-button-row {
     grid-template-columns: 1fr;

@@ -103,6 +103,8 @@ const state = {
   discardPile: [],
   selectedCardId: null,
   lastDrawnCardId: null,
+  selectedSkipTargetId: null,
+  pendingSkipPlayerIds: [],
   logs: [],
   pendingRoundSummary: null,
   winnerId: null,
@@ -188,10 +190,19 @@ function bindEvents() {
     if (!cardId) return;
     if (!isHumanTurn() || state.turnStage !== "main" || state.busy) return;
     state.selectedCardId = state.selectedCardId === cardId ? null : cardId;
+    syncSelectedSkipTarget();
     render();
   });
 
   els.playersBoard.addEventListener("click", (event) => {
+    const skipTargetCard = event.target.closest("[data-skip-target-id]");
+    if (skipTargetCard) {
+      const targetId = skipTargetCard.getAttribute("data-skip-target-id");
+      if (targetId) {
+        humanSelectSkipTarget(targetId);
+      }
+      return;
+    }
     const button = event.target.closest("[data-group-id]");
     if (!button) return;
     const groupId = button.getAttribute("data-group-id");
@@ -292,6 +303,8 @@ function hydrateSavedGame() {
   state.discardPile = normalizeCardList(saved.discardPile);
   state.selectedCardId = normalizeSelectedCardId(saved.selectedCardId);
   state.lastDrawnCardId = normalizeSelectedCardId(saved.lastDrawnCardId);
+  state.selectedSkipTargetId = normalizeSelectedCardId(saved.selectedSkipTargetId);
+  state.pendingSkipPlayerIds = normalizeIdList(saved.pendingSkipPlayerIds);
   state.logs = Array.isArray(saved.logs)
     ? saved.logs.map((entry) => String(entry)).slice(0, 14)
     : [];
@@ -362,6 +375,8 @@ function snapshotState() {
     discardPile: state.discardPile,
     selectedCardId: state.selectedCardId,
     lastDrawnCardId: state.lastDrawnCardId,
+    selectedSkipTargetId: state.selectedSkipTargetId,
+    pendingSkipPlayerIds: state.pendingSkipPlayerIds,
     logs: state.logs,
     pendingRoundSummary: state.pendingRoundSummary,
     winnerId: state.winnerId,
@@ -446,6 +461,13 @@ function normalizeSelectedCardId(value) {
   return typeof value === "string" ? value : null;
 }
 
+function normalizeIdList(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry) => typeof entry === "string")
+    .map((entry) => String(entry));
+}
+
 function normalizeHandSortMode(value) {
   return value === "number" ? "number" : "color";
 }
@@ -488,6 +510,8 @@ function startNewGame() {
   state.turnStage = "draw";
   state.selectedCardId = null;
   state.lastDrawnCardId = null;
+  state.selectedSkipTargetId = null;
+  state.pendingSkipPlayerIds = [];
   state.logs = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
@@ -508,6 +532,8 @@ function resetTable() {
   state.discardPile = [];
   state.selectedCardId = null;
   state.lastDrawnCardId = null;
+  state.selectedSkipTargetId = null;
+  state.pendingSkipPlayerIds = [];
   state.logs = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
@@ -556,6 +582,8 @@ function startRound() {
   state.turnStage = "draw";
   state.selectedCardId = null;
   state.lastDrawnCardId = null;
+  state.selectedSkipTargetId = null;
+  state.pendingSkipPlayerIds = [];
   state.pendingRoundSummary = null;
   state.deck = shuffle(buildDeck());
   state.discardPile = [];
@@ -638,6 +666,7 @@ function humanDraw(source) {
   state.turnStage = "main";
   state.selectedCardId = drawn.id;
   state.lastDrawnCardId = drawn.id;
+  syncSelectedSkipTarget();
   appendLog(`${player.name} drew ${cardLabel(drawn)} from the ${source === "discard" ? "discard pile" : "deck"}.`);
   render();
 }
@@ -677,10 +706,15 @@ function humanDiscardSelected() {
   const card = player.hand.find((entry) => entry.id === cardId);
   if (!card) {
     state.selectedCardId = null;
+    state.selectedSkipTargetId = null;
     render();
     return;
   }
-  discardCard(player, card);
+  if (card.type === "skip" && !resolveSkipTarget(player, state.selectedSkipTargetId)) {
+    render();
+    return;
+  }
+  discardCard(player, card, { skipTargetId: state.selectedSkipTargetId });
 }
 
 function humanPlaySelectedCardToGroup(groupId) {
@@ -707,11 +741,25 @@ function humanPlaySelectedCardToGroup(groupId) {
   render();
 }
 
-function discardCard(player, card) {
+function humanSelectSkipTarget(targetId) {
+  if (!isHumanTurn() || state.busy || state.turnStage !== "main") return;
+  const player = currentPlayer();
+  const selectedCard = player?.hand.find((entry) => entry.id === state.selectedCardId) ?? null;
+  if (selectedCard?.type !== "skip") return;
+  const target = findSkipTarget(player, targetId);
+  if (!target) return;
+  state.selectedSkipTargetId = target.id;
+  render();
+}
+
+function discardCard(player, card, options = {}) {
+  const skipTarget =
+    card.type === "skip" ? resolveSkipTarget(player, options.skipTargetId) : null;
   removeCardsFromHand(player, [card.id]);
   state.discardPile.push(card);
   state.selectedCardId = null;
   state.lastDrawnCardId = null;
+  state.selectedSkipTargetId = null;
   appendLog(`${player.name} discarded ${cardLabel(card)}.`);
 
   if (!player.hand.length) {
@@ -719,11 +767,23 @@ function discardCard(player, card) {
     return;
   }
 
-  const skipped = card.type === "skip" ? advanceTurn(2) : advanceTurn(1);
+  if (skipTarget) {
+    state.pendingSkipPlayerIds.push(skipTarget.id);
+    appendLog(`${player.name} chose to skip ${skipTarget.name}.`);
+  }
+
+  const skippedPlayers = advanceToNextActivePlayer();
   state.turnStage = "draw";
-  if (skipped) {
-    appendLog(`${skipped.name} was skipped.`);
-    setTransientNotice(`<strong>${escapeHtml(skipped.name)}</strong> was skipped. ${escapeHtml(currentPlayer()?.name ?? "Next player")} is up.`);
+  if (skippedPlayers.length) {
+    skippedPlayers.forEach((skipped) => {
+      appendLog(`${skipped.name} was skipped.`);
+    });
+    const skippedLabel = skippedPlayers.length === 1
+      ? `<strong>${escapeHtml(skippedPlayers[0].name)}</strong> was skipped.`
+      : `${escapeHtml(skippedPlayers.map((entry) => entry.name).join(", "))} were skipped.`;
+    setTransientNotice(`${skippedLabel} ${escapeHtml(currentPlayer()?.name ?? "Next player")} is up.`);
+  } else if (skipTarget) {
+    setTransientNotice(`<strong>${escapeHtml(skipTarget.name)}</strong> will be skipped. ${escapeHtml(currentPlayer()?.name ?? "Next player")} is up.`);
   }
   sortHands();
   render();
@@ -750,12 +810,27 @@ function setTransientNotice(message) {
   }, 3200);
 }
 
-function advanceTurn(step) {
-  const playerCount = state.players.length;
-  const skippedPlayer =
-    step > 1 ? state.players[(state.currentPlayerIndex + 1) % playerCount] : null;
-  state.currentPlayerIndex = (state.currentPlayerIndex + step) % playerCount;
-  return skippedPlayer;
+function advanceToNextActivePlayer() {
+  if (!state.players.length) return [];
+  const skippedPlayers = [];
+  const maxSteps = state.players.length + state.pendingSkipPlayerIds.length + 1;
+  let nextIndex = state.currentPlayerIndex;
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    nextIndex = (nextIndex + 1) % state.players.length;
+    const nextPlayer = state.players[nextIndex];
+    const pendingIndex = state.pendingSkipPlayerIds.indexOf(nextPlayer.id);
+    if (pendingIndex !== -1) {
+      state.pendingSkipPlayerIds.splice(pendingIndex, 1);
+      skippedPlayers.push(nextPlayer);
+      continue;
+    }
+    state.currentPlayerIndex = nextIndex;
+    return skippedPlayers;
+  }
+
+  state.currentPlayerIndex = nextIndex;
+  return skippedPlayers;
 }
 
 function finishRound(outPlayer, finalDiscardWasSkip) {
@@ -842,7 +917,8 @@ async function queueBotTurnIfNeeded() {
 
     const discardCardChoice = chooseBotDiscard(player);
     if (discardCardChoice) {
-      discardCard(player, discardCardChoice);
+      const skipTarget = discardCardChoice.type === "skip" ? chooseBotSkipTarget(player) : null;
+      discardCard(player, discardCardChoice, { skipTargetId: skipTarget?.id ?? null });
     }
   }
 
@@ -887,6 +963,23 @@ function chooseBotDiscard(player) {
     return cardPoints(right) - cardPoints(left);
   });
   return ordered[0] ?? null;
+}
+
+function chooseBotSkipTarget(player) {
+  const targets = skipTargetsFor(player);
+  if (!targets.length) return null;
+
+  const scoredTargets = targets.map((target) => ({
+    target,
+    score: scoreSkipTarget(player, target),
+  }));
+
+  scoredTargets.sort((left, right) => {
+    if (left.score !== right.score) return right.score - left.score;
+    return left.target.name.localeCompare(right.target.name);
+  });
+
+  return scoredTargets[0]?.target ?? null;
 }
 
 function layPhaseForPlayer(player, options = {}) {
@@ -1301,8 +1394,51 @@ function currentPlayer() {
   return state.players[state.currentPlayerIndex] ?? null;
 }
 
+function playerById(playerId) {
+  return state.players.find((player) => player.id === playerId) ?? null;
+}
+
 function humanPlayer() {
   return state.players.find((player) => player.isHuman) ?? null;
+}
+
+function skipTargetsFor(player) {
+  if (!player) return [];
+  return state.players.filter((entry) => entry.id !== player.id);
+}
+
+function defaultSkipTargetFor(player) {
+  if (!player) return null;
+  const playerIndex = state.players.findIndex((entry) => entry.id === player.id);
+  if (playerIndex === -1) return skipTargetsFor(player)[0] ?? null;
+  for (let offset = 1; offset < state.players.length; offset += 1) {
+    const candidate = state.players[(playerIndex + offset) % state.players.length];
+    if (candidate && candidate.id !== player.id) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function resolveSkipTarget(player, targetId) {
+  return findSkipTarget(player, targetId) ?? (player?.isHuman ? null : defaultSkipTargetFor(player));
+}
+
+function findSkipTarget(player, targetId) {
+  const targets = skipTargetsFor(player);
+  if (!targets.length) return null;
+  const normalizedTargetId = typeof targetId === "string" ? targetId : null;
+  return targets.find((target) => target.id === normalizedTargetId) ?? null;
+}
+
+function syncSelectedSkipTarget() {
+  const player = currentPlayer();
+  const card = player?.hand.find((entry) => entry.id === state.selectedCardId) ?? null;
+  if (!card || card.type !== "skip") {
+    state.selectedSkipTargetId = null;
+    return;
+  }
+  state.selectedSkipTargetId = findSkipTarget(player, state.selectedSkipTargetId)?.id ?? null;
 }
 
 function currentPhaseFor(player) {
@@ -1354,11 +1490,6 @@ function canTakeTopDiscard() {
   return Boolean(discard && discard.type !== "skip");
 }
 
-function nextPlayerIsHuman() {
-  const next = state.players[(state.currentPlayerIndex + 1) % state.players.length];
-  return Boolean(next?.isHuman);
-}
-
 function isHumanTurn() {
   return Boolean(currentPlayer()?.isHuman);
 }
@@ -1382,6 +1513,7 @@ function removeCardsFromHand(player, cardIds) {
   const removal = new Set(cardIds);
   if (state.selectedCardId && removal.has(state.selectedCardId)) {
     state.selectedCardId = null;
+    state.selectedSkipTargetId = null;
   }
   if (state.lastDrawnCardId && removal.has(state.lastDrawnCardId)) {
     state.lastDrawnCardId = null;
@@ -1429,8 +1561,11 @@ function scoreCardKeepValue(card, player, hand) {
     return player.laidGroups.length ? 58 : 96;
   }
   if (card.type === "skip") {
-    let score = nextPlayerIsHuman() ? 22 : 8;
-    if (player.laidGroups.length) score += 8;
+    const target = chooseBotSkipTarget(player);
+    let score = target?.isHuman ? 14 : 8;
+    if (target?.completedPhaseThisRound) score += 8;
+    if ((target?.hand.length ?? 99) <= 4) score += 10;
+    if (player.laidGroups.length) score += 6;
     if (hand.length <= 4) score += 6;
     if (hand.length >= 8) score -= 6;
     return score;
@@ -1630,6 +1765,11 @@ function renderStatus() {
     selectedCard && canHumanHitCards()
       ? findHitTargets(selectedCard, human?.id)
       : [];
+  const skipTargets =
+    isHumanTurn() && state.turnStage === "main" && selectedCard?.type === "skip"
+      ? skipTargetsFor(human)
+      : [];
+  const activeSkipTarget = findSkipTarget(human, state.selectedSkipTargetId);
   const suggestedDiscard = human && state.turnStage === "main"
     ? chooseBotDiscard(human)
     : null;
@@ -1692,7 +1832,8 @@ function renderStatus() {
     !isHumanTurn() ||
     state.turnStage !== "main" ||
     state.busy ||
-    !state.selectedCardId;
+    !state.selectedCardId ||
+    (selectedCard?.type === "skip" && !activeSkipTarget);
   els.nextRoundBtn.disabled = state.turnStage !== "round-end";
   els.eventNotice.hidden = !state.transientNotice;
   els.eventNotice.innerHTML = state.transientNotice?.message ?? "";
@@ -1707,6 +1848,10 @@ function renderStatus() {
     els.actionHint.textContent = `${player?.name ?? "A bot"} is taking a turn.`;
   } else if (state.turnStage === "draw") {
     els.actionHint.textContent = "Choose whether to draw from the deck or take the top discard.";
+  } else if (selectedCard?.type === "skip" && activeSkipTarget) {
+    els.actionHint.textContent = `Discard Skip to make ${activeSkipTarget.name} lose a turn.`;
+  } else if (selectedCard?.type === "skip") {
+    els.actionHint.textContent = "Click a highlighted player card to choose who to skip, then discard the Skip card.";
   } else if (human?.laidGroups.length && selectedTargets.length) {
     els.actionHint.textContent = `Click a highlighted phase group to play ${cardLabel(selectedCard)}, or discard it instead.`;
   } else if (human?.laidGroups.length) {
@@ -1718,7 +1863,11 @@ function renderStatus() {
   }
 
   els.selectedDiscard.textContent = selectedCard ? cardLabel(selectedCard) : "None";
-  if (human?.laidGroups.length && selectedCard && human.hand.length <= 1) {
+  if (selectedCard?.type === "skip" && activeSkipTarget) {
+    els.suggestedDiscard.textContent = `Skip target: ${activeSkipTarget.name}. Discard Skip to apply it.`;
+  } else if (selectedCard?.type === "skip") {
+    els.suggestedDiscard.textContent = "Choose a highlighted player card to set the skip target.";
+  } else if (human?.laidGroups.length && selectedCard && human.hand.length <= 1) {
     els.suggestedDiscard.textContent = "This is your last card. Discard it to end the turn.";
   } else if (selectedTargets.length) {
     els.suggestedDiscard.textContent = `Playable targets: ${selectedTargets.length}. Click a highlighted phase group to add this card.`;
@@ -1757,11 +1906,19 @@ function renderBoard() {
       ? findHitTargets(selectedCard, human?.id).map((group) => group.id)
       : [],
   );
+  const skipTargetIds = new Set(
+    isHumanTurn() && state.turnStage === "main" && selectedCard?.type === "skip"
+      ? skipTargetsFor(human).map((entry) => entry.id)
+      : [],
+  );
+  const activeSkipTarget = findSkipTarget(human, state.selectedSkipTargetId);
 
   const botPlayers = state.players.filter((player) => !player.isHuman);
   els.playersBoard.innerHTML = botPlayers
     .map((player) => {
       const { completedLabel, workingLabel, completedPhaseNumber } = playerPhaseProgressCopy(player);
+      const isSkipTarget = skipTargetIds.has(player.id);
+      const isSelectedSkipTarget = activeSkipTarget?.id === player.id;
       const badges = [
         `<span class="badge ${player.id === state.winnerId ? "gold" : ""}">${player.isHuman ? "Human" : "Bot"}</span>`,
         player === currentPlayer() && state.turnStage !== "round-end" && state.turnStage !== "game-over"
@@ -1773,7 +1930,16 @@ function renderBoard() {
         .join("");
 
       return `
-        <article class="player-card ${player === currentPlayer() ? "current" : ""} ${player.isHuman ? "human" : ""}">
+        <article
+          class="player-card ${player === currentPlayer() ? "current" : ""} ${player.isHuman ? "human" : ""} ${isSkipTarget ? "skip-target" : ""} ${isSelectedSkipTarget ? "skip-target-selected" : ""}"
+          ${isSkipTarget ? `data-skip-target-id="${escapeHtml(player.id)}"` : ""}
+          ${isSkipTarget ? `role="button" tabindex="0"` : ""}
+          aria-label="${escapeHtml(
+            isSkipTarget
+              ? `Choose ${player.name} as the skip target`
+              : `${player.name} player card`,
+          )}"
+        >
           <div class="player-head">
             <div>
               <h3 class="player-name">${escapeHtml(player.name)}</h3>
@@ -1794,6 +1960,7 @@ function renderBoard() {
             </div>
           </div>
           ${renderMeldStack(player, targetIds, selectedCard)}
+          ${isSkipTarget ? `<p class="player-card-target-note">${isSelectedSkipTarget ? "Skip target selected" : "Click to skip this player"}</p>` : ""}
         </article>
       `;
     })
@@ -1929,6 +2096,28 @@ function renderMeldStack(player, targetIds, selectedCard, options = {}) {
 function appendLog(message) {
   state.logs.unshift(message);
   state.logs = state.logs.slice(0, 14);
+}
+
+function scoreSkipTarget(player, target) {
+  const leader = [...skipTargetsFor(player)].sort((left, right) => {
+    const rightCompleted = completedPhaseNumberFor(right);
+    const leftCompleted = completedPhaseNumberFor(left);
+    if (rightCompleted !== leftCompleted) return rightCompleted - leftCompleted;
+    if (left.score !== right.score) return left.score - right.score;
+    return left.hand.length - right.hand.length;
+  })[0];
+  const playerIndex = state.players.findIndex((entry) => entry.id === player.id);
+  const nextPlayer =
+    playerIndex === -1 ? null : state.players[(playerIndex + 1) % state.players.length];
+
+  let score = 0;
+  if (target.isHuman) score += 6;
+  if (target.completedPhaseThisRound) score += 8;
+  if (target.hand.length <= 4) score += 10;
+  if (leader?.id === target.id) score += 7;
+  if (nextPlayer?.id === target.id) score += 4;
+  score += Math.max(0, 5 - target.hand.length);
+  return score;
 }
 
 function normalizeName(value, fallback) {

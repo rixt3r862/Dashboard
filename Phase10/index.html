@@ -24,18 +24,11 @@
             table that keeps the turns moving.
           </p>
         </div>
-        <div class="hero-note">
-          <p class="note-title">Assisted Play</p>
-          <p>
-            Human turns focus on drawing, laying your current phase, and choosing
-            the discard. Bots handle the same shortcuts automatically.
-          </p>
-        </div>
       </header>
 
       <main class="layout">
         <aside class="sidebar">
-          <section class="panel">
+          <section class="panel setup-panel">
             <div class="panel-head">
               <h2>New Table</h2>
               <p>Set your name, choose bot count, and deal a fresh game.</p>
@@ -141,44 +134,47 @@
           </section>
 
           <section class="hand-panel panel">
-            <div class="panel-head">
-              <h2 id="handPanelTitle">Your Hand</h2>
-              <p id="handSummary">
-                Start a game to see the human player hand.
-              </p>
+            <div class="hand-panel-shell">
+              <div>
+                <div class="panel-head">
+                  <h2 id="handPanelTitle">Your Hand</h2>
+                  <p id="handSummary">
+                    Start a game to see the human player hand.
+                  </p>
+                </div>
+                <div id="humanSeatSummary" class="human-seat-summary"></div>
+              </div>
+              <section class="human-action-panel human-action-panel--embedded">
+                <div class="panel-head compact">
+                  <h2>Actions</h2>
+                  <p id="actionHint">
+                    Your controls will appear here once the game starts.
+                  </p>
+                </div>
+                <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
+                <div class="human-action-layout compact">
+                  <div class="button-stack action-button-row compact">
+                    <button id="layPhaseBtn" class="btn btn-primary" type="button">
+                      Lay Current Phase
+                    </button>
+                    <button id="discardBtn" class="btn" type="button">
+                      Discard Selected Card
+                    </button>
+                    <button id="nextRoundBtn" class="btn" type="button">
+                      Deal Next Round
+                    </button>
+                  </div>
+                  <div class="selection-card action-summary-card compact">
+                    <span class="selection-label">Selected card</span>
+                    <strong id="selectedDiscard">None</strong>
+                    <span id="suggestedDiscard" class="selection-meta">
+                      The table will suggest a discard when it is your turn.
+                    </span>
+                  </div>
+                </div>
+              </section>
             </div>
-            <div id="humanSeatSummary" class="human-seat-summary"></div>
             <div id="humanHand" class="human-hand"></div>
-          </section>
-
-          <section class="human-action-panel panel">
-            <div class="panel-head">
-              <h2>Actions</h2>
-              <p id="actionHint">
-                Your controls will appear here once the game starts.
-              </p>
-            </div>
-            <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
-            <div class="human-action-layout">
-              <div class="button-stack action-button-row">
-                <button id="layPhaseBtn" class="btn btn-primary" type="button">
-                  Lay Current Phase
-                </button>
-                <button id="discardBtn" class="btn" type="button">
-                  Discard Selected Card
-                </button>
-                <button id="nextRoundBtn" class="btn" type="button">
-                  Deal Next Round
-                </button>
-              </div>
-              <div class="selection-card action-summary-card">
-                <span class="selection-label">Selected card</span>
-                <strong id="selectedDiscard">None</strong>
-                <span id="suggestedDiscard" class="selection-meta">
-                  The table will suggest a discard when it is your turn.
-                </span>
-              </div>
-            </div>
           </section>
         </section>
       </main>
