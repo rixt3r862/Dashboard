@@ -506,6 +506,7 @@ select:disabled{
 #scoreboardCard.hearts-mode.has-bg .history-graph-wrap,
 #scoreboardCard.hearts-mode.has-bg .history-story,
 #scoreboardCard.hearts-mode.has-bg .history-insight-card,
+#scoreboardCard.hearts-mode.has-bg .history-round-card,
 #scoreboardCard.hearts-mode.has-bg .phase10-ref{
   background: rgba(69,10,10,.10);
   border-color: rgba(248,113,113,.45);
