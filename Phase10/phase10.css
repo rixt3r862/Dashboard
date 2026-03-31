@@ -896,6 +896,14 @@ select {
   font-size: 0.76rem;
 }
 
+.round-history-phase-note.is-complete {
+  color: #7fe0a5;
+}
+
+.round-history-phase-note.is-empty {
+  color: #f28b82;
+}
+
 .players-board {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));

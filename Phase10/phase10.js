@@ -2720,11 +2720,14 @@ function renderRoundHistory() {
           const phaseNote = result?.completedPhaseNumber
             ? `Phase ${result.completedPhaseNumber}`
             : "No phase";
+          const phaseNoteClass = result?.completedPhaseNumber
+            ? "round-history-phase-note is-complete"
+            : "round-history-phase-note is-empty";
           return `
             <td>
               <div class="round-history-cell">
                 <strong>${escapeHtml(points)}</strong>
-                <span>${escapeHtml(phaseNote)}</span>
+                <span class="${phaseNoteClass}">${escapeHtml(phaseNote)}</span>
               </div>
             </td>
           `;
