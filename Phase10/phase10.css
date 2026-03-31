@@ -419,10 +419,28 @@ select {
   font-weight: 600;
 }
 
-#layPhaseBtn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #f0b64f, #e28c31);
-  border-color: rgba(255, 214, 127, 0.5);
-  color: #2c1804;
+@media (hover: hover) {
+  #layPhaseBtn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #f0b64f, #e28c31);
+    border-color: rgba(255, 214, 127, 0.5);
+    color: #2c1804;
+  }
+}
+
+@media (hover: none) {
+  #layPhaseBtn:not(:disabled) {
+    background: linear-gradient(135deg, #f0b64f, #e28c31);
+    border-color: rgba(255, 214, 127, 0.5);
+    color: #2c1804;
+    font-weight: 700;
+  }
+
+  #layPhaseBtn:not(:disabled):active {
+    background: linear-gradient(135deg, #dca247, #cb7a2d);
+    border-color: rgba(245, 198, 101, 0.58);
+    color: #2c1804;
+    transform: translateY(0);
+  }
 }
 
 .setup-form .button-row {
