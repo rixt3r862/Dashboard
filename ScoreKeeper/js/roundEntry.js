@@ -499,9 +499,9 @@ export function createRoundEntryController(deps) {
         const rawVal = Number(scores[p.id] ?? 0);
         const val = Number.isFinite(rawVal) ? rawVal : 0;
         const phaseComplete = Number(phase10Completions[p.id] ?? 0) > 0;
-        const displayVal = isPhase10() ? (phaseComplete ? "PH+" : "") : "";
         const playerNameEsc = escapeHtml(p.name);
         const showSkyjoNegativeOutHint = shouldShowSkyjoNegativeOutHint(p.id);
+        const rowClass = phaseComplete && isPhase10() ? " phase10-complete" : "";
         const moveControls = `
           <button
             type="button"
@@ -570,7 +570,7 @@ export function createRoundEntryController(deps) {
             <div class="round-preview-item skyjo" data-preview-row="${p.id}">
               ${playerCell}
               <span class="round-preview-right">
-              <span class="round-preview-value">${displayVal}</span>
+              <span class="round-preview-value"></span>
               <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
               ${
                 showSkyjoNegativeOutHint
@@ -585,10 +585,10 @@ export function createRoundEntryController(deps) {
         }
 
         return `
-          <div class="round-preview-item" data-preview-row="${p.id}">
+          <div class="round-preview-item${rowClass}" data-preview-row="${p.id}">
             ${playerCell}
             <span class="round-preview-right">
-            <span class="round-preview-value">${displayVal}</span>
+            <span class="round-preview-value"></span>
             <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
           </span>
           ${moveControls}

@@ -1717,6 +1717,11 @@ summary::-webkit-details-marker{ display:none; }
   width: 100%;
   min-width: 0;
 }
+.round-preview-item.phase10-complete{
+  background: rgba(34,197,94,.10);
+  border-color: rgba(34,197,94,.28);
+  box-shadow: inset 0 0 0 1px rgba(34,197,94,.10);
+}
 .round-preview-item.skyjo{
   grid-template-columns: minmax(72px, 1fr) minmax(0, var(--skyjo-score-col)) var(--skyjo-out-col) auto;
 }
