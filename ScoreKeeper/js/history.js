@@ -304,6 +304,10 @@ export function createHistoryController(deps) {
       return state.players.map((player, idx) => {
         const values = [];
         for (const round of state.rounds) {
+          if (!playerActiveInRound(player.id, round.n)) {
+            values.push(null);
+            continue;
+          }
           const completedMap = phase10CompletionMap(state.players, round);
           if (completedMap[player.id]) completionTotals[player.id] += 1;
           values.push(completionTotals[player.id]);

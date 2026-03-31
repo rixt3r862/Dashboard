@@ -1841,8 +1841,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return;
     }
 
-    // Reset target to the original app default for a fresh same-players game.
-    const target = APP_LIMITS.defaultTarget;
+    // Fresh same-players games should honor the active preset's default target.
+    const preset = PRESETS[state.presetKey] || PRESETS.custom;
+    const target = Number.isInteger(preset.target)
+      ? preset.target
+      : APP_LIMITS.defaultTarget;
 
     state.mode = "playing";
     state.target = target;
