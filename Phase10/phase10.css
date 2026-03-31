@@ -412,6 +412,19 @@ select {
   font-weight: 700;
 }
 
+#layPhaseBtn {
+  background: rgba(250, 246, 232, 0.08);
+  border-color: rgba(255, 214, 127, 0.5);
+  color: var(--text);
+  font-weight: 600;
+}
+
+#layPhaseBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f0b64f, #e28c31);
+  border-color: rgba(255, 214, 127, 0.5);
+  color: #2c1804;
+}
+
 .setup-form .button-row {
   gap: 0.5rem;
 }
