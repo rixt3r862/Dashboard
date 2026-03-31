@@ -6,7 +6,7 @@
     <title>Phase 10 Table</title>
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
-    <link rel="stylesheet" href="./phase10.css" />
+    <link rel="stylesheet" href="./phase10.css?v=20260331a" />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23184e3a%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>10</text></svg>"
@@ -207,11 +207,16 @@
           </section>
 
           <section class="panel round-history-panel">
-            <div class="panel-head">
-              <h2>Round History</h2>
-              <p id="roundHistorySummary">
-                Complete a round to start the table history.
-              </p>
+            <div class="panel-head round-history-head">
+              <div>
+                <h2>Round History</h2>
+                <p id="roundHistorySummary">
+                  Complete a round to start the table history.
+                </p>
+              </div>
+              <button id="roundHistoryOrderBtn" class="btn round-history-order-btn" type="button">
+                Oldest First
+              </button>
             </div>
             <div id="roundHistoryWrap" class="round-history-wrap"></div>
           </section>
@@ -219,6 +224,6 @@
       </main>
     </div>
 
-    <script type="module" src="./phase10.js?v=20260330a"></script>
+    <script type="module" src="./phase10.js?v=20260331a"></script>
   </body>
 </html>

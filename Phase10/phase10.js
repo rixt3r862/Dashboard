@@ -115,6 +115,7 @@ const state = {
   winnerId: null,
   transientNotice: null,
   handSortMode: "color",
+  roundHistorySortDir: "asc",
   setupBotNames: BOT_NAMES.slice(0, 3),
   setupBotDifficulties: ["medium", "medium", "medium"],
   currentSessionId: null,
@@ -168,6 +169,7 @@ const els = {
   handSummary: document.getElementById("handSummary"),
   roundHistorySummary: document.getElementById("roundHistorySummary"),
   roundHistoryWrap: document.getElementById("roundHistoryWrap"),
+  roundHistoryOrderBtn: document.getElementById("roundHistoryOrderBtn"),
 };
 
 bindEvents();
@@ -242,6 +244,11 @@ function bindEvents() {
   els.nextRoundBtn.addEventListener("click", beginNextRound);
   els.bannerNextRoundBtn.addEventListener("click", beginNextRound);
   els.bannerResetBtn.addEventListener("click", resetTable);
+  els.roundHistoryOrderBtn.addEventListener("click", () => {
+    state.roundHistorySortDir = state.roundHistorySortDir === "desc" ? "asc" : "desc";
+    persistGame();
+    renderRoundHistory();
+  });
   els.humanHand.addEventListener("click", (event) => {
     const button = event.target.closest("[data-card-id]");
     if (!button) return;
@@ -493,6 +500,7 @@ function snapshotState() {
     pendingRoundSummary: state.pendingRoundSummary,
     winnerId: state.winnerId,
     handSortMode: state.handSortMode,
+    roundHistorySortDir: state.roundHistorySortDir,
     currentSessionId: state.currentSessionId,
   };
 }
@@ -538,6 +546,7 @@ function hydrateStateFromPayload(payload, options = {}) {
       : null;
   state.winnerId = payload.winnerId ? String(payload.winnerId) : null;
   state.handSortMode = normalizeHandSortMode(payload.handSortMode);
+  state.roundHistorySortDir = normalizeRoundHistorySortDir(payload.roundHistorySortDir);
   state.currentSessionId =
     currentSessionId != null
       ? normalizeSelectedCardId(currentSessionId)
@@ -656,6 +665,10 @@ function normalizeTurnStage(value) {
   return ["setup", "draw", "main", "round-end", "game-over"].includes(value)
     ? value
     : "setup";
+}
+
+function normalizeRoundHistorySortDir(value) {
+  return value === "desc" ? "desc" : "asc";
 }
 
 function normalizeSelectedCardId(value) {
@@ -2678,6 +2691,12 @@ function renderHand() {
 }
 
 function renderRoundHistory() {
+  if (els.roundHistoryOrderBtn) {
+    els.roundHistoryOrderBtn.textContent =
+      state.roundHistorySortDir === "desc" ? "Newest First" : "Oldest First";
+    els.roundHistoryOrderBtn.disabled = state.roundHistory.length <= 1;
+  }
+
   if (!state.players.length || !state.roundHistory.length) {
     els.roundHistorySummary.textContent = state.gameStarted
       ? "Complete a round to start the table history."
@@ -2686,7 +2705,12 @@ function renderRoundHistory() {
     return;
   }
 
-  const rows = state.roundHistory
+  const orderedHistory =
+    state.roundHistorySortDir === "desc"
+      ? [...state.roundHistory].reverse()
+      : state.roundHistory;
+
+  const rows = orderedHistory
     .map((entry) => {
       const outPlayerName = state.players.find((player) => player.id === entry.outPlayerId)?.name ?? "Unknown";
       const playerCells = state.players
