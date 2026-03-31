@@ -398,7 +398,6 @@ function hydrateSavedGame() {
     clearSavedGame();
     return;
   }
-  appendLog("Saved game restored.");
 }
 
 function resumeRestoredBotTurn() {
@@ -505,56 +504,90 @@ function snapshotState() {
   };
 }
 
-function hydrateStateFromPayload(payload, options = {}) {
-  const { syncSetupControls = false, currentSessionId = null } = options;
-  if (!payload || typeof payload !== "object") return false;
+function buildHydratedState(payload, options = {}) {
+  const { currentSessionId = null } = options;
+  if (!payload || typeof payload !== "object") return null;
 
   const players = Array.isArray(payload.players)
     ? payload.players.map(normalizePlayerRecord)
     : [];
+  const nextState = {
+    gameStarted: Boolean(payload.gameStarted),
+    busy: false,
+    players,
+    roundNumber: clampNumber(payload.roundNumber, 1, 999, 1),
+    currentPlayerIndex: clampNumber(
+      payload.currentPlayerIndex,
+      0,
+      Math.max(0, players.length - 1),
+      0,
+    ),
+    roundStarterIndex: clampNumber(
+      payload.roundStarterIndex,
+      0,
+      Math.max(0, players.length - 1),
+      0,
+    ),
+    turnStage: normalizeTurnStage(payload.turnStage),
+    deck: normalizeCardList(payload.deck),
+    discardPile: normalizeCardList(payload.discardPile),
+    selectedCardId: normalizeSelectedCardId(payload.selectedCardId),
+    lastDrawnCardId: normalizeSelectedCardId(payload.lastDrawnCardId),
+    selectedSkipTargetId: normalizeSelectedCardId(payload.selectedSkipTargetId),
+    pendingSkipPlayerIds: normalizeIdList(payload.pendingSkipPlayerIds),
+    logs: Array.isArray(payload.logs)
+      ? payload.logs.map((entry) => String(entry)).slice(0, 14)
+      : [],
+    roundHistory: normalizeRoundHistory(payload.roundHistory),
+    pendingRoundSummary:
+      payload.pendingRoundSummary && typeof payload.pendingRoundSummary === "object"
+        ? payload.pendingRoundSummary
+        : null,
+    winnerId: payload.winnerId ? String(payload.winnerId) : null,
+    handSortMode: normalizeHandSortMode(payload.handSortMode),
+    roundHistorySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
+    currentSessionId:
+      currentSessionId != null
+        ? normalizeSelectedCardId(currentSessionId)
+        : normalizeSelectedCardId(payload.currentSessionId),
+  };
 
-  state.gameStarted = Boolean(payload.gameStarted);
-  state.busy = false;
-  state.players = players;
-  state.roundNumber = clampNumber(payload.roundNumber, 1, 999, 1);
-  state.currentPlayerIndex = clampNumber(
-    payload.currentPlayerIndex,
-    0,
-    Math.max(0, players.length - 1),
-    0,
-  );
-  state.roundStarterIndex = clampNumber(
-    payload.roundStarterIndex,
-    0,
-    Math.max(0, players.length - 1),
-    0,
-  );
-  state.turnStage = normalizeTurnStage(payload.turnStage);
-  state.deck = normalizeCardList(payload.deck);
-  state.discardPile = normalizeCardList(payload.discardPile);
-  state.selectedCardId = normalizeSelectedCardId(payload.selectedCardId);
-  state.lastDrawnCardId = normalizeSelectedCardId(payload.lastDrawnCardId);
-  state.selectedSkipTargetId = normalizeSelectedCardId(payload.selectedSkipTargetId);
-  state.pendingSkipPlayerIds = normalizeIdList(payload.pendingSkipPlayerIds);
-  state.logs = Array.isArray(payload.logs)
-    ? payload.logs.map((entry) => String(entry)).slice(0, 14)
-    : [];
-  state.roundHistory = normalizeRoundHistory(payload.roundHistory);
-  state.pendingRoundSummary =
-    payload.pendingRoundSummary && typeof payload.pendingRoundSummary === "object"
-      ? payload.pendingRoundSummary
-      : null;
-  state.winnerId = payload.winnerId ? String(payload.winnerId) : null;
-  state.handSortMode = normalizeHandSortMode(payload.handSortMode);
-  state.roundHistorySortDir = normalizeRoundHistorySortDir(payload.roundHistorySortDir);
-  state.currentSessionId =
-    currentSessionId != null
-      ? normalizeSelectedCardId(currentSessionId)
-      : normalizeSelectedCardId(payload.currentSessionId);
-
-  if (!state.gameStarted || !players.length) {
-    return false;
+  if (!nextState.gameStarted || !players.length) {
+    return null;
   }
+
+  return nextState;
+}
+
+function applyHydratedState(nextState) {
+  state.gameStarted = nextState.gameStarted;
+  state.busy = nextState.busy;
+  state.players = nextState.players;
+  state.roundNumber = nextState.roundNumber;
+  state.currentPlayerIndex = nextState.currentPlayerIndex;
+  state.roundStarterIndex = nextState.roundStarterIndex;
+  state.turnStage = nextState.turnStage;
+  state.deck = nextState.deck;
+  state.discardPile = nextState.discardPile;
+  state.selectedCardId = nextState.selectedCardId;
+  state.lastDrawnCardId = nextState.lastDrawnCardId;
+  state.selectedSkipTargetId = nextState.selectedSkipTargetId;
+  state.pendingSkipPlayerIds = nextState.pendingSkipPlayerIds;
+  state.logs = nextState.logs;
+  state.roundHistory = nextState.roundHistory;
+  state.pendingRoundSummary = nextState.pendingRoundSummary;
+  state.winnerId = nextState.winnerId;
+  state.handSortMode = nextState.handSortMode;
+  state.roundHistorySortDir = nextState.roundHistorySortDir;
+  state.currentSessionId = nextState.currentSessionId;
+}
+
+function hydrateStateFromPayload(payload, options = {}) {
+  const { syncSetupControls = false } = options;
+  const nextState = buildHydratedState(payload, options);
+  if (!nextState) return false;
+
+  applyHydratedState(nextState);
 
   if (syncSetupControls) {
     syncSetupControlsFromState();
@@ -1033,6 +1066,14 @@ async function importSessionFile(file) {
       return;
     }
 
+    const hydrated = buildHydratedState(cloneJson(imported.payload), {
+      currentSessionId: imported.id,
+    });
+    if (!hydrated) {
+      showSessionMessage("Imported file could not be loaded.");
+      return;
+    }
+
     const nextSessions = [imported, ...readStoredSessions().filter((session) => session.id !== imported.id)]
       .sort((left, right) => right.updatedAt - left.updatedAt);
     if (!writeStoredSessions(nextSessions)) {
@@ -1041,15 +1082,8 @@ async function importSessionFile(file) {
     }
 
     clearTransientNotice();
-    const ok = hydrateStateFromPayload(cloneJson(imported.payload), {
-      syncSetupControls: true,
-      currentSessionId: imported.id,
-    });
-    if (!ok) {
-      showSessionMessage("Imported file could not be loaded.");
-      return;
-    }
-
+    applyHydratedState(hydrated);
+    syncSetupControlsFromState();
     state.selectedSessionId = imported.id;
     setSessionStatusMessage(`Session imported: ${imported.name}.`);
     render();
