@@ -853,6 +853,22 @@ select {
   background: rgba(250, 246, 232, 0.06);
 }
 
+.round-history-player-head {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.round-history-player-name {
+  color: var(--accent-strong);
+}
+
+.round-history-player-phase {
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
 .round-history-table tbody tr:last-child th,
 .round-history-table tbody tr:last-child td {
   border-bottom: 0;

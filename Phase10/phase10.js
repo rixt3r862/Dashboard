@@ -2742,7 +2742,20 @@ function renderRoundHistory() {
     .join("");
 
   const headCells = state.players
-    .map((player) => `<th scope="col">${escapeHtml(player.name)}</th>`)
+    .map((player) => {
+      const { completedPhaseNumber } = playerPhaseProgressCopy(player);
+      const phaseHeaderLabel = completedPhaseNumber
+        ? `Phase ${completedPhaseNumber}`
+        : "No phase yet";
+      return `
+        <th scope="col">
+          <div class="round-history-player-head">
+            <span class="round-history-player-name">${escapeHtml(player.name)}</span>
+            <span class="round-history-player-phase">${escapeHtml(phaseHeaderLabel)}</span>
+          </div>
+        </th>
+      `;
+    })
     .join("");
 
   els.roundHistorySummary.textContent = `${state.roundHistory.length} completed round${state.roundHistory.length === 1 ? "" : "s"} on this table.`;
