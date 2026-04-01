@@ -1733,35 +1733,177 @@ body.game-active .hero-copy {
 
 @media (max-width: 760px) {
   .page-shell {
-    width: min(100% - 1rem, 100%);
-    padding-top: 0.75rem;
+    width: min(100% - 0.7rem, 100%);
+    padding-top: 0.55rem;
+    padding-bottom: 0.8rem;
   }
 
   .hero {
     grid-template-columns: 1fr;
+    margin-bottom: 0.42rem;
+  }
+
+  .hero-copy {
+    display: none;
+  }
+
+  .eyebrow {
+    margin-bottom: 0.14rem;
+    font-size: 0.56rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.45rem, 8vw, 1.95rem);
+  }
+
+  .layout,
+  .sidebar,
+  .table-area {
+    gap: 0.5rem;
+  }
+
+  .panel {
+    padding: 0.58rem;
+    border-radius: 1.15rem;
+  }
+
+  .panel-head h2 {
+    font-size: 1.02rem;
+  }
+
+  .panel-head p {
+    margin-top: 0.22rem;
+    font-size: 0.8rem;
   }
 
   .button-row,
-  .pile-row {
+  .session-button-row {
     grid-template-columns: 1fr;
+  }
+
+  .setup-panel .button-row,
+  .status-panel .pile-row,
+  .human-action-panel--embedded .action-button-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hand-panel-shell,
-  .human-action-layout,
-  .action-button-row {
+  .human-action-layout {
     grid-template-columns: 1fr;
   }
 
-  .pile-button {
-    align-items: stretch;
+  .status-panel .panel-head p,
+  .hand-panel .panel-head p,
+  .human-action-panel .panel-head p {
+    min-height: 0;
   }
 
-  .pile-preview {
-    justify-content: center;
+  .status-grid {
+    margin-top: 0.48rem;
+    gap: 0.4rem;
+  }
+
+  .status-chip {
+    padding: 0.46rem 0.52rem;
+  }
+
+  .pile-row {
+    margin-top: 0.48rem;
+    gap: 0.45rem;
+  }
+
+  .deck-card,
+  .discard-button .hand-card,
+  .pile-preview-empty {
+    width: min(100%, 3.8rem);
+    min-width: 3.2rem;
   }
 
   .players-board {
     grid-template-columns: 1fr;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
+  }
+
+  .player-card {
+    padding: 0.58rem;
+    gap: 0.36rem;
+  }
+
+  .player-name {
+    font-size: 0.93rem;
+  }
+
+  .badge,
+  .stat-pill,
+  .group-chip {
+    font-size: 0.66rem;
+    padding: 0.2rem 0.42rem;
+  }
+
+  .human-seat-summary {
+    margin-top: 0.52rem;
+    gap: 0.34rem;
+  }
+
+  .phase-preview-card {
+    padding: 0.5rem 0.52rem;
+    gap: 0.32rem;
+  }
+
+  .phase-preview-head strong {
+    font-size: 0.78rem;
+  }
+
+  .phase-preview-copy,
+  .phase-preview-label {
+    font-size: 0.7rem;
+  }
+
+  .human-action-panel--embedded {
+    padding: 0.55rem;
+  }
+
+  .human-action-panel--embedded .panel-head h2 {
+    font-size: 0.94rem;
+  }
+
+  .human-action-panel--embedded .panel-head p {
+    font-size: 0.69rem;
+  }
+
+  .human-action-panel--embedded .human-action-layout {
+    gap: 0.42rem;
+    margin-top: 0.45rem;
+  }
+
+  .human-action-panel--embedded .btn {
+    padding: 0.4rem 0.44rem;
+    font-size: 0.72rem;
+  }
+
+  .mini-pile-action {
+    min-height: 2.55rem;
+    padding: 0.68rem 0.28rem 0.3rem;
+    font-size: 0.6rem;
+  }
+
+  .human-action-panel--embedded .selection-card {
+    padding: 0.46rem 0.5rem;
+  }
+
+  .human-action-panel--embedded .selection-card strong {
+    font-size: 0.82rem;
+  }
+
+  .human-action-panel--embedded .selection-label,
+  .human-action-panel--embedded .selection-meta,
+  .action-sort-label {
+    font-size: 0.66rem;
+  }
+
+  .action-sort-mode {
+    font-size: 0.58rem;
   }
 
   .round-history-head {
@@ -1772,9 +1914,31 @@ body.game-active .hero-copy {
     width: 100%;
   }
 
-  .hand-card,
+  .human-hand {
+    --hand-card-gap: 0.22rem;
+    gap: var(--hand-card-gap);
+  }
+
+  .hand-card {
+    width: calc(33.33% - 0.34rem);
+    min-width: 0;
+  }
+
   .human-hand .hand-card {
-    width: calc(33.33% - 0.5rem);
-    min-width: 76px;
+    width: calc(25% - 0.18rem);
+    min-width: 0;
+  }
+
+  .human-hand .card-body {
+    padding: 0.82rem 0.34rem 0.46rem;
+    gap: 0.18rem;
+  }
+
+  .human-hand .card-value {
+    font-size: 1.06rem;
+  }
+
+  .human-hand .card-meta {
+    font-size: 0.53rem;
   }
 }
