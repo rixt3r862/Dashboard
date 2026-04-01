@@ -1,5 +1,5 @@
 import { bindSelectOnFocusAndClick } from "./inputUx.js";
-import { phase10CompletionMap } from "./rules.mjs";
+import { phase10CompletionMap, phase10ProgressByPlayerId } from "./rules.mjs";
 
 export function createRoundEntryController(deps) {
   const {
@@ -489,6 +489,9 @@ export function createRoundEntryController(deps) {
     els.roundPreview.style.display = "block";
     const scores = readRoundScores();
     const phase10Completions = isPhase10() ? readPhase10Completions() : {};
+    const phase10Progress = isPhase10()
+      ? phase10ProgressByPlayerId(state.players, state.rounds, state.target)
+      : {};
     renderHeartsRoundTotal(scores);
     const isSkyjo = state.presetKey === "skyjo" && !isPhase10();
     const valueLabel = isPhase10() ? "Points & Phase" : "Score";
@@ -499,6 +502,8 @@ export function createRoundEntryController(deps) {
         const rawVal = Number(scores[p.id] ?? 0);
         const val = Number.isFinite(rawVal) ? rawVal : 0;
         const phaseComplete = Number(phase10Completions[p.id] ?? 0) > 0;
+        const phaseNumber = Number(phase10Progress[p.id]?.currentPhase ?? 1);
+        const phaseLabel = `Phase ${phaseNumber}`;
         const playerNameEsc = escapeHtml(p.name);
         const showSkyjoNegativeOutHint = shouldShowSkyjoNegativeOutHint(p.id);
         const rowClass = phaseComplete && isPhase10() ? " phase10-complete" : "";
@@ -543,17 +548,15 @@ export function createRoundEntryController(deps) {
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
             </span>
             <span class="round-preview-phase-toggle" aria-label="${playerNameEsc} phase completion">
-              <span class="round-preview-phase-label">Phase</span>
-              <button type="button" class="round-preview-btn ${
-                !phaseComplete ? "active" : ""
-              }" data-preview-action="phase" data-player-id="${
-                p.id
-              }" data-value="0" aria-label="Mark ${playerNameEsc} as not completing a phase">No</button>
-              <button type="button" class="round-preview-btn ${
-                phaseComplete ? "active" : ""
-              }" data-preview-action="phase" data-player-id="${
-                p.id
-              }" data-value="1" aria-label="Mark ${playerNameEsc} as completing a phase">Yes</button>
+              <button
+                type="button"
+                class="round-preview-btn round-preview-phase-btn ${phaseComplete ? "active" : ""}"
+                data-preview-action="phase-toggle"
+                data-player-id="${p.id}"
+                aria-label="Toggle ${playerNameEsc} ${phaseLabel} completion"
+                aria-pressed="${phaseComplete ? "true" : "false"}"
+                title="${phaseComplete ? `${playerNameEsc} completed ${phaseLabel}` : `Mark ${playerNameEsc} ${phaseLabel} complete`}"
+              >${phaseLabel}</button>
             </span>
           `
           : `
@@ -646,10 +649,9 @@ export function createRoundEntryController(deps) {
         return;
       }
 
-      if (action === "phase") {
-        const raw = Number.parseInt(btn.getAttribute("data-value"), 10);
-        const val = Number.isNaN(raw) ? 0 : raw;
-        setPhase10CompletionValue(playerId, val);
+      if (action === "phase-toggle") {
+        const current = Number(readPhase10Completions()[playerId] ?? 0) > 0 ? 1 : 0;
+        setPhase10CompletionValue(playerId, current ? 0 : 1);
         return;
       }
 

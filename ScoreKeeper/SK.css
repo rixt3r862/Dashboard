@@ -1869,16 +1869,13 @@ summary::-webkit-details-marker{ display:none; }
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 6px;
+  gap: 0;
   margin-left: 4px;
   padding-left: 4px;
   border-left: 1px solid rgba(148,163,184,.32);
 }
-.round-preview-phase-label{
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  white-space: nowrap;
+.round-preview-phase-btn{
+  min-width: 56px;
 }
 .round-preview-out{
   display: inline-flex;
