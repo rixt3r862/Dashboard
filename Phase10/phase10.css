@@ -636,6 +636,11 @@ select {
     opacity 0.18s ease;
 }
 
+.deck-button.pile-pulsed .deck-card,
+.discard-button.pile-pulsed .hand-card {
+  animation: pile-pulse 0.52s ease;
+}
+
 .discard-button .hand-card:hover,
 .discard-button .hand-card.selected {
   transform: none;
@@ -1174,6 +1179,10 @@ select {
     0 0 0 1px rgba(255, 214, 127, 0.22) inset;
 }
 
+.meld-card.just-laid {
+  animation: meld-settle-in 0.8s cubic-bezier(0.18, 0.8, 0.24, 1);
+}
+
 .meld-card-target-note {
   font-size: 0.68rem;
   color: var(--accent-strong);
@@ -1237,6 +1246,10 @@ select {
   box-shadow:
     0 14px 22px rgba(0, 0, 0, 0.2),
     0 0 0 2px rgba(255, 214, 127, 0.44);
+}
+
+.mini-card.flashed {
+  animation: mini-card-flash 0.9s ease;
 }
 
 .mini-card::before {
@@ -1364,6 +1377,65 @@ body.game-active .hero-copy {
     box-shadow:
       0 0 0 3px rgba(255, 214, 127, 0.34),
       0 16px 26px rgba(0, 0, 0, 0.22);
+  }
+}
+
+@keyframes pile-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 14px 22px rgba(0, 0, 0, 0.28);
+  }
+  45% {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow:
+      0 20px 28px rgba(0, 0, 0, 0.32),
+      0 0 0 3px rgba(255, 214, 127, 0.22);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 14px 22px rgba(0, 0, 0, 0.28);
+  }
+}
+
+@keyframes meld-settle-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mini-card-flash {
+  0% {
+    box-shadow:
+      0 12px 20px rgba(0, 0, 0, 0.18),
+      0 0 0 0 rgba(255, 214, 127, 0);
+  }
+  35% {
+    box-shadow:
+      0 14px 22px rgba(0, 0, 0, 0.2),
+      0 0 0 3px rgba(255, 214, 127, 0.42);
+  }
+  100% {
+    box-shadow:
+      0 12px 20px rgba(0, 0, 0, 0.18),
+      0 0 0 0 rgba(255, 214, 127, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-button.pile-pulsed .deck-card,
+  .discard-button.pile-pulsed .hand-card,
+  .meld-card.just-laid,
+  .mini-card.flashed {
+    animation: none;
   }
 }
 

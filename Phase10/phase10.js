@@ -23,6 +23,9 @@ const SESSIONS_KEY = "phase10.table.sessions.v1";
 const EXPORT_VERSION = 1;
 let lastBannerStage = null;
 let transientNoticeTimer = null;
+let pilePulseTimer = null;
+let flashedCardTimer = null;
+let flashedGroupsTimer = null;
 
 const PHASES = [
   {
@@ -114,6 +117,9 @@ const state = {
   pendingRoundSummary: null,
   winnerId: null,
   transientNotice: null,
+  pilePulse: null,
+  flashedCardId: null,
+  flashedGroupIds: [],
   handSortMode: "color",
   roundHistorySortDir: "asc",
   humanExtraPlayUndoStack: [],
@@ -1274,6 +1280,7 @@ function takeDeckInternal(player) {
   const card = drawFromDeckInternal();
   if (!card) return null;
   player.hand.push(card);
+  triggerPilePulse("deck");
   sortHands();
   return card;
 }
@@ -1282,6 +1289,7 @@ function takeDiscardInternal(player) {
   const card = state.discardPile.pop();
   if (!card) return null;
   player.hand.push(card);
+  triggerPilePulse("discard");
   sortHands();
   return card;
 }
@@ -1426,6 +1434,7 @@ function discardCard(player, card, options = {}) {
   state.selectedSkipTargetId = null;
   state.humanExtraPlayUndoStack = [];
   state.humanPhasePreviewRequested = false;
+  triggerPilePulse("discard");
   appendLog(`${player.name} discarded ${cardLabel(card)}.`);
 
   if (!player.hand.length) {
@@ -1692,6 +1701,7 @@ function layPhaseForPlayer(player, options = {}) {
   );
   player.completedPhaseThisRound = true;
   state.humanPhasePreviewRequested = false;
+  triggerGroupSettle(player.laidGroups.map((group) => group.id));
   appendLog(`${player.name} laid Phase ${phase.number}: ${phase.title}.`);
   if (autoPlayAfterLay) {
     autoPlayExtras(player);
@@ -1767,10 +1777,67 @@ function moveCardToGroup(player, card, target) {
   if (target.kind === "run") {
     target.cards.push(card);
     applyResolvedRunState(target);
+    triggerPlayedCardFlash(card.id);
     return;
   }
 
   target.cards.push(card);
+  triggerPlayedCardFlash(card.id);
+}
+
+function clearPilePulse() {
+  if (pilePulseTimer) {
+    window.clearTimeout(pilePulseTimer);
+    pilePulseTimer = null;
+  }
+  state.pilePulse = null;
+}
+
+function triggerPilePulse(pile) {
+  clearPilePulse();
+  state.pilePulse = pile;
+  pilePulseTimer = window.setTimeout(() => {
+    pilePulseTimer = null;
+    state.pilePulse = null;
+    render();
+  }, 520);
+}
+
+function clearPlayedCardFlash() {
+  if (flashedCardTimer) {
+    window.clearTimeout(flashedCardTimer);
+    flashedCardTimer = null;
+  }
+  state.flashedCardId = null;
+}
+
+function triggerPlayedCardFlash(cardId) {
+  clearPlayedCardFlash();
+  state.flashedCardId = cardId;
+  flashedCardTimer = window.setTimeout(() => {
+    flashedCardTimer = null;
+    state.flashedCardId = null;
+    render();
+  }, 900);
+}
+
+function clearGroupSettle() {
+  if (flashedGroupsTimer) {
+    window.clearTimeout(flashedGroupsTimer);
+    flashedGroupsTimer = null;
+  }
+  state.flashedGroupIds = [];
+}
+
+function triggerGroupSettle(groupIds) {
+  clearGroupSettle();
+  state.flashedGroupIds = Array.isArray(groupIds) ? groupIds.filter(Boolean) : [];
+  if (!state.flashedGroupIds.length) return;
+  flashedGroupsTimer = window.setTimeout(() => {
+    flashedGroupsTimer = null;
+    state.flashedGroupIds = [];
+    render();
+  }, 800);
 }
 
 function canCardBeHitAnywhere(card, playerId) {
@@ -2355,9 +2422,10 @@ function miniCardMarkup(card, options = {}) {
   const baseClass = card.type === "number" ? card.color : card.type;
   const undoableCardIds = options.undoableCardIds ?? new Set();
   const isUndoable = undoableCardIds.has(card.id);
+  const flashedClass = state.flashedCardId === card.id ? "flashed" : "";
   return `
     <span
-      class="mini-card ${baseClass} ${isUndoable ? "undoable" : ""}"
+      class="mini-card ${baseClass} ${isUndoable ? "undoable" : ""} ${flashedClass}"
       ${isUndoable ? `data-undo-card-id="${escapeHtml(card.id)}"` : ""}
       ${isUndoable ? `title="Return ${escapeHtml(cardLabel(card))} to your hand"` : ""}
     >${escapeHtml(miniCardLabel(card))}</span>
@@ -2612,6 +2680,8 @@ function renderStatus() {
   els.startGameBtn.setAttribute("aria-label", els.startGameBtn.title);
   els.deckPreview.innerHTML = deckCardMarkup(state.deck.length);
   els.discardPreview.innerHTML = faceCardMarkup(discard);
+  els.drawDeckBtn.classList.toggle("pile-pulsed", state.pilePulse === "deck");
+  els.takeDiscardBtn.classList.toggle("pile-pulsed", state.pilePulse === "discard");
   els.drawDeckBtn.setAttribute("aria-label", `Draw from deck: ${state.deck.length} cards remaining`);
   els.drawDeckBtn.title = `Draw from deck: ${state.deck.length} cards remaining`;
   els.actionDrawDeckBtn.setAttribute("aria-label", els.drawDeckBtn.getAttribute("aria-label") ?? "Draw from deck");
@@ -3008,9 +3078,10 @@ function renderMeldStack(player, targetIds, selectedCard, options = {}) {
       const targetAttrs = isTarget
         ? `type="button" data-group-id="${escapeHtml(group.id)}"`
         : `aria-disabled="true"`;
+      const settledClass = state.flashedGroupIds.includes(group.id) ? "just-laid" : "";
       return `
         <${tag}
-          class="meld-card ${isTarget ? "hit-target" : ""}"
+          class="meld-card ${isTarget ? "hit-target" : ""} ${settledClass}"
           ${targetAttrs}
           aria-label="${escapeHtml(
             isTarget && selectedCard
