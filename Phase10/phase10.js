@@ -116,6 +116,8 @@ const state = {
   transientNotice: null,
   handSortMode: "color",
   roundHistorySortDir: "asc",
+  humanExtraPlayUndoStack: [],
+  humanPhasePreviewRequested: false,
   setupBotNames: BOT_NAMES.slice(0, 3),
   setupBotDifficulties: ["medium", "medium", "medium"],
   currentSessionId: null,
@@ -261,6 +263,14 @@ function bindEvents() {
   });
 
   els.playersBoard.addEventListener("click", (event) => {
+    const undoCard = event.target.closest("[data-undo-card-id]");
+    if (undoCard) {
+      const cardId = undoCard.getAttribute("data-undo-card-id");
+      if (cardId) {
+        undoHumanExtraPlay(cardId);
+      }
+      return;
+    }
     const skipTargetCard = event.target.closest("[data-skip-target-id]");
     if (skipTargetCard) {
       const targetId = skipTargetCard.getAttribute("data-skip-target-id");
@@ -289,6 +299,14 @@ function bindEvents() {
     const sortToggle = event.target.closest("[data-hand-sort-toggle]");
     if (sortToggle) {
       toggleHandSortMode();
+      return;
+    }
+    const undoCard = event.target.closest("[data-undo-card-id]");
+    if (undoCard) {
+      const cardId = undoCard.getAttribute("data-undo-card-id");
+      if (cardId) {
+        undoHumanExtraPlay(cardId);
+      }
       return;
     }
     const button = event.target.closest("[data-group-id]");
@@ -500,6 +518,8 @@ function snapshotState() {
     winnerId: state.winnerId,
     handSortMode: state.handSortMode,
     roundHistorySortDir: state.roundHistorySortDir,
+    humanExtraPlayUndoStack: state.humanExtraPlayUndoStack,
+    humanPhasePreviewRequested: state.humanPhasePreviewRequested,
     currentSessionId: state.currentSessionId,
   };
 }
@@ -546,6 +566,8 @@ function buildHydratedState(payload, options = {}) {
     winnerId: payload.winnerId ? String(payload.winnerId) : null,
     handSortMode: normalizeHandSortMode(payload.handSortMode),
     roundHistorySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
+    humanExtraPlayUndoStack: normalizeHumanExtraPlayUndoStack(payload.humanExtraPlayUndoStack),
+    humanPhasePreviewRequested: Boolean(payload.humanPhasePreviewRequested),
     currentSessionId:
       currentSessionId != null
         ? normalizeSelectedCardId(currentSessionId)
@@ -579,6 +601,8 @@ function applyHydratedState(nextState) {
   state.winnerId = nextState.winnerId;
   state.handSortMode = nextState.handSortMode;
   state.roundHistorySortDir = nextState.roundHistorySortDir;
+  state.humanExtraPlayUndoStack = nextState.humanExtraPlayUndoStack;
+  state.humanPhasePreviewRequested = nextState.humanPhasePreviewRequested;
   state.currentSessionId = nextState.currentSessionId;
 }
 
@@ -715,6 +739,19 @@ function normalizeIdList(value) {
     .map((entry) => String(entry));
 }
 
+function normalizeHumanExtraPlayUndoStack(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const cardId = normalizeSelectedCardId(entry.cardId);
+      const targetGroupId = normalizeSelectedCardId(entry.targetGroupId);
+      if (!cardId || !targetGroupId) return null;
+      return { cardId, targetGroupId };
+    })
+    .filter(Boolean);
+}
+
 function normalizeHandSortMode(value) {
   return value === "number" ? "number" : "color";
 }
@@ -845,6 +882,8 @@ function startNewGame() {
   state.roundHistory = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
+  state.humanExtraPlayUndoStack = [];
+  state.humanPhasePreviewRequested = false;
   state.currentSessionId = null;
   appendLog(`New game started with ${humanName} and ${botCount} bot${botCount === 1 ? "" : "s"}.`);
   startRound();
@@ -870,6 +909,8 @@ function resetTable() {
   state.roundHistory = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
+  state.humanExtraPlayUndoStack = [];
+  state.humanPhasePreviewRequested = false;
   state.currentSessionId = null;
   clearSavedGame();
   render();
@@ -1140,6 +1181,8 @@ function startRound() {
   state.selectedSkipTargetId = null;
   state.pendingSkipPlayerIds = [];
   state.pendingRoundSummary = null;
+  state.humanExtraPlayUndoStack = [];
+  state.humanPhasePreviewRequested = false;
   state.deck = shuffle(buildDeck());
   state.discardPile = [];
 
@@ -1219,6 +1262,7 @@ function humanDraw(source) {
   const drawn = source === "discard" ? takeDiscardInternal(player) : takeDeckInternal(player);
   if (!drawn) return;
   state.turnStage = "main";
+  state.humanPhasePreviewRequested = false;
   state.selectedCardId = drawn.id;
   state.lastDrawnCardId = drawn.id;
   syncSelectedSkipTarget();
@@ -1246,6 +1290,25 @@ function humanLayPhase() {
   if (!isHumanTurn() || state.busy || state.turnStage !== "main") return;
   const player = currentPlayer();
   if (player.laidGroups.length) return;
+  const previewMeld = humanPhasePreviewMeld();
+  if (previewMeld) {
+    state.humanPhasePreviewRequested = false;
+    const didConfirmLay = layPhaseForPlayer(player, { presetMeld: previewMeld });
+    if (!didConfirmLay) {
+      appendLog(`${player.name} could not complete Phase ${player.phaseIndex + 1} yet.`);
+    }
+    render();
+    return;
+  }
+
+  const phase = currentPhaseFor(player);
+  const bestMeld = phase ? findBestPhaseMeld(player.hand, phase) : null;
+  if (bestMeld) {
+    state.humanPhasePreviewRequested = true;
+    render();
+    return;
+  }
+
   const didLay = layPhaseForPlayer(player);
   if (!didLay) {
     appendLog(`${player.name} could not complete Phase ${player.phaseIndex + 1} yet.`);
@@ -1289,10 +1352,56 @@ function humanPlaySelectedCardToGroup(groupId) {
   if (!target || !canCardHitGroup(card, target)) return;
 
   moveCardToGroup(player, card, target);
+  state.humanExtraPlayUndoStack.push({
+    cardId: card.id,
+    targetGroupId: target.id,
+  });
   sortHands();
 
   const owner = state.players.find((entry) => entry.id === target.ownerId);
   appendLog(`${player.name} played ${cardLabel(card)} onto ${owner?.name ?? "another player"}'s ${target.label}.`);
+  render();
+}
+
+function undoHumanExtraPlay(cardId = null) {
+  if (!isHumanTurn() || state.busy || state.turnStage !== "main") return;
+  const player = currentPlayer();
+  if (!player?.isHuman) return;
+
+  while (state.humanExtraPlayUndoStack.length) {
+    const stackIndex = cardId
+      ? state.humanExtraPlayUndoStack.findLastIndex((entry) => entry.cardId === cardId)
+      : state.humanExtraPlayUndoStack.length - 1;
+    if (stackIndex === -1) break;
+
+    const [undoEntry] = state.humanExtraPlayUndoStack.splice(stackIndex, 1);
+    const target = findGroupById(undoEntry.targetGroupId);
+    if (!target) {
+      if (cardId) break;
+      continue;
+    }
+
+    const cardIndex = target.cards.findIndex((entry) => entry.id === undoEntry.cardId);
+    if (cardIndex === -1) {
+      if (cardId) break;
+      continue;
+    }
+
+    const [card] = target.cards.splice(cardIndex, 1);
+    player.hand.push(card);
+    if (target.kind === "run") {
+      applyResolvedRunState(target);
+    }
+    sortHands();
+    state.selectedCardId = card.id;
+    syncSelectedSkipTarget();
+
+    const owner = state.players.find((entry) => entry.id === target.ownerId);
+    appendLog(`${player.name} took back ${cardLabel(card)} from ${owner?.name ?? "another player"}'s ${target.label}.`);
+    render();
+    return;
+  }
+
   render();
 }
 
@@ -1315,6 +1424,8 @@ function discardCard(player, card, options = {}) {
   state.selectedCardId = null;
   state.lastDrawnCardId = null;
   state.selectedSkipTargetId = null;
+  state.humanExtraPlayUndoStack = [];
+  state.humanPhasePreviewRequested = false;
   appendLog(`${player.name} discarded ${cardLabel(card)}.`);
 
   if (!player.hand.length) {
@@ -1566,10 +1677,13 @@ function chooseBotSkipTarget(player) {
 }
 
 function layPhaseForPlayer(player, options = {}) {
-  const { autoPlayAfterLay = !player.isHuman && botDifficulty(player) !== "easy" } = options;
+  const {
+    autoPlayAfterLay = !player.isHuman && botDifficulty(player) !== "easy",
+    presetMeld = null,
+  } = options;
   const phase = currentPhaseFor(player);
   if (!phase || player.laidGroups.length) return false;
-  const bestMeld = findBestPhaseMeld(player.hand, phase);
+  const bestMeld = presetMeld ?? findBestPhaseMeld(player.hand, phase);
   if (!bestMeld) return false;
 
   removeCardsFromHand(player, bestMeld.usedCardIds);
@@ -1577,6 +1691,7 @@ function layPhaseForPlayer(player, options = {}) {
     createLaidGroup(player.id, phase.number, index, group),
   );
   player.completedPhaseThisRound = true;
+  state.humanPhasePreviewRequested = false;
   appendLog(`${player.name} laid Phase ${phase.number}: ${phase.title}.`);
   if (autoPlayAfterLay) {
     autoPlayExtras(player);
@@ -2061,6 +2176,21 @@ function playerPhaseProgressCopy(player) {
   return { completedLabel, workingLabel, completedPhaseNumber };
 }
 
+function humanPhasePreviewMeld() {
+  const human = humanPlayer();
+  if (
+    !human ||
+    !state.humanPhasePreviewRequested ||
+    !isHumanTurn() ||
+    state.turnStage !== "main" ||
+    human.laidGroups.length
+  ) {
+    return null;
+  }
+  const phase = currentPhaseFor(human);
+  return phase ? findBestPhaseMeld(human.hand, phase) : null;
+}
+
 function topDiscard() {
   return state.discardPile[state.discardPile.length - 1] ?? null;
 }
@@ -2220,10 +2350,18 @@ function cardLabel(card) {
   return `${color} ${card.value}`;
 }
 
-function miniCardMarkup(card) {
+function miniCardMarkup(card, options = {}) {
   if (!card) return "";
   const baseClass = card.type === "number" ? card.color : card.type;
-  return `<span class="mini-card ${baseClass}">${escapeHtml(miniCardLabel(card))}</span>`;
+  const undoableCardIds = options.undoableCardIds ?? new Set();
+  const isUndoable = undoableCardIds.has(card.id);
+  return `
+    <span
+      class="mini-card ${baseClass} ${isUndoable ? "undoable" : ""}"
+      ${isUndoable ? `data-undo-card-id="${escapeHtml(card.id)}"` : ""}
+      ${isUndoable ? `title="Return ${escapeHtml(cardLabel(card))} to your hand"` : ""}
+    >${escapeHtml(miniCardLabel(card))}</span>
+  `;
 }
 
 function faceCardMarkup(card, options = {}) {
@@ -2240,13 +2378,14 @@ function faceCardMarkup(card, options = {}) {
   const showSubtitle = !(options.interactive && card.type === "number");
   const selectedClass = options.selected ? "selected" : "";
   const drawnClass = options.justDrew ? "just-drew" : "";
+  const previewedClass = options.previewed ? "previewed" : "";
   const dataAttr = options.cardId ? ` data-card-id="${escapeHtml(options.cardId)}"` : "";
   const tag = options.interactive ? "button" : "div";
   const buttonType = options.interactive ? ` type="button"` : "";
 
   return `
     <${tag}
-      class="hand-card card-type-${card.type} ${selectedClass} ${drawnClass}"
+      class="hand-card card-type-${card.type} ${selectedClass} ${drawnClass} ${previewedClass}"
       ${dataAttr}
       ${buttonType}
       style="${card.type === "number" ? `--color: ${colorMeta?.css ?? "#36a56c"};` : ""}"
@@ -2421,6 +2560,7 @@ function renderStatus() {
   const human = humanPlayer();
   const discard = topDiscard();
   const humanPhase = human ? currentPhaseFor(human) : null;
+  const previewMeld = humanPhasePreviewMeld();
   const humanCanLay = human && state.turnStage === "main"
     ? Boolean(humanPhase && findBestPhaseMeld(human.hand, humanPhase))
     : false;
@@ -2500,6 +2640,7 @@ function renderStatus() {
     state.busy ||
     !humanCanLay ||
     Boolean(human?.laidGroups.length);
+  els.layPhaseBtn.textContent = previewMeld ? "Confirm Lay Phase" : "Lay Phase";
   els.discardBtn.disabled =
     !isHumanTurn() ||
     state.turnStage !== "main" ||
@@ -2524,6 +2665,10 @@ function renderStatus() {
     els.actionHint.textContent = `Discard Skip to make ${activeSkipTarget.name} lose a turn.`;
   } else if (selectedCard?.type === "skip") {
     els.actionHint.textContent = "Click a highlighted player card to choose who to skip, then discard the Skip card.";
+  } else if (previewMeld) {
+    els.actionHint.textContent = `Phase ${humanPhase?.number ?? "?"} preview is shown. Confirm to lay it, or discard instead.`;
+  } else if (state.humanExtraPlayUndoStack.length) {
+    els.actionHint.textContent = "Click one of your just-played mini cards to return it to your hand, keep adding cards, or discard to end the turn.";
   } else if (human?.laidGroups.length && selectedTargets.length) {
     els.actionHint.textContent = `Click a highlighted phase group to play ${cardLabel(selectedCard)}, or discard it instead.`;
   } else if (human?.laidGroups.length) {
@@ -2644,6 +2789,39 @@ function renderBoard() {
   }
 }
 
+function phasePreviewGroupLabel(group) {
+  if (group.meta.kind === "set") {
+    return `Set of ${group.meta.size}`;
+  }
+  if (group.meta.kind === "color") {
+    return `${group.meta.size} ${group.meta.colorLabel}`;
+  }
+  return `Run ${group.meta.start}-${group.meta.end}`;
+}
+
+function renderPhasePreviewMarkup(meld, phase) {
+  if (!meld || !phase) return "";
+  return `
+    <section class="phase-preview-card" aria-label="Phase preview">
+      <div class="phase-preview-head">
+        <strong>Phase ${phase.number} Preview</strong>
+        <span class="group-chip">${meld.usedCardIds.length} cards</span>
+      </div>
+      <p class="phase-preview-copy">These cards will be laid when you confirm.</p>
+      <div class="phase-preview-groups">
+        ${meld.groups
+          .map((group) => `
+            <div class="phase-preview-group">
+              <span class="phase-preview-label">${escapeHtml(phasePreviewGroupLabel(group))}</span>
+              <div class="mini-card-row">${group.cards.map((card) => miniCardMarkup(card)).join("")}</div>
+            </div>
+          `)
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderHand() {
   const human = humanPlayer();
   if (!human) {
@@ -2656,6 +2834,8 @@ function renderHand() {
   }
 
   const phase = currentPhaseFor(human);
+  const previewMeld = humanPhasePreviewMeld();
+  const previewCardIds = new Set(previewMeld?.usedCardIds ?? []);
   const completionReady = Boolean(phase && findBestPhaseMeld(human.hand, phase));
   const selectedCard = selectedHumanCard();
   const { completedLabel, workingLabel, completedPhaseNumber } = playerPhaseProgressCopy(human);
@@ -2678,6 +2858,8 @@ function renderHand() {
   els.handSummary.textContent =
     state.turnStage === "round-end"
       ? "Round complete. Review the hand counts above and deal the next round."
+      : previewMeld
+        ? "Previewing the cards that will be used for your current phase."
       : completionReady && !human.laidGroups.length
         ? "Your current phase is ready to lay."
         : "Your laid phase and hand are below.";
@@ -2707,6 +2889,7 @@ function renderHand() {
         </button>
       </div>
     </div>
+    ${renderPhasePreviewMarkup(previewMeld, phase)}
     ${renderMeldStack(human, targetIds, selectedCard, {
       emptyMessage: "Lay your current phase to display it above your hand.",
     })}
@@ -2719,6 +2902,7 @@ function renderHand() {
         cardId: card.id,
         selected: state.selectedCardId === card.id,
         justDrew: state.lastDrawnCardId === card.id,
+        previewed: previewCardIds.has(card.id),
       }),
     )
     .join("");
@@ -2815,15 +2999,19 @@ function renderMeldStack(player, targetIds, selectedCard, options = {}) {
   if (!player.laidGroups.length) {
     return `<p class="empty-note">${escapeHtml(emptyMessage)}</p>`;
   }
+  const undoableCardIds = new Set(state.humanExtraPlayUndoStack.map((entry) => entry.cardId));
 
   return `<div class="meld-stack">${player.laidGroups
     .map((group) => {
       const isTarget = targetIds.has(group.id);
+      const tag = isTarget ? "button" : "div";
+      const targetAttrs = isTarget
+        ? `type="button" data-group-id="${escapeHtml(group.id)}"`
+        : `aria-disabled="true"`;
       return `
-        <button
-          type="button"
+        <${tag}
           class="meld-card ${isTarget ? "hit-target" : ""}"
-          ${isTarget ? `data-group-id="${escapeHtml(group.id)}"` : "disabled"}
+          ${targetAttrs}
           aria-label="${escapeHtml(
             isTarget && selectedCard
               ? `Play ${cardLabel(selectedCard)} onto ${player.name}'s ${group.label}`
@@ -2835,8 +3023,10 @@ function renderMeldStack(player, targetIds, selectedCard, options = {}) {
             <span class="group-chip">${group.cards.length} cards</span>
           </div>
           ${isTarget ? `<span class="meld-card-target-note">Play selected card here</span>` : ""}
-          <div class="mini-card-row">${group.cards.map((card) => miniCardMarkup(card)).join("")}</div>
-        </button>
+          <div class="mini-card-row">${group.cards
+            .map((card) => miniCardMarkup(card, { undoableCardIds }))
+            .join("")}</div>
+        </${tag}>
       `;
     })
     .join("")}</div>`;
