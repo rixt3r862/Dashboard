@@ -61,36 +61,47 @@
                   Reset
                 </button>
               </div>
-              <div class="session-tools">
-                <div class="button-row session-button-row">
-                  <button id="saveSessionBtn" class="btn" type="button">
-                    Save Session
-                  </button>
-                  <button id="downloadSessionBtn" class="btn" type="button">
-                    Download JSON
-                  </button>
-                </div>
-                <div class="button-row session-button-row">
-                  <button id="importSessionBtn" class="btn" type="button">
-                    Import JSON
-                  </button>
-                  <button id="loadSessionBtn" class="btn" type="button">
-                    Load Saved
-                  </button>
-                </div>
-                <label class="field">
-                  <span>Saved sessions</span>
-                  <select id="savedSessionSelect" aria-label="Saved Phase 10 sessions">
-                    <option value="">Saved sessions on this device</option>
-                  </select>
-                </label>
-                <button id="deleteSessionBtn" class="btn btn-danger" type="button">
-                  Delete Saved
+              <div class="session-tools" id="sessionTools">
+                <button
+                  id="sessionToolsToggle"
+                  class="btn session-tools-toggle"
+                  type="button"
+                  aria-expanded="false"
+                  hidden
+                >
+                  Sessions
                 </button>
-                <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
-                <p id="sessionStatus" class="session-status">
-                  Save a session on this device or download a JSON backup copy.
-                </p>
+                <div id="sessionToolsBody" class="session-tools-body">
+                  <div class="button-row session-button-row">
+                    <button id="saveSessionBtn" class="btn" type="button">
+                      Save Session
+                    </button>
+                    <button id="downloadSessionBtn" class="btn" type="button">
+                      Download JSON
+                    </button>
+                  </div>
+                  <div class="button-row session-button-row">
+                    <button id="importSessionBtn" class="btn" type="button">
+                      Import JSON
+                    </button>
+                    <button id="loadSessionBtn" class="btn" type="button">
+                      Load Saved
+                    </button>
+                  </div>
+                  <label class="field">
+                    <span>Saved sessions</span>
+                    <select id="savedSessionSelect" aria-label="Saved Phase 10 sessions">
+                      <option value="">Saved sessions on this device</option>
+                    </select>
+                  </label>
+                  <button id="deleteSessionBtn" class="btn btn-danger" type="button">
+                    Delete Saved
+                  </button>
+                  <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
+                  <p id="sessionStatus" class="session-status">
+                    Save a session on this device or download a JSON backup copy.
+                  </p>
+                </div>
               </div>
             </form>
           </section>

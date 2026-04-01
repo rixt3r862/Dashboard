@@ -130,6 +130,7 @@ const state = {
   currentSessionId: null,
   selectedSessionId: "",
   sessionStatusMessage: "",
+  sessionToolsExpanded: false,
 };
 
 const els = {
@@ -144,6 +145,8 @@ const els = {
   importSessionBtn: document.getElementById("importSessionBtn"),
   loadSessionBtn: document.getElementById("loadSessionBtn"),
   deleteSessionBtn: document.getElementById("deleteSessionBtn"),
+  sessionToolsToggle: document.getElementById("sessionToolsToggle"),
+  sessionToolsBody: document.getElementById("sessionToolsBody"),
   savedSessionSelect: document.getElementById("savedSessionSelect"),
   importSessionFile: document.getElementById("importSessionFile"),
   sessionStatus: document.getElementById("sessionStatus"),
@@ -225,6 +228,10 @@ function bindEvents() {
   });
   els.importSessionBtn.addEventListener("click", () => {
     els.importSessionFile.click();
+  });
+  els.sessionToolsToggle.addEventListener("click", () => {
+    state.sessionToolsExpanded = !state.sessionToolsExpanded;
+    renderSessionControls();
   });
   els.loadSessionBtn.addEventListener("click", () => {
     loadSelectedSession();
@@ -880,6 +887,7 @@ function startNewGame() {
   state.humanExtraPlayUndoStack = [];
   state.humanPhasePreviewRequested = false;
   state.currentSessionId = null;
+  state.sessionToolsExpanded = false;
   appendLog(`New game started with ${humanName} and ${botCount} bot${botCount === 1 ? "" : "s"}.`);
   startRound();
 }
@@ -907,6 +915,7 @@ function resetTable() {
   state.humanExtraPlayUndoStack = [];
   state.humanPhasePreviewRequested = false;
   state.currentSessionId = null;
+  state.sessionToolsExpanded = true;
   clearSavedGame();
   render();
 }
@@ -2562,6 +2571,10 @@ function renderSessionControls() {
   els.deleteSessionBtn.disabled = !canLoadSelected;
   els.savedSessionSelect.disabled = sessions.length === 0;
   els.downloadSessionBtn.disabled = !canExport;
+  els.sessionToolsToggle.hidden = !state.gameStarted;
+  els.sessionToolsBody.hidden = state.gameStarted && !state.sessionToolsExpanded;
+  els.sessionToolsToggle.textContent = state.sessionToolsExpanded ? "Hide Sessions" : "Sessions";
+  els.sessionToolsToggle.setAttribute("aria-expanded", String(!els.sessionToolsBody.hidden));
 
   if (state.sessionStatusMessage) {
     els.sessionStatus.textContent = state.sessionStatusMessage;

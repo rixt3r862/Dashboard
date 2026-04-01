@@ -382,6 +382,19 @@ select {
   padding-top: 0.15rem;
 }
 
+.session-tools-toggle {
+  width: 100%;
+}
+
+.session-tools-body {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.session-tools-body[hidden] {
+  display: none;
+}
+
 .session-button-row {
   gap: 0.45rem;
 }
@@ -449,6 +462,12 @@ body.game-active .setup-form {
 body.game-active .session-tools {
   gap: 0.38rem;
   padding-top: 0.05rem;
+}
+
+body.game-active .session-tools-toggle {
+  padding: 0.52rem 0.72rem;
+  border-radius: 0.85rem;
+  font-size: 0.82rem;
 }
 
 body.game-active .session-status {
