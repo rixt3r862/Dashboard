@@ -44,7 +44,7 @@ select {
 }
 
 .page-shell {
-  width: min(1220px, calc(100% - 1.25rem));
+  width: min(1320px, calc(100% - 1.25rem));
   margin: 0 auto;
   padding: 1rem 0 1.35rem;
 }
@@ -93,7 +93,7 @@ select {
 
 .layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 0.75rem;
 }
 
@@ -102,91 +102,6 @@ select {
   display: grid;
   gap: 0.75rem;
   align-content: start;
-}
-
-.round-banner {
-  border: 1px solid rgba(255, 214, 127, 0.34);
-  background:
-    radial-gradient(circle at top left, rgba(255, 214, 127, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(54, 34, 10, 0.92), rgba(110, 57, 19, 0.82));
-  border-radius: 1.4rem;
-  padding: 0.85rem 0.9rem;
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(255, 214, 127, 0.08) inset;
-  animation: round-banner-enter 220ms ease;
-}
-
-.round-banner-copy {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.round-banner-kicker {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.76rem;
-  color: var(--accent-strong);
-}
-
-.round-banner-title {
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.35rem, 2vw, 1.95rem);
-  line-height: 1.02;
-}
-
-.round-banner-text {
-  margin: 0;
-  color: #f3ddaf;
-  line-height: 1.45;
-  font-size: 0.92rem;
-}
-
-.round-banner-scores {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  margin-top: 0.7rem;
-}
-
-.round-score-pill {
-  display: grid;
-  gap: 0.18rem;
-  min-width: 8.2rem;
-  padding: 0.65rem 0.82rem 0.7rem;
-  border-radius: 1rem;
-  background: rgba(250, 246, 232, 0.12);
-  border: 1px solid rgba(255, 214, 127, 0.18);
-  color: var(--text);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
-}
-
-.round-score-name {
-  font-size: 0.85rem;
-  color: #f7e6bd;
-}
-
-.round-score-points {
-  font-size: 1.55rem;
-  line-height: 1;
-}
-
-.round-score-pill strong {
-  color: var(--accent-strong);
-}
-
-.round-score-total {
-  font-size: 0.82rem;
-  color: rgba(250, 246, 232, 0.82);
-}
-
-.round-banner-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.8rem;
 }
 
 @keyframes round-banner-enter {
@@ -274,9 +189,17 @@ select {
 
 .hand-panel-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
+  grid-template-columns: minmax(0, 1fr) 228px;
+  grid-template-areas:
+    "summary actions"
+    "hand actions";
   gap: 0.75rem;
   align-items: start;
+}
+
+.human-main-column {
+  grid-area: summary;
+  min-width: 0;
 }
 
 .table-notice {
@@ -492,6 +415,120 @@ select {
   line-height: 1.4;
 }
 
+body.game-active .sidebar {
+  gap: 0.6rem;
+}
+
+body.game-active .page-shell {
+  padding-top: 0.68rem;
+  padding-bottom: 1rem;
+}
+
+body.game-active .layout,
+body.game-active .table-area {
+  gap: 0.58rem;
+}
+
+body.game-active .setup-panel {
+  padding-bottom: 0.72rem;
+}
+
+body.game-active .setup-panel .panel-head p {
+  display: none;
+}
+
+body.game-active .setup-bot-field,
+body.game-active .bot-name-grid {
+  display: none;
+}
+
+body.game-active .setup-form {
+  gap: 0.42rem;
+}
+
+body.game-active .session-tools {
+  gap: 0.38rem;
+  padding-top: 0.05rem;
+}
+
+body.game-active .session-status {
+  min-height: 0;
+  font-size: 0.78rem;
+}
+
+body.game-active .hero {
+  margin-bottom: 0.42rem;
+}
+
+body.game-active .hero-copy {
+  display: none;
+}
+
+body.game-active .eyebrow {
+  margin-bottom: 0.12rem;
+  font-size: 0.58rem;
+}
+
+body.game-active .hero h1 {
+  font-size: clamp(1.5rem, 2.3vw, 2.15rem);
+}
+
+body.game-active .panel {
+  padding: 0.68rem;
+}
+
+body.game-active .panel-head h2 {
+  font-size: 1.12rem;
+}
+
+body.game-active .board .panel-head p,
+body.game-active .status-panel .panel-head p,
+body.game-active .hand-panel .panel-head p,
+body.game-active .human-action-panel .panel-head p {
+  min-height: 0;
+}
+
+body.game-active .players-board {
+  margin-top: 0.55rem;
+  gap: 0.55rem;
+}
+
+body.game-active .player-card {
+  padding: 0.66rem;
+  gap: 0.42rem;
+  min-height: 15.8rem;
+}
+
+body.game-active .player-name {
+  font-size: 0.96rem;
+}
+
+body.game-active .status-grid {
+  margin-top: 0.58rem;
+  gap: 0.45rem;
+}
+
+body.game-active .status-chip {
+  padding: 0.5rem 0.58rem;
+}
+
+body.game-active .pile-row {
+  margin-top: 0.58rem;
+}
+
+body.game-active .deck-card,
+body.game-active .discard-button .hand-card,
+body.game-active .pile-preview-empty {
+  width: min(100%, 4.35rem);
+  min-width: 3.65rem;
+}
+
+body.game-active .deck-card-badge {
+  right: 0.55rem;
+  bottom: 0.48rem;
+  font-size: 0.66rem;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -701,12 +738,18 @@ select {
 }
 
 .human-action-panel--embedded {
+  grid-area: actions;
+  width: 100%;
   padding: 0.65rem;
   border-radius: 1rem;
   border: 1px solid rgba(250, 246, 232, 0.08);
   background: rgba(6, 24, 18, 0.34);
   box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.06) inset;
-  min-height: 14.4rem;
+  min-height: 0;
+}
+
+.action-panel-head {
+  display: block;
 }
 
 .human-action-panel--embedded .panel-head h2 {
@@ -715,15 +758,35 @@ select {
 
 .human-action-panel--embedded .panel-head p {
   margin-top: 0.22rem;
-  font-size: 0.76rem;
-  line-height: 1.35;
-  min-height: 3.1em;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  min-height: 0;
+}
+
+.action-sort-btn {
+  display: grid;
+  justify-items: center;
+  gap: 0.05rem;
+  min-height: 2.2rem;
+  padding-block: 0.38rem;
+}
+
+.action-sort-label {
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
+.action-sort-mode {
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .human-action-panel--embedded .table-notice {
   margin-top: 0.55rem;
-  padding: 0.55rem 0.65rem;
-  font-size: 0.8rem;
+  padding: 0.5rem 0.55rem;
+  font-size: 0.74rem;
 }
 
 .human-action-panel--embedded .human-action-layout {
@@ -734,13 +797,13 @@ select {
 
 .human-action-panel--embedded .action-button-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: 0.35rem;
 }
 
 .human-action-panel--embedded .btn {
-  padding: 0.52rem 0.64rem;
-  border-radius: 0.85rem;
-  font-size: 0.8rem;
+  padding: 0.44rem 0.5rem;
+  border-radius: 0.78rem;
+  font-size: 0.75rem;
 }
 
 .mini-pile-action {
@@ -750,12 +813,12 @@ select {
   border: 2px solid rgba(255, 255, 255, 0.88);
   border-radius: 0.72rem;
   overflow: hidden;
-  padding: 0.86rem 0.46rem 0.42rem;
-  min-height: 3.25rem;
+  padding: 0.74rem 0.34rem 0.34rem;
+  min-height: 2.8rem;
   background: rgba(250, 246, 232, 0.08);
   color: #ffffff;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.1;
@@ -820,17 +883,17 @@ select {
 }
 
 .human-action-panel--embedded .selection-card {
-  padding: 0.58rem 0.68rem;
+  padding: 0.5rem 0.56rem;
   gap: 0.22rem;
 }
 
 .human-action-panel--embedded .selection-card strong {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 
 .human-action-panel--embedded .selection-label,
 .human-action-panel--embedded .selection-meta {
-  font-size: 0.75rem;
+  font-size: 0.69rem;
 }
 
 .hand-panel.current {
@@ -838,16 +901,60 @@ select {
   box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.2) inset;
 }
 
+.hand-panel.round-out,
+.player-card.round-out {
+  border-color: rgba(255, 214, 127, 0.42);
+  background:
+    radial-gradient(circle at top left, rgba(255, 214, 127, 0.16), transparent 32%),
+    linear-gradient(135deg, rgba(54, 34, 10, 0.92), rgba(110, 57, 19, 0.82));
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 214, 127, 0.12) inset;
+  animation: round-banner-enter 220ms ease;
+}
+
+.hand-panel.round-out .human-phase-inline,
+.player-card.round-out .player-name,
+.player-card.round-out .player-card-target-note {
+  color: #f7e6bd;
+}
+
+.hand-panel.round-out .badge,
+.hand-panel.round-out .stat-pill,
+.hand-panel.round-out .group-chip,
+.player-card.round-out .badge,
+.player-card.round-out .stat-pill,
+.player-card.round-out .group-chip {
+  background: rgba(250, 246, 232, 0.14);
+  border-color: rgba(255, 214, 127, 0.18);
+}
+
 .human-seat-summary {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.42rem;
   margin-top: 0.75rem;
-  min-height: 12.4rem;
+  min-height: 0;
+  align-content: start;
 }
 
 .human-seat-copy {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.32rem;
+}
+
+.human-seat-copy .badge-row:empty {
+  display: none;
+}
+
+.human-phase-inline {
+  margin: 0;
+  font-size: 0.87rem;
+  line-height: 1.38;
+  color: var(--text);
+}
+
+#handSummary:empty {
+  display: none;
 }
 
 .phase-preview-card {
@@ -895,11 +1002,34 @@ select {
 }
 
 .human-seat-summary .meld-stack {
-  margin-top: 0.1rem;
+  margin-top: 0.05rem;
+  min-height: 0;
+  gap: 0.35rem;
 }
 
 .human-hand {
-  margin-top: 0.75rem;
+  grid-area: hand;
+  margin-top: 0;
+  align-self: start;
+  --hand-card-gap: 0.28rem;
+  gap: var(--hand-card-gap);
+}
+
+.human-hand .hand-card {
+  width: min(61px, calc((100% - (10 * var(--hand-card-gap))) / 11));
+}
+
+.human-hand .card-body {
+  padding: 0.92rem 0.44rem 0.56rem;
+  gap: 0.22rem;
+}
+
+.human-hand .card-value {
+  font-size: 1.22rem;
+}
+
+.human-hand .card-meta {
+  font-size: 0.58rem;
 }
 
 .round-history-wrap {
@@ -999,7 +1129,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  min-height: 21.5rem;
+  min-height: 18.9rem;
 }
 
 .player-card.current {
@@ -1184,10 +1314,25 @@ select {
 }
 
 .meld-card-target-note {
+  align-self: center;
   font-size: 0.68rem;
   color: var(--accent-strong);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  text-align: right;
+  max-width: 7.2rem;
+}
+
+.meld-card-play-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.meld-card-play-row .mini-card-row {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .meld-title {
@@ -1544,6 +1689,10 @@ body.game-active .hero-copy {
 
   .hand-panel-shell {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "summary"
+      "actions"
+      "hand";
   }
 
   .player-card {
@@ -1578,14 +1727,6 @@ body.game-active .hero-copy {
     grid-template-columns: 1fr;
   }
 
-  .round-banner-actions {
-    flex-direction: column;
-  }
-
-  .round-banner-actions .btn {
-    width: 100%;
-  }
-
   .hand-panel-shell,
   .human-action-layout,
   .action-button-row {
@@ -1612,7 +1753,8 @@ body.game-active .hero-copy {
     width: 100%;
   }
 
-  .hand-card {
+  .hand-card,
+  .human-hand .hand-card {
     width: calc(33.33% - 0.5rem);
     min-width: 76px;
   }

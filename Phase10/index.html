@@ -44,7 +44,7 @@
                   value="Rick"
                 />
               </label>
-              <label class="field">
+              <label class="field setup-bot-field">
                 <span>Bot players</span>
                 <select id="botCount">
                   <option value="1">1 bot</option>
@@ -123,31 +123,6 @@
         </aside>
 
         <section class="table-area">
-          <section
-            id="roundBanner"
-            class="round-banner"
-            hidden
-            role="status"
-            aria-live="polite"
-          >
-            <div class="round-banner-copy">
-              <p id="roundBannerKicker" class="round-banner-kicker">Round Over</p>
-              <h2 id="roundBannerTitle" class="round-banner-title">Round complete</h2>
-              <p id="roundBannerText" class="round-banner-text">
-                Leftover points have been scored and the next action is ready.
-              </p>
-            </div>
-            <div id="roundBannerScores" class="round-banner-scores"></div>
-            <div class="round-banner-actions">
-              <button id="bannerNextRoundBtn" class="btn btn-primary" type="button">
-                Deal Next Round
-              </button>
-              <button id="bannerResetBtn" class="btn" type="button">
-                Start Fresh
-              </button>
-            </div>
-          </section>
-
           <section class="board panel">
             <div class="panel-head">
               <h2>Players</h2>
@@ -158,7 +133,7 @@
 
           <section class="hand-panel panel">
             <div class="hand-panel-shell">
-              <div>
+              <div class="human-main-column">
                 <div class="panel-head">
                   <h2 id="handPanelTitle">Your Hand</h2>
                   <p id="handSummary">
@@ -168,7 +143,7 @@
                 <div id="humanSeatSummary" class="human-seat-summary"></div>
               </div>
               <section class="human-action-panel human-action-panel--embedded">
-                <div class="panel-head compact">
+                <div class="panel-head compact action-panel-head">
                   <h2>Actions</h2>
                   <p id="actionHint">
                     Your controls will appear here once the game starts.
@@ -192,6 +167,16 @@
                     <button id="nextRoundBtn" class="btn action-span-two" type="button">
                       Deal Next Round
                     </button>
+                    <button
+                      id="actionSortBtn"
+                      class="btn action-sort-btn action-span-two"
+                      type="button"
+                      aria-label="Sort hand by color"
+                      title="Click to sort hand by color"
+                    >
+                      <span class="action-sort-label">Sort Hand</span>
+                      <span class="action-sort-mode">Color</span>
+                    </button>
                   </div>
                   <div class="selection-card action-summary-card compact">
                     <span class="selection-label">Selected card</span>
@@ -202,8 +187,8 @@
                   </div>
                 </div>
               </section>
+              <div id="humanHand" class="human-hand"></div>
             </div>
-            <div id="humanHand" class="human-hand"></div>
           </section>
 
           <section class="panel round-history-panel">

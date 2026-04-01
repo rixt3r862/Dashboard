@@ -21,7 +21,6 @@ const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
 const STORAGE_KEY = "phase10.table.v1";
 const SESSIONS_KEY = "phase10.table.sessions.v1";
 const EXPORT_VERSION = 1;
-let lastBannerStage = null;
 let transientNoticeTimer = null;
 let pilePulseTimer = null;
 let flashedCardTimer = null;
@@ -160,14 +159,8 @@ const els = {
   layPhaseBtn: document.getElementById("layPhaseBtn"),
   discardBtn: document.getElementById("discardBtn"),
   nextRoundBtn: document.getElementById("nextRoundBtn"),
-  roundBanner: document.getElementById("roundBanner"),
-  roundBannerKicker: document.getElementById("roundBannerKicker"),
-  roundBannerTitle: document.getElementById("roundBannerTitle"),
-  roundBannerText: document.getElementById("roundBannerText"),
-  roundBannerScores: document.getElementById("roundBannerScores"),
-  bannerNextRoundBtn: document.getElementById("bannerNextRoundBtn"),
-  bannerResetBtn: document.getElementById("bannerResetBtn"),
   handPanelTitle: document.getElementById("handPanelTitle"),
+  actionSortBtn: document.getElementById("actionSortBtn"),
   actionHint: document.getElementById("actionHint"),
   eventNotice: document.getElementById("eventNotice"),
   selectedDiscard: document.getElementById("selectedDiscard"),
@@ -249,11 +242,10 @@ function bindEvents() {
   els.takeDiscardBtn.addEventListener("click", () => humanDraw("discard"));
   els.actionDrawDeckBtn.addEventListener("click", () => humanDraw("deck"));
   els.actionTakeDiscardBtn.addEventListener("click", () => humanDraw("discard"));
+  els.actionSortBtn.addEventListener("click", toggleHandSortMode);
   els.layPhaseBtn.addEventListener("click", humanLayPhase);
   els.discardBtn.addEventListener("click", humanDiscardSelected);
   els.nextRoundBtn.addEventListener("click", beginNextRound);
-  els.bannerNextRoundBtn.addEventListener("click", beginNextRound);
-  els.bannerResetBtn.addEventListener("click", resetTable);
   els.roundHistoryOrderBtn.addEventListener("click", () => {
     state.roundHistorySortDir = state.roundHistorySortDir === "desc" ? "asc" : "desc";
     persistGame();
@@ -304,11 +296,6 @@ function bindEvents() {
   });
 
   els.humanSeatSummary.addEventListener("click", (event) => {
-    const sortToggle = event.target.closest("[data-hand-sort-toggle]");
-    if (sortToggle) {
-      toggleHandSortMode();
-      return;
-    }
     const undoCard = event.target.closest("[data-undo-card-id]");
     if (undoCard) {
       const cardId = undoCard.getAttribute("data-undo-card-id");
@@ -2540,7 +2527,6 @@ function miniCardLabel(card) {
 function render() {
   document.body.classList.toggle("game-active", state.gameStarted);
   renderSessionControls();
-  renderRoundBanner();
   renderStatus();
   renderBoard();
   renderHand();
@@ -2594,65 +2580,6 @@ function renderSessionControls() {
   }
 
   els.sessionStatus.textContent = `${sessions.length} saved ${sessionNoun} on this device.`;
-}
-
-function renderRoundBanner() {
-  const inRoundEnd = state.turnStage === "round-end";
-  const inGameOver = state.turnStage === "game-over";
-  const visible = inRoundEnd || inGameOver;
-
-  els.roundBanner.hidden = !visible;
-  els.bannerNextRoundBtn.hidden = !inRoundEnd;
-  els.bannerNextRoundBtn.disabled = !inRoundEnd;
-
-  if (!visible) {
-    els.roundBannerScores.innerHTML = "";
-    lastBannerStage = null;
-    return;
-  }
-
-  const outPlayer = state.players.find(
-    (entry) => entry.id === state.pendingRoundSummary?.outPlayerId,
-  );
-  const winner = state.players.find((entry) => entry.id === state.winnerId);
-
-  if (inGameOver) {
-    els.roundBannerKicker.textContent = "Game Over";
-    els.roundBannerTitle.textContent = `${winner?.name ?? "A player"} wins the table`;
-    els.roundBannerText.textContent =
-      `${outPlayer?.name ?? winner?.name ?? "A player"} went out and the game is complete. Start a fresh table when you are ready.`;
-  } else {
-    els.roundBannerKicker.textContent = "Round Over";
-    els.roundBannerTitle.textContent = `${outPlayer?.name ?? "A player"} went out`;
-    els.roundBannerText.textContent =
-      "Leftover points have been scored. Deal the next round to keep the game moving.";
-  }
-
-  const leftoverScores = state.pendingRoundSummary?.leftoverScores;
-  els.roundBannerScores.innerHTML =
-    leftoverScores && typeof leftoverScores === "object"
-      ? state.players
-          .map((player) => {
-            const roundPoints = Number(leftoverScores[player.id] ?? 0);
-            return `
-              <span class="round-score-pill">
-                <span class="round-score-name">${escapeHtml(player.name)}</span>
-                <strong class="round-score-points">+${roundPoints}</strong>
-                <span class="round-score-total">${player.score} total</span>
-              </span>
-            `;
-          })
-          .join("")
-      : "";
-
-  const bannerStage = state.turnStage;
-  if (bannerStage !== lastBannerStage) {
-    lastBannerStage = bannerStage;
-    const focusTarget = inRoundEnd ? els.bannerNextRoundBtn : els.bannerResetBtn;
-    window.setTimeout(() => {
-      focusTarget?.focus();
-    }, 0);
-  }
 }
 
 function renderStatus() {
@@ -2710,6 +2637,16 @@ function renderStatus() {
     ? "End the current game and deal a fresh one with these players."
     : "Deal a new Phase 10 game with these players.";
   els.startGameBtn.setAttribute("aria-label", els.startGameBtn.title);
+  els.actionSortBtn.innerHTML = `
+    <span class="action-sort-label">Sort Hand</span>
+    <span class="action-sort-mode">${state.handSortMode === "color" ? "Color" : "Number"}</span>
+  `;
+  els.actionSortBtn.setAttribute(
+    "aria-label",
+    `Sort hand by ${state.handSortMode === "color" ? "number" : "color"}`,
+  );
+  els.actionSortBtn.title = `Click to sort hand by ${state.handSortMode === "color" ? "number" : "color"}`;
+  els.actionSortBtn.disabled = !state.gameStarted;
   els.deckPreview.innerHTML = deckCardMarkup(state.deck.length);
   els.discardPreview.innerHTML = faceCardMarkup(discard);
   els.drawDeckBtn.classList.toggle("pile-pulsed", state.pilePulse === "deck");
@@ -2806,6 +2743,10 @@ function renderBoard() {
     return;
   }
 
+  const outPlayerId =
+    state.turnStage === "round-end" || state.turnStage === "game-over"
+      ? state.pendingRoundSummary?.outPlayerId ?? null
+      : null;
   const leader = [...state.players].sort((left, right) => {
     const rightCompleted = completedPhaseNumberFor(right);
     const leftCompleted = completedPhaseNumberFor(left);
@@ -2835,7 +2776,7 @@ function renderBoard() {
   const botPlayers = state.players.filter((player) => !player.isHuman);
   els.playersBoard.innerHTML = botPlayers
     .map((player) => {
-      const { completedLabel, workingLabel, completedPhaseNumber } = playerPhaseProgressCopy(player);
+      const { completedPhaseNumber } = playerPhaseProgressCopy(player);
       const isSkipTarget = skipTargetIds.has(player.id);
       const isSelectedSkipTarget = activeSkipTarget?.id === player.id;
       const badges = [
@@ -2851,7 +2792,7 @@ function renderBoard() {
 
       return `
         <article
-          class="player-card ${player === currentPlayer() ? "current" : ""} ${player.isHuman ? "human" : ""} ${isSkipTarget ? "skip-target" : ""} ${isSelectedSkipTarget ? "skip-target-selected" : ""}"
+          class="player-card ${player === currentPlayer() ? "current" : ""} ${player.id === outPlayerId ? "round-out" : ""} ${player.isHuman ? "human" : ""} ${isSkipTarget ? "skip-target" : ""} ${isSelectedSkipTarget ? "skip-target-selected" : ""}"
           ${isSkipTarget ? `data-skip-target-id="${escapeHtml(player.id)}"` : ""}
           ${isSkipTarget ? `role="button" tabindex="0"` : ""}
           aria-label="${escapeHtml(
@@ -2868,10 +2809,6 @@ function renderBoard() {
             <div class="stat-row">
               <span class="stat-pill gold">${player.score} pts</span>
             </div>
-          </div>
-          <div class="phase-copy">
-            <p>${escapeHtml(completedLabel)}</p>
-            <p>${escapeHtml(workingLabel)}</p>
           </div>
           <div class="player-stats">
             <div class="stat-row">
@@ -2931,6 +2868,7 @@ function renderHand() {
     els.handSummary.textContent = "Start a game to see the human player hand.";
     els.humanSeatSummary.innerHTML = "";
     els.humanHand.closest(".hand-panel")?.classList.remove("current");
+    els.humanHand.closest(".hand-panel")?.classList.remove("round-out");
     els.humanHand.innerHTML = "";
     return;
   }
@@ -2950,7 +2888,6 @@ function renderHand() {
       : [],
   );
   const badges = [
-    `<span class="badge gold">Human</span>`,
     human === currentPlayer() && state.turnStage !== "round-end" && state.turnStage !== "game-over"
       ? `<span class="badge gold">Current turn</span>`
       : "",
@@ -2958,45 +2895,40 @@ function renderHand() {
   ]
     .filter(Boolean)
     .join("");
+  const compactPhaseStatus = previewMeld
+    ? `Previewing Phase ${phase?.number ?? "?"}`
+    : human.completedPhaseThisRound && phase
+      ? `Phase ${completedPhaseNumber} complete • Working on Phase ${phase.number} - ${phase.title}`
+      : completedPhaseNumber && phase
+        ? `Phase ${completedPhaseNumber} complete • Working on Phase ${phase.number} - ${phase.title}`
+        : phase
+          ? `Working on Phase ${phase.number} - ${phase.title}`
+          : "All phases complete";
 
   els.handPanelTitle.textContent = human.name;
-  els.handSummary.textContent =
-    state.turnStage === "round-end"
-      ? "Round complete. Review the hand counts above and deal the next round."
-      : previewMeld
-        ? "Previewing the cards that will be used for your current phase."
-      : completionReady && !human.laidGroups.length
-        ? "Your current phase is ready to lay."
-        : "Your laid phase and hand are below.";
+  els.handSummary.textContent = "";
   els.humanHand.closest(".hand-panel")?.classList.toggle(
     "current",
     human === currentPlayer() && state.turnStage !== "round-end" && state.turnStage !== "game-over",
   );
+  els.humanHand.closest(".hand-panel")?.classList.toggle(
+    "round-out",
+    (state.turnStage === "round-end" || state.turnStage === "game-over") &&
+      state.pendingRoundSummary?.outPlayerId === human.id,
+  );
   els.humanSeatSummary.innerHTML = `
     <div class="human-seat-copy">
       <div class="badge-row">${badges}</div>
-      <div class="phase-copy">
-        <p>${escapeHtml(completedLabel)}</p>
-        <p>${escapeHtml(workingLabel)}</p>
-      </div>
+      <p class="human-phase-inline">${escapeHtml(compactPhaseStatus)}</p>
       <div class="stat-row">
         <span class="stat-pill gold">${human.score} pts</span>
         <span class="stat-pill">${human.hand.length} in hand</span>
         <span class="stat-pill">Completed ${completedPhaseNumber}/10</span>
-        <button
-          class="stat-pill sort-pill"
-          type="button"
-          data-hand-sort-toggle="true"
-          aria-label="Sort hand by ${state.handSortMode === "color" ? "number" : "color"}"
-          title="Click to sort hand by ${state.handSortMode === "color" ? "number" : "color"}"
-        >
-          Sort: ${escapeHtml(state.handSortMode === "color" ? "Color" : "Number")}
-        </button>
       </div>
     </div>
     ${renderPhasePreviewMarkup(previewMeld, phase)}
     ${renderMeldStack(human, targetIds, selectedCard, {
-      emptyMessage: "Lay your current phase to display it above your hand.",
+      emptyMessage: "",
     })}
   `;
 
@@ -3102,9 +3034,12 @@ function renderRoundHistory() {
 }
 
 function renderMeldStack(player, targetIds, selectedCard, options = {}) {
-  const emptyMessage = options.emptyMessage || "Nothing laid down this round yet.";
+  const emptyMessage =
+    options.emptyMessage === undefined
+      ? "Nothing laid down this round yet."
+      : options.emptyMessage;
   if (!player.laidGroups.length) {
-    return `<p class="empty-note">${escapeHtml(emptyMessage)}</p>`;
+    return emptyMessage ? `<p class="empty-note">${escapeHtml(emptyMessage)}</p>` : "";
   }
   const undoableCardIds = new Set(state.humanExtraPlayUndoStack.map((entry) => entry.cardId));
 
@@ -3130,10 +3065,12 @@ function renderMeldStack(player, targetIds, selectedCard, options = {}) {
             <strong>${escapeHtml(group.label)}</strong>
             <span class="group-chip">${group.cards.length} cards</span>
           </div>
-          ${isTarget ? `<span class="meld-card-target-note">Play selected card here</span>` : ""}
-          <div class="mini-card-row">${group.cards
-            .map((card) => miniCardMarkup(card, { undoableCardIds }))
-            .join("")}</div>
+          <div class="meld-card-play-row">
+            <div class="mini-card-row">${group.cards
+              .map((card) => miniCardMarkup(card, { undoableCardIds }))
+              .join("")}</div>
+            ${isTarget ? `<span class="meld-card-target-note">Play selected card here</span>` : ""}
+          </div>
         </${tag}>
       `;
     })
