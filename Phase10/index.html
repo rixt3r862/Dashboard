@@ -6,7 +6,7 @@
     <title>Phase 10 Table</title>
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
-    <link rel="stylesheet" href="./phase10.css?v=20260331a" />
+    <link rel="stylesheet" href="./phase10.css?v=20260401a" />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23184e3a%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>10</text></svg>"
@@ -24,6 +24,32 @@
           </p>
         </div>
       </header>
+
+      <section id="mobileSummaryBar" class="mobile-summary-bar" hidden>
+        <div class="mobile-summary-strip">
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Round</span>
+            <strong id="mobileRoundValue">-</strong>
+          </div>
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Turn</span>
+            <strong id="mobileTurnValue">-</strong>
+          </div>
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Deck</span>
+            <strong id="mobileDeckValue">-</strong>
+          </div>
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Discard</span>
+            <strong id="mobileDiscardValue">-</strong>
+          </div>
+        </div>
+        <div id="mobileViewTabs" class="mobile-view-tabs" hidden>
+          <button class="btn mobile-view-tab" type="button" data-mobile-view="play">Play</button>
+          <button class="btn mobile-view-tab" type="button" data-mobile-view="table">Table</button>
+          <button class="btn mobile-view-tab" type="button" data-mobile-view="history">History</button>
+        </div>
+      </section>
 
       <main class="layout">
         <aside class="sidebar">
@@ -153,52 +179,54 @@
                 </div>
                 <div id="humanSeatSummary" class="human-seat-summary"></div>
               </div>
-              <section class="human-action-panel human-action-panel--embedded">
-                <div class="panel-head compact action-panel-head">
-                  <h2>Actions</h2>
-                  <p id="actionHint">
-                    Your controls will appear here once the game starts.
-                  </p>
-                </div>
-                <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
-                <div class="human-action-layout compact">
-                  <div class="button-stack action-button-row compact">
-                    <button id="actionDrawDeckBtn" class="mini-pile-action mini-pile-action--deck" type="button">
-                      Draw Card
-                    </button>
-                    <button id="actionTakeDiscardBtn" class="mini-pile-action mini-pile-action--discard" type="button">
-                      Draw Discard
-                    </button>
-                    <button id="layPhaseBtn" class="btn btn-primary" type="button">
-                      Lay Phase
-                    </button>
-                    <button id="discardBtn" class="btn" type="button">
-                      Discard Selected
-                    </button>
-                    <button id="nextRoundBtn" class="btn action-span-two" type="button">
-                      Deal Next Round
-                    </button>
-                    <button
-                      id="actionSortBtn"
-                      class="btn action-sort-btn action-span-two"
-                      type="button"
-                      aria-label="Sort hand by color"
-                      title="Click to sort hand by color"
-                    >
-                      <span class="action-sort-label">Sort Hand</span>
-                      <span class="action-sort-mode">Color</span>
-                    </button>
+              <div class="mobile-play-dock">
+                <section class="human-action-panel human-action-panel--embedded">
+                  <div class="panel-head compact action-panel-head">
+                    <h2>Actions</h2>
+                    <p id="actionHint">
+                      Your controls will appear here once the game starts.
+                    </p>
                   </div>
-                  <div class="selection-card action-summary-card compact">
-                    <span class="selection-label">Selected card</span>
-                    <strong id="selectedDiscard">None</strong>
-                    <span id="suggestedDiscard" class="selection-meta">
-                      The table will suggest a discard when it is your turn.
-                    </span>
+                  <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
+                  <div class="human-action-layout compact">
+                    <div class="button-stack action-button-row compact">
+                      <button id="actionDrawDeckBtn" class="mini-pile-action mini-pile-action--deck" type="button">
+                        Draw Card
+                      </button>
+                      <button id="actionTakeDiscardBtn" class="mini-pile-action mini-pile-action--discard" type="button">
+                        Draw Discard
+                      </button>
+                      <button id="layPhaseBtn" class="btn btn-primary" type="button">
+                        Lay Phase
+                      </button>
+                      <button id="discardBtn" class="btn" type="button">
+                        Discard Selected
+                      </button>
+                      <button id="nextRoundBtn" class="btn action-span-two" type="button">
+                        Deal Next Round
+                      </button>
+                      <button
+                        id="actionSortBtn"
+                        class="btn action-sort-btn action-span-two"
+                        type="button"
+                        aria-label="Sort hand by color"
+                        title="Click to sort hand by color"
+                      >
+                        <span class="action-sort-label">Sort Hand</span>
+                        <span class="action-sort-mode">Color</span>
+                      </button>
+                    </div>
+                    <div class="selection-card action-summary-card compact">
+                      <span class="selection-label">Selected card</span>
+                      <strong id="selectedDiscard">None</strong>
+                      <span id="suggestedDiscard" class="selection-meta">
+                        The table will suggest a discard when it is your turn.
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </section>
-              <div id="humanHand" class="human-hand"></div>
+                </section>
+                <div id="humanHand" class="human-hand"></div>
+              </div>
             </div>
           </section>
 
@@ -220,6 +248,6 @@
       </main>
     </div>
 
-    <script type="module" src="./phase10.js?v=20260331a"></script>
+    <script type="module" src="./phase10.js?v=20260401a"></script>
   </body>
 </html>

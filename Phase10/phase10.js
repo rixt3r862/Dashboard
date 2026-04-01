@@ -131,6 +131,7 @@ const state = {
   selectedSessionId: "",
   sessionStatusMessage: "",
   sessionToolsExpanded: false,
+  mobileView: "play",
 };
 
 const els = {
@@ -150,6 +151,12 @@ const els = {
   savedSessionSelect: document.getElementById("savedSessionSelect"),
   importSessionFile: document.getElementById("importSessionFile"),
   sessionStatus: document.getElementById("sessionStatus"),
+  mobileSummaryBar: document.getElementById("mobileSummaryBar"),
+  mobileRoundValue: document.getElementById("mobileRoundValue"),
+  mobileTurnValue: document.getElementById("mobileTurnValue"),
+  mobileDeckValue: document.getElementById("mobileDeckValue"),
+  mobileDiscardValue: document.getElementById("mobileDiscardValue"),
+  mobileViewTabs: document.getElementById("mobileViewTabs"),
   statusText: document.getElementById("statusText"),
   roundValue: document.getElementById("roundValue"),
   turnValue: document.getElementById("turnValue"),
@@ -257,6 +264,14 @@ function bindEvents() {
     state.roundHistorySortDir = state.roundHistorySortDir === "desc" ? "asc" : "desc";
     persistGame();
     renderRoundHistory();
+  });
+  els.mobileViewTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mobile-view]");
+    if (!button || !state.gameStarted) return;
+    const nextView = normalizeMobileView(button.getAttribute("data-mobile-view"));
+    if (nextView === state.mobileView) return;
+    state.mobileView = nextView;
+    render();
   });
   els.humanHand.addEventListener("click", (event) => {
     const button = event.target.closest("[data-card-id]");
@@ -523,6 +538,7 @@ function snapshotState() {
     humanExtraPlayUndoStack: state.humanExtraPlayUndoStack,
     humanPhasePreviewRequested: state.humanPhasePreviewRequested,
     currentSessionId: state.currentSessionId,
+    mobileView: state.mobileView,
   };
 }
 
@@ -574,6 +590,7 @@ function buildHydratedState(payload, options = {}) {
       currentSessionId != null
         ? normalizeSelectedCardId(currentSessionId)
         : normalizeSelectedCardId(payload.currentSessionId),
+    mobileView: normalizeMobileView(payload.mobileView),
   };
 
   if (!nextState.gameStarted || !players.length) {
@@ -606,6 +623,7 @@ function applyHydratedState(nextState) {
   state.humanExtraPlayUndoStack = nextState.humanExtraPlayUndoStack;
   state.humanPhasePreviewRequested = nextState.humanPhasePreviewRequested;
   state.currentSessionId = nextState.currentSessionId;
+  state.mobileView = nextState.mobileView;
 }
 
 function hydrateStateFromPayload(payload, options = {}) {
@@ -758,6 +776,10 @@ function normalizeHandSortMode(value) {
   return value === "number" ? "number" : "color";
 }
 
+function normalizeMobileView(value) {
+  return ["play", "table", "history"].includes(value) ? value : "play";
+}
+
 function normalizeBotDifficulty(value) {
   return BOT_DIFFICULTIES.includes(value) ? value : "medium";
 }
@@ -888,6 +910,7 @@ function startNewGame() {
   state.humanPhasePreviewRequested = false;
   state.currentSessionId = null;
   state.sessionToolsExpanded = false;
+  state.mobileView = "play";
   appendLog(`New game started with ${humanName} and ${botCount} bot${botCount === 1 ? "" : "s"}.`);
   startRound();
 }
@@ -916,6 +939,7 @@ function resetTable() {
   state.humanPhasePreviewRequested = false;
   state.currentSessionId = null;
   state.sessionToolsExpanded = true;
+  state.mobileView = "play";
   clearSavedGame();
   render();
 }
@@ -2518,6 +2542,13 @@ function miniPileButtonStyle(card) {
   return colorMeta?.css ? `--color: ${colorMeta.css};` : "";
 }
 
+function miniPileButtonMarkup(label, meta) {
+  return `
+    <span class="mini-pile-action-label">${escapeHtml(label)}</span>
+    <span class="mini-pile-action-meta">${escapeHtml(meta)}</span>
+  `;
+}
+
 function cardShortLabel(card) {
   if (!card) return "";
   if (card.type === "wild") return "W";
@@ -2535,6 +2566,7 @@ function miniCardLabel(card) {
 
 function render() {
   document.body.classList.toggle("game-active", state.gameStarted);
+  document.body.dataset.mobileView = normalizeMobileView(state.mobileView);
   renderSessionControls();
   renderStatus();
   renderBoard();
@@ -2620,6 +2652,19 @@ function renderStatus() {
   const summaryLines = [];
 
   els.handPanelTitle.textContent = human?.name || "Your Hand";
+  els.mobileSummaryBar.hidden = !state.gameStarted;
+  els.mobileViewTabs.hidden = !state.gameStarted;
+  els.mobileRoundValue.textContent = state.gameStarted ? `R${state.roundNumber}` : "-";
+  els.mobileTurnValue.textContent = player ? (player.isHuman ? "You" : player.name) : "-";
+  els.mobileDeckValue.textContent = state.gameStarted ? String(state.deck.length) : "-";
+  els.mobileDiscardValue.textContent = discard ? cardShortLabel(discard) : "-";
+  els.mobileViewTabs
+    .querySelectorAll("[data-mobile-view]")
+    .forEach((button) => {
+      const isActive = button.getAttribute("data-mobile-view") === state.mobileView;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
 
   if (!state.gameStarted) {
     summaryLines.push("Deal a game to begin.");
@@ -2664,6 +2709,7 @@ function renderStatus() {
   els.discardPreview.innerHTML = faceCardMarkup(discard);
   els.drawDeckBtn.classList.toggle("pile-pulsed", state.pilePulse === "deck");
   els.takeDiscardBtn.classList.toggle("pile-pulsed", state.pilePulse === "discard");
+  els.actionDrawDeckBtn.innerHTML = miniPileButtonMarkup("Draw Card", `${state.deck.length} left`);
   els.drawDeckBtn.setAttribute("aria-label", `Draw from deck: ${state.deck.length} cards remaining`);
   els.drawDeckBtn.title = `Draw from deck: ${state.deck.length} cards remaining`;
   els.actionDrawDeckBtn.setAttribute("aria-label", els.drawDeckBtn.getAttribute("aria-label") ?? "Draw from deck");
@@ -2677,6 +2723,10 @@ function renderStatus() {
   els.actionTakeDiscardBtn.title = els.takeDiscardBtn.title;
   els.actionTakeDiscardBtn.className = miniPileButtonClass(discard);
   els.actionTakeDiscardBtn.style.cssText = miniPileButtonStyle(discard);
+  els.actionTakeDiscardBtn.innerHTML = miniPileButtonMarkup(
+    "Draw Discard",
+    discard ? cardLabel(discard) : "No discard",
+  );
 
   els.drawDeckBtn.disabled = !isHumanTurn() || state.turnStage !== "draw" || state.busy;
   els.takeDiscardBtn.disabled =
@@ -3014,6 +3064,42 @@ function renderRoundHistory() {
     })
     .join("");
 
+  const mobileCards = orderedHistory
+    .map((entry) => {
+      const outPlayerName =
+        state.players.find((player) => player.id === entry.outPlayerId)?.name ?? "Unknown";
+      const resultRows = state.players
+        .map((player) => {
+          const result = entry.playerResults[player.id];
+          const points = result ? `+${result.points}` : "-";
+          const phaseNote = result?.completedPhaseNumber
+            ? `Phase ${result.completedPhaseNumber}`
+            : "No phase";
+          const phaseNoteClass = result?.completedPhaseNumber
+            ? "round-history-phase-note is-complete"
+            : "round-history-phase-note is-empty";
+          return `
+            <div class="round-history-mobile-result">
+              <span class="round-history-mobile-player">${escapeHtml(player.name)}</span>
+              <strong>${escapeHtml(points)}</strong>
+              <span class="${phaseNoteClass}">${escapeHtml(phaseNote)}</span>
+            </div>
+          `;
+        })
+        .join("");
+
+      return `
+        <article class="round-history-mobile-card">
+          <div class="round-history-mobile-head">
+            <strong>Round ${entry.roundNumber}</strong>
+            <span class="round-history-out">Went out: ${escapeHtml(outPlayerName)}</span>
+          </div>
+          <div class="round-history-mobile-results">${resultRows}</div>
+        </article>
+      `;
+    })
+    .join("");
+
   const headCells = state.players
     .map((player) => {
       const { completedPhaseNumber } = playerPhaseProgressCopy(player);
@@ -3033,6 +3119,7 @@ function renderRoundHistory() {
 
   els.roundHistorySummary.textContent = `${state.roundHistory.length} completed round${state.roundHistory.length === 1 ? "" : "s"} on this table.`;
   els.roundHistoryWrap.innerHTML = `
+    <div class="round-history-mobile-list">${mobileCards}</div>
     <table class="round-history-table">
       <thead>
         <tr>

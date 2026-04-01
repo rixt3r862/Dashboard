@@ -97,6 +97,64 @@ select {
   gap: 0.75rem;
 }
 
+.mobile-summary-bar,
+.mobile-view-tabs,
+.round-history-mobile-list {
+  display: none;
+}
+
+.mobile-play-dock {
+  display: contents;
+}
+
+.mobile-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.mobile-summary-chip {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.48rem 0.52rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(250, 246, 232, 0.08);
+  background: rgba(6, 24, 18, 0.56);
+  min-width: 0;
+}
+
+.mobile-summary-chip strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.mobile-summary-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-strong);
+}
+
+.mobile-view-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.mobile-view-tab {
+  padding: 0.52rem 0.45rem;
+  border-radius: 0.9rem;
+  font-size: 0.78rem;
+}
+
+.mobile-view-tab.is-active {
+  background: rgba(240, 182, 79, 0.18);
+  border-color: rgba(255, 214, 127, 0.44);
+  color: var(--accent-strong);
+}
+
 .sidebar,
 .table-area {
   display: grid;
@@ -851,6 +909,25 @@ body.game-active .deck-card-badge {
   box-shadow: 0 10px 16px rgba(0, 0, 0, 0.16);
 }
 
+.mini-pile-action-label,
+.mini-pile-action-meta {
+  display: block;
+}
+
+.mini-pile-action-label {
+  font-size: 0.66rem;
+  line-height: 1.05;
+}
+
+.mini-pile-action-meta {
+  margin-top: 0.14rem;
+  font-size: 0.54rem;
+  line-height: 1.15;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .mini-pile-action::before {
   content: "";
   position: absolute;
@@ -1054,6 +1131,61 @@ body.game-active .deck-card-badge {
 .round-history-wrap {
   margin-top: 0.85rem;
   overflow-x: auto;
+}
+
+.round-history-mobile-card {
+  border: 1px solid rgba(250, 246, 232, 0.08);
+  border-radius: 1rem;
+  background: rgba(4, 20, 15, 0.32);
+  padding: 0.68rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.round-history-mobile-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.round-history-mobile-head strong {
+  font-size: 0.88rem;
+}
+
+.round-history-mobile-results {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.round-history-mobile-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.14rem 0.5rem;
+  padding-top: 0.36rem;
+  border-top: 1px solid rgba(250, 246, 232, 0.08);
+}
+
+.round-history-mobile-result:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.round-history-mobile-player {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+}
+
+.round-history-mobile-result strong {
+  font-size: 0.86rem;
+}
+
+.round-history-mobile-result .round-history-phase-note {
+  grid-column: 1 / -1;
 }
 
 .round-history-table {
@@ -1732,6 +1864,19 @@ body.game-active .hero-copy {
 }
 
 @media (max-width: 760px) {
+  body.game-active .mobile-summary-bar:not([hidden]) {
+    display: grid;
+    gap: 0.35rem;
+    position: sticky;
+    top: 0.32rem;
+    z-index: 8;
+    margin-bottom: 0.45rem;
+  }
+
+  body.game-active .mobile-view-tabs:not([hidden]) {
+    display: grid;
+  }
+
   .page-shell {
     width: min(100% - 0.7rem, 100%);
     padding-top: 0.55rem;
@@ -1754,6 +1899,23 @@ body.game-active .hero-copy {
 
   .hero h1 {
     font-size: clamp(1.45rem, 8vw, 1.95rem);
+  }
+
+  body.game-active[data-mobile-view="play"] .sidebar,
+  body.game-active[data-mobile-view="play"] .board,
+  body.game-active[data-mobile-view="play"] .round-history-panel {
+    display: none;
+  }
+
+  body.game-active[data-mobile-view="table"] .hand-panel,
+  body.game-active[data-mobile-view="table"] .round-history-panel {
+    display: none;
+  }
+
+  body.game-active[data-mobile-view="history"] .sidebar,
+  body.game-active[data-mobile-view="history"] .board,
+  body.game-active[data-mobile-view="history"] .hand-panel {
+    display: none;
   }
 
   .layout,
@@ -1790,6 +1952,12 @@ body.game-active .hero-copy {
   .hand-panel-shell,
   .human-action-layout {
     grid-template-columns: 1fr;
+  }
+
+  .hand-panel-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
   }
 
   .status-panel .panel-head p,
@@ -1864,6 +2032,15 @@ body.game-active .hero-copy {
     padding: 0.55rem;
   }
 
+  .mobile-play-dock {
+    display: grid;
+    gap: 0.42rem;
+    position: sticky;
+    bottom: 0.3rem;
+    z-index: 7;
+    margin-top: 0.1rem;
+  }
+
   .human-action-panel--embedded .panel-head h2 {
     font-size: 0.94rem;
   }
@@ -1883,9 +2060,17 @@ body.game-active .hero-copy {
   }
 
   .mini-pile-action {
-    min-height: 2.55rem;
-    padding: 0.68rem 0.28rem 0.3rem;
+    min-height: 2.95rem;
+    padding: 0.68rem 0.3rem 0.34rem;
     font-size: 0.6rem;
+  }
+
+  .mini-pile-action-label {
+    font-size: 0.61rem;
+  }
+
+  .mini-pile-action-meta {
+    font-size: 0.52rem;
   }
 
   .human-action-panel--embedded .selection-card {
@@ -1915,8 +2100,13 @@ body.game-active .hero-copy {
   }
 
   .human-hand {
-    --hand-card-gap: 0.22rem;
+    --hand-card-gap: 0.3rem;
     gap: var(--hand-card-gap);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.18rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
   }
 
   .hand-card {
@@ -1925,8 +2115,10 @@ body.game-active .hero-copy {
   }
 
   .human-hand .hand-card {
-    width: calc(25% - 0.18rem);
-    min-width: 0;
+    flex: 0 0 3.9rem;
+    width: 3.9rem;
+    min-width: 3.9rem;
+    scroll-snap-align: start;
   }
 
   .human-hand .card-body {
@@ -1940,5 +2132,14 @@ body.game-active .hero-copy {
 
   .human-hand .card-meta {
     font-size: 0.53rem;
+  }
+
+  .round-history-mobile-list {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .round-history-table {
+    display: none;
   }
 }
