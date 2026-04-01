@@ -26,6 +26,7 @@ let transientNoticeTimer = null;
 let pilePulseTimer = null;
 let flashedCardTimer = null;
 let flashedGroupsTimer = null;
+let dealAnimationTimer = null;
 
 const PHASES = [
   {
@@ -120,6 +121,7 @@ const state = {
   pilePulse: null,
   flashedCardId: null,
   flashedGroupIds: [],
+  dealAnimationCardIds: [],
   handSortMode: "color",
   roundHistorySortDir: "asc",
   humanExtraPlayUndoStack: [],
@@ -1207,6 +1209,7 @@ function startRound() {
   state.discardPile.push(drawFromDeckInternal());
   sortHands();
   state.currentPlayerIndex = state.roundStarterIndex;
+  triggerDealAnimation(humanPlayer()?.hand.map((card) => card.id) ?? []);
   appendLog(
     `Round ${state.roundNumber} begins. ${starter.name} draws first.`,
   );
@@ -1840,6 +1843,26 @@ function triggerGroupSettle(groupIds) {
   }, 800);
 }
 
+function clearDealAnimation() {
+  if (dealAnimationTimer) {
+    window.clearTimeout(dealAnimationTimer);
+    dealAnimationTimer = null;
+  }
+  state.dealAnimationCardIds = [];
+}
+
+function triggerDealAnimation(cardIds) {
+  clearDealAnimation();
+  state.dealAnimationCardIds = Array.isArray(cardIds) ? cardIds.filter(Boolean) : [];
+  if (!state.dealAnimationCardIds.length) return;
+  const duration = 260 + state.dealAnimationCardIds.length * 55;
+  dealAnimationTimer = window.setTimeout(() => {
+    dealAnimationTimer = null;
+    state.dealAnimationCardIds = [];
+    render();
+  }, duration);
+}
+
 function canCardBeHitAnywhere(card, playerId) {
   return findHitTargets(card, playerId).length > 0;
 }
@@ -2447,16 +2470,25 @@ function faceCardMarkup(card, options = {}) {
   const selectedClass = options.selected ? "selected" : "";
   const drawnClass = options.justDrew ? "just-drew" : "";
   const previewedClass = options.previewed ? "previewed" : "";
+  const dealtClass = options.dealt ? "dealt" : "";
   const dataAttr = options.cardId ? ` data-card-id="${escapeHtml(options.cardId)}"` : "";
   const tag = options.interactive ? "button" : "div";
   const buttonType = options.interactive ? ` type="button"` : "";
+  const styleVars = [];
+  if (card.type === "number") {
+    styleVars.push(`--color: ${colorMeta?.css ?? "#36a56c"}`);
+  }
+  if (Number.isFinite(options.dealIndex)) {
+    styleVars.push(`--deal-index: ${options.dealIndex}`);
+  }
+  const styleAttr = styleVars.length ? `style="${styleVars.join("; ")}"` : "";
 
   return `
     <${tag}
-      class="hand-card card-type-${card.type} ${selectedClass} ${drawnClass} ${previewedClass}"
+      class="hand-card card-type-${card.type} ${selectedClass} ${drawnClass} ${previewedClass} ${dealtClass}"
       ${dataAttr}
       ${buttonType}
-      style="${card.type === "number" ? `--color: ${colorMeta?.css ?? "#36a56c"};` : ""}"
+      ${styleAttr}
       aria-label="${escapeHtml(label)}"
     >
       <div class="card-accent"></div>
@@ -2906,6 +2938,9 @@ function renderHand() {
   const phase = currentPhaseFor(human);
   const previewMeld = humanPhasePreviewMeld();
   const previewCardIds = new Set(previewMeld?.usedCardIds ?? []);
+  const dealAnimationIndexById = new Map(
+    state.dealAnimationCardIds.map((cardId, index) => [cardId, index]),
+  );
   const completionReady = Boolean(phase && findBestPhaseMeld(human.hand, phase));
   const selectedCard = selectedHumanCard();
   const { completedLabel, workingLabel, completedPhaseNumber } = playerPhaseProgressCopy(human);
@@ -2973,6 +3008,8 @@ function renderHand() {
         selected: state.selectedCardId === card.id,
         justDrew: state.lastDrawnCardId === card.id,
         previewed: previewCardIds.has(card.id),
+        dealt: dealAnimationIndexById.has(card.id),
+        dealIndex: dealAnimationIndexById.get(card.id),
       }),
     )
     .join("");

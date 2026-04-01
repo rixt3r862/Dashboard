@@ -1300,6 +1300,11 @@ select {
   box-shadow: 0 0 0 2px rgba(255, 214, 127, 0.18);
 }
 
+.hand-card.dealt {
+  animation: hand-card-deal-in 0.38s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+  animation-delay: calc(var(--deal-index, 0) * 45ms);
+}
+
 .hand-card.just-drew {
   border-color: rgba(255, 214, 127, 0.92);
   box-shadow:
@@ -1380,6 +1385,21 @@ body.game-active .hero-copy {
   }
 }
 
+@keyframes hand-card-deal-in {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes pile-pulse {
   0% {
     transform: translateY(0) scale(1);
@@ -1434,7 +1454,8 @@ body.game-active .hero-copy {
   .deck-button.pile-pulsed .deck-card,
   .discard-button.pile-pulsed .hand-card,
   .meld-card.just-laid,
-  .mini-card.flashed {
+  .mini-card.flashed,
+  .hand-card.dealt {
     animation: none;
   }
 }
