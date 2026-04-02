@@ -157,6 +157,7 @@ const els = {
   mobileDeckValue: document.getElementById("mobileDeckValue"),
   mobileDiscardValue: document.getElementById("mobileDiscardValue"),
   mobileViewTabs: document.getElementById("mobileViewTabs"),
+  mobileOpponentsStrip: document.getElementById("mobileOpponentsStrip"),
   statusText: document.getElementById("statusText"),
   roundValue: document.getElementById("roundValue"),
   turnValue: document.getElementById("turnValue"),
@@ -2630,6 +2631,7 @@ function renderSessionControls() {
 function renderStatus() {
   const player = currentPlayer();
   const human = humanPlayer();
+  const botPlayers = state.players.filter((entry) => !entry.isHuman);
   const discard = topDiscard();
   const humanPhase = human ? currentPhaseFor(human) : null;
   const previewMeld = humanPhasePreviewMeld();
@@ -2665,6 +2667,31 @@ function renderStatus() {
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", String(isActive));
     });
+  els.mobileOpponentsStrip.hidden = !state.gameStarted || !botPlayers.length;
+  els.mobileOpponentsStrip.innerHTML = state.gameStarted
+    ? botPlayers
+        .map((bot) => {
+          const isCurrent = bot.id === player?.id && state.turnStage !== "round-end" && state.turnStage !== "game-over";
+          const isOut =
+            (state.turnStage === "round-end" || state.turnStage === "game-over") &&
+            state.pendingRoundSummary?.outPlayerId === bot.id;
+          const statusBits = [
+            `${bot.hand.length} cards`,
+            `${bot.score} pts`,
+            bot.laidGroups.length ? "phase down" : "not down",
+          ];
+          return `
+            <article class="mobile-opponent-chip ${isCurrent ? "current" : ""} ${isOut ? "round-out" : ""}">
+              <div class="mobile-opponent-head">
+                <strong>${escapeHtml(bot.name)}</strong>
+                <span>${escapeHtml(difficultyLabel(bot.difficulty))}</span>
+              </div>
+              <div class="mobile-opponent-meta">${escapeHtml(statusBits.join(" • "))}</div>
+            </article>
+          `;
+        })
+        .join("")
+    : "";
 
   if (!state.gameStarted) {
     summaryLines.push("Deal a game to begin.");

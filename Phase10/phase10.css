@@ -99,7 +99,8 @@ select {
 
 .mobile-summary-bar,
 .mobile-view-tabs,
-.round-history-mobile-list {
+.round-history-mobile-list,
+.mobile-opponents-strip {
   display: none;
 }
 
@@ -153,6 +154,53 @@ select {
   background: rgba(240, 182, 79, 0.18);
   border-color: rgba(255, 214, 127, 0.44);
   color: var(--accent-strong);
+}
+
+.mobile-opponents-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.mobile-opponent-chip {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.46rem 0.5rem;
+  border-radius: 0.92rem;
+  border: 1px solid rgba(250, 246, 232, 0.08);
+  background: rgba(6, 24, 18, 0.56);
+  min-width: 0;
+}
+
+.mobile-opponent-chip.current,
+.mobile-opponent-chip.round-out {
+  border-color: rgba(255, 214, 127, 0.42);
+  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.12) inset;
+}
+
+.mobile-opponent-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.3rem;
+  align-items: baseline;
+}
+
+.mobile-opponent-head strong,
+.mobile-opponent-head span,
+.mobile-opponent-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-opponent-head strong {
+  font-size: 0.76rem;
+}
+
+.mobile-opponent-head span,
+.mobile-opponent-meta {
+  font-size: 0.61rem;
+  color: var(--muted);
 }
 
 .sidebar,
@@ -1877,6 +1925,10 @@ body.game-active .hero-copy {
     display: grid;
   }
 
+  body.game-active[data-mobile-view="play"] .mobile-opponents-strip:not([hidden]) {
+    display: grid;
+  }
+
   .page-shell {
     width: min(100% - 0.7rem, 100%);
     padding-top: 0.55rem;
@@ -2039,6 +2091,10 @@ body.game-active .hero-copy {
     bottom: 0.3rem;
     z-index: 7;
     margin-top: 0.1rem;
+    padding: 0.35rem;
+    border-radius: 1.05rem;
+    background: linear-gradient(180deg, rgba(3, 19, 13, 0.2), rgba(3, 19, 13, 0.8) 18%, rgba(3, 19, 13, 0.92));
+    backdrop-filter: blur(10px);
   }
 
   .human-action-panel--embedded .panel-head h2 {
@@ -2104,9 +2160,18 @@ body.game-active .hero-copy {
     gap: var(--hand-card-gap);
     flex-wrap: nowrap;
     overflow-x: auto;
+    overflow-y: visible;
     padding-bottom: 0.18rem;
+    padding-top: 0.24rem;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
+    position: relative;
+    z-index: 1;
+  }
+
+  .human-action-panel--embedded {
+    position: relative;
+    z-index: 2;
   }
 
   .hand-card {
@@ -2141,5 +2206,9 @@ body.game-active .hero-copy {
 
   .round-history-table {
     display: none;
+  }
+
+  .mobile-opponents-strip {
+    grid-template-columns: 1fr;
   }
 }
