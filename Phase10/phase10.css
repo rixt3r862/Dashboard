@@ -82,6 +82,18 @@ select {
   line-height: 1.45;
 }
 
+.phone-support-note {
+  display: none;
+  margin: 0.45rem 0 0;
+  padding: 0.58rem 0.72rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 214, 127, 0.24);
+  background: rgba(6, 24, 18, 0.56);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .panel {
   border: 1px solid var(--line);
   background:
@@ -1942,6 +1954,10 @@ body.game-active .hero-copy {
 
   .hero-copy {
     display: none;
+  }
+
+  .phone-support-note {
+    display: block;
   }
 
   .eyebrow {
