@@ -4,6 +4,7 @@ import {
   determineWinnerFromTotals as resolveWinnerFromTotals,
   normalizeHeartsShootMoonScores,
   phase10CompletionMap,
+  phase10ProgressByPlayerId,
 } from "./rules.mjs";
 
 export function createHistoryController(deps) {
@@ -1118,6 +1119,13 @@ export function createHistoryController(deps) {
     const completed = Math.max(0, Math.round(Number(totalCompleted) || 0));
     if (completed >= phase10Target()) return "Completed";
     return `Phase ${phase10CurrentPhaseFromCompleted(completed)}`;
+  }
+
+  function phase10HighestCompletedLabel(totalCompleted) {
+    const completed = Math.max(0, Math.round(Number(totalCompleted) || 0));
+    if (completed <= 0) return "No phase yet";
+    const target = phase10Target();
+    return `Phase ${Math.min(completed, target)}`;
   }
 
   function bestValueForWinMode(values) {
@@ -2383,11 +2391,34 @@ export function createHistoryController(deps) {
       th0.textContent = "Round";
       th0.scope = "col";
       trh.appendChild(th0);
+      const phase10Progress = isPhase10()
+        ? phase10ProgressByPlayerId(state.players, state.rounds, state.target)
+        : null;
 
       for (const pid of cols) {
         const th = document.createElement("th");
-        th.textContent =
+        const playerName =
           state.players.find((p) => p.id === pid)?.name ?? "Player";
+        if (isPhase10() && phase10Progress) {
+          const wrapper = document.createElement("div");
+          wrapper.className = "history-player-head";
+
+          const name = document.createElement("span");
+          name.className = "history-player-name";
+          name.textContent = playerName;
+
+          const phase = document.createElement("span");
+          phase.className = "history-player-phase";
+          phase.textContent = phase10HighestCompletedLabel(
+            phase10Progress[pid]?.completedPhases ?? 0,
+          );
+
+          wrapper.appendChild(name);
+          wrapper.appendChild(phase);
+          th.appendChild(wrapper);
+        } else {
+          th.textContent = playerName;
+        }
         th.scope = "col";
         trh.appendChild(th);
       }
