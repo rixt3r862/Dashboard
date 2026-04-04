@@ -6,10 +6,37 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Card Game Score Keeper</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="manifest" href="../app.webmanifest" />
   <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
   <link rel="icon" type="image/svg+xml" href="./img/scorekeeper-favicon.svg" />
   <link rel="shortcut icon" href="./img/scorekeeper-favicon.svg" />
+  <script>
+    (() => {
+      const THEME_KEY = "dash.theme";
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      const root = document.documentElement;
+      const readStoredTheme = () => {
+        try {
+          const theme = localStorage.getItem(THEME_KEY);
+          return theme === "dark" || theme === "light" ? theme : null;
+        } catch {
+          return null;
+        }
+      };
+      const applyTheme = () => {
+        const stored = readStoredTheme();
+        root.setAttribute("data-theme", stored || (media.matches ? "dark" : "light"));
+      };
+      applyTheme();
+      window.addEventListener("storage", (event) => {
+        if (event.key === THEME_KEY) applyTheme();
+      });
+      media.addEventListener?.("change", () => {
+        if (!readStoredTheme()) applyTheme();
+      });
+    })();
+  </script>
   <script>
     (() => {
       const sessionKey = "scorekeeper.assetBuster";
