@@ -1,5 +1,9 @@
 import { bindSelectOnFocusAndClick } from "./inputUx.js";
-import { phase10CompletionMap, phase10ProgressByPlayerId } from "./rules.mjs";
+import {
+  heartsRoundPenaltyTotal,
+  phase10CompletionMap,
+  phase10ProgressByPlayerId,
+} from "./rules.mjs";
 
 export function createRoundEntryController(deps) {
   const {
@@ -121,16 +125,17 @@ export function createRoundEntryController(deps) {
       els.roundHeartsTotal.textContent = "";
       return;
     }
+    const roundPenaltyTotal = heartsRoundPenaltyTotal(state.heartsDeckCount);
     const total = activePlayers().reduce(
       (sum, p) => sum + Number(scoresByPlayerId?.[p.id] ?? 0),
       0,
     );
-    const shootMoonTotal = 26 * Math.max(0, activePlayers().length - 1);
-    const isShootMoonTotal = shootMoonTotal > 26 && total === shootMoonTotal;
+    const shootMoonTotal = roundPenaltyTotal * Math.max(0, activePlayers().length - 1);
+    const isShootMoonTotal = shootMoonTotal > roundPenaltyTotal && total === shootMoonTotal;
     els.roundHeartsTotal.hidden = false;
     els.roundHeartsTotal.textContent = isShootMoonTotal
       ? `Round Total: ${total} (Shoot the Moon)`
-      : `Round Total: ${total} / 26`;
+      : `Round Total: ${total} / ${roundPenaltyTotal}`;
   }
 
   function shouldShowSkyjoNegativeOutHint(playerId) {
@@ -247,7 +252,9 @@ export function createRoundEntryController(deps) {
 
   function roundActionHeartsShootMoon(shooterId) {
     if (!shooterId) return;
-    const scores = Object.fromEntries(activePlayers().map((p) => [p.id, 26]));
+    const scores = Object.fromEntries(
+      activePlayers().map((p) => [p.id, heartsRoundPenaltyTotal(state.heartsDeckCount)]),
+    );
     scores[shooterId] = 0;
     applyRoundScores(scores);
     closeRoundHelperForm();

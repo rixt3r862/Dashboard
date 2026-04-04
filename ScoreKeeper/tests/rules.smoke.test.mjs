@@ -4,6 +4,8 @@ import {
   adjustSkyjoRoundScores,
   determinePhase10Winner,
   determineWinnerFromTotals,
+  heartsRoundPenaltyTotal,
+  normalizeHeartsShootMoonScores,
   phase10CompletionMap,
   phase10ProgressByPlayerId,
   totalsByPlayerId,
@@ -144,6 +146,38 @@ test("Hearts validation allows normal total or shoot-the-moon total", () => {
   });
   assert.equal(odd.ok, true);
   assert.match(String(odd.warning), /Hearts round total is 80/i);
+});
+
+test("Hearts supports multi-deck round totals and shoot-the-moon normalization", () => {
+  const players4 = [
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "c", name: "C" },
+    { id: "d", name: "D" },
+  ];
+
+  assert.equal(heartsRoundPenaltyTotal(2), 52);
+
+  const normal = validateRoundScores({
+    scores: { a: 20, b: 12, c: 15, d: 5 }, // 52
+    players: players4,
+    presetKey: "hearts",
+    heartsDeckCount: 2,
+  });
+  assert.equal(normal.ok, true);
+  assert.equal(normal.warning, undefined);
+
+  const normalizedMoon = normalizeHeartsShootMoonScores(
+    players4,
+    { a: 52, b: 0, c: 0, d: 0 },
+    2,
+  );
+  assert.deepEqual(normalizedMoon.scores, {
+    a: 0,
+    b: 52,
+    c: 52,
+    d: 52,
+  });
 });
 
 test("team totals are summed from player totals (Spades-style)", () => {

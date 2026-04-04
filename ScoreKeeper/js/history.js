@@ -2,6 +2,7 @@ import { bindSelectOnFocusAndClick } from "./inputUx.js";
 import {
   adjustSkyjoRoundScores,
   determineWinnerFromTotals as resolveWinnerFromTotals,
+  heartsRoundPenaltyTotal,
   normalizeHeartsShootMoonScores,
   phase10CompletionMap,
   phase10ProgressByPlayerId,
@@ -1962,7 +1963,11 @@ export function createHistoryController(deps) {
       return;
     }
     if (state.presetKey === "hearts") {
-      const normalized = normalizeHeartsShootMoonScores(state.players, scores);
+      const normalized = normalizeHeartsShootMoonScores(
+        state.players,
+        scores,
+        state.heartsDeckCount,
+      );
       scores = normalized.scores;
     }
     const validation = validateRoundScores(scores, {
@@ -2057,7 +2062,9 @@ export function createHistoryController(deps) {
           (sum, pid) => sum + rawScoresById[pid],
           0,
         );
-        const shootMoonTotal = 26 * Math.max(0, activeCols.length - 1);
+        const shootMoonTotal =
+          heartsRoundPenaltyTotal(state.heartsDeckCount) *
+          Math.max(0, activeCols.length - 1);
         if (heartsTotal === shootMoonTotal) {
           const minScore = Math.min(...activeCols.map((pid) => rawScoresById[pid]));
           const minPids = activeCols.filter((pid) => rawScoresById[pid] === minScore);
@@ -2293,7 +2300,7 @@ export function createHistoryController(deps) {
     if (cell.isHeartsMoonRecipient) {
       const plusBadge = document.createElement("span");
       plusBadge.className = "history-score-badge hearts-plus";
-      plusBadge.textContent = "+26";
+      plusBadge.textContent = `+${heartsRoundPenaltyTotal(state.heartsDeckCount)}`;
       parent.appendChild(plusBadge);
     }
 

@@ -9,6 +9,7 @@ import {
 import {
   adjustSkyjoRoundScores,
   determinePhase10Winner,
+  heartsRoundPenaltyTotal,
   phase10ProgressByPlayerId,
   determineWinnerFromTotals as resolveWinnerFromTotals,
   normalizeHeartsShootMoonScores,
@@ -68,10 +69,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
     presetSelect: $("presetSelect"),
     customGameRow: $("customGameRow"),
     customGameName: $("customGameName"),
+    heartsDeckRow: $("heartsDeckRow"),
+    heartsDeckCount: $("heartsDeckCount"),
     customWinModeRow: $("customWinModeRow"),
     customWinModeSelect: $("customWinModeSelect"),
     preRoundPresetRow: $("preRoundPresetRow"),
     preRoundPresetSelect: $("preRoundPresetSelect"),
+    preRoundHeartsDeckRow: $("preRoundHeartsDeckRow"),
+    preRoundHeartsDeckCount: $("preRoundHeartsDeckCount"),
     preRoundSpadesTeamRow: $("preRoundSpadesTeamRow"),
     preRoundSpadesPartnerLabel: $("preRoundSpadesPartnerLabel"),
     preRoundSpadesPartner: $("preRoundSpadesPartner"),
@@ -196,6 +201,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     mode: "setup", // setup | playing | finished
     presetKey: "custom",
     customGameName: "",
+    heartsDeckCount: 1,
     target: APP_LIMITS.defaultTarget,
     winMode: "high", // high | low
     players: [], // { id, name }
@@ -307,6 +313,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       mode: state.mode,
       presetKey: state.presetKey,
       customGameName: normalizeCustomGameName(state.customGameName),
+      heartsDeckCount: state.heartsDeckCount,
       target: state.target,
       winMode: state.winMode,
       players: state.players,
@@ -351,6 +358,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
       if (!normalized.includes(player.id)) normalized.push(player.id);
     }
     return normalized;
+  }
+
+  function normalizedHeartsDeckCount(value = state.heartsDeckCount) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isInteger(parsed)
+      ? Math.max(1, Math.min(4, parsed))
+      : 1;
   }
 
   function normalizedPlayerInactiveRanges(
@@ -1330,6 +1344,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
         ? payload.presetKey
         : "custom";
       state.customGameName = normalizeCustomGameName(payload.customGameName);
+      state.heartsDeckCount = normalizedHeartsDeckCount(payload.heartsDeckCount);
       state.target = Number.isFinite(payload.target)
         ? payload.target
         : APP_LIMITS.defaultTarget;
@@ -1786,6 +1801,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.mode = "setup";
     state.presetKey = "custom";
     state.customGameName = "";
+    state.heartsDeckCount = 1;
     state.target = APP_LIMITS.defaultTarget;
     state.winMode = "high";
     state.players = [];
@@ -1810,6 +1826,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.presetSelect.value = "custom";
     if (els.customGameName) els.customGameName.value = "";
     if (els.preRoundCustomGameName) els.preRoundCustomGameName.value = "";
+    if (els.heartsDeckCount) els.heartsDeckCount.value = "1";
+    if (els.preRoundHeartsDeckCount) els.preRoundHeartsDeckCount.value = "1";
     syncCustomWinModeInputs();
     els.playerCount.value = APP_LIMITS.defaultPlayerCount;
     els.targetPoints.value = APP_LIMITS.defaultTarget;
@@ -1848,6 +1866,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       : APP_LIMITS.defaultTarget;
 
     state.mode = "playing";
+    state.heartsDeckCount = normalizedHeartsDeckCount(state.heartsDeckCount);
     state.target = target;
     els.targetPoints.value = String(target);
 
@@ -1905,6 +1924,19 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
   }
 
+  function syncHeartsDeckInputs() {
+    const value = String(normalizedHeartsDeckCount(state.heartsDeckCount));
+    if (els.heartsDeckCount && els.heartsDeckCount.value !== value) {
+      els.heartsDeckCount.value = value;
+    }
+    if (
+      els.preRoundHeartsDeckCount &&
+      els.preRoundHeartsDeckCount.value !== value
+    ) {
+      els.preRoundHeartsDeckCount.value = value;
+    }
+  }
+
   function syncCustomWinModeInputs() {
     const value = state.winMode === "low" ? "low" : "high";
     if (els.customWinModeSelect && els.customWinModeSelect.value !== value) {
@@ -1943,6 +1975,20 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
   }
 
+  function renderHeartsDeckUi(allowPreRoundPresetChange = false) {
+    syncHeartsDeckInputs();
+    if (els.heartsDeckRow) {
+      els.heartsDeckRow.style.display =
+        state.presetKey === "hearts" ? "flex" : "none";
+    }
+    if (els.preRoundHeartsDeckRow) {
+      els.preRoundHeartsDeckRow.style.display =
+        allowPreRoundPresetChange && state.presetKey === "hearts"
+          ? "flex"
+          : "none";
+    }
+  }
+
   function setCustomGameName(nextName, options = {}) {
     const { persist = false } = options;
     state.customGameName = String(nextName || "");
@@ -1958,6 +2004,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
     updateWinModeText();
     renderAll();
     if (persist && state.players.length) save();
+  }
+
+  function setHeartsDeckCount(nextCount, options = {}) {
+    const { persist = false } = options;
+    state.heartsDeckCount = normalizedHeartsDeckCount(nextCount);
+    syncHeartsDeckInputs();
+    renderAll();
+    if (persist && state.players.length) save();
+  }
+
+  function heartsPenaltyPoints() {
+    return heartsRoundPenaltyTotal(state.heartsDeckCount);
   }
 
   function validateSetup(names, target) {
@@ -2044,6 +2102,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     maybeRenderTeamPreview();
     renderCustomGameNameUi(
+      state.mode === "playing" && state.rounds.length === 0,
+    );
+    renderHeartsDeckUi(
       state.mode === "playing" && state.rounds.length === 0,
     );
     renderCustomWinModeUi(
@@ -2328,6 +2389,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
 
     state.mode = "playing";
+    state.heartsDeckCount = normalizedHeartsDeckCount(
+      els.heartsDeckCount?.value ?? state.heartsDeckCount,
+    );
     state.target = target;
 
     state.players = names.map((name) => ({ id: uid(), name }));
@@ -2544,6 +2608,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       scores,
       players: activePlayers(),
       presetKey: state.presetKey,
+      heartsDeckCount: state.heartsDeckCount,
       contextLabel,
       minScore: APP_LIMITS.scoreMin,
       maxScore: APP_LIMITS.scoreMax,
@@ -2597,13 +2662,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
 
     if (state.presetKey === "hearts") {
+      const normalTotal = heartsPenaltyPoints();
       const total = players.reduce(
         (sum, p) => sum + Number(roundScores?.[p.id] ?? 0),
         0,
       );
-      const shootMoonTotal = 26 * Math.max(0, players.length - 1);
-      if (total !== 26 && total !== shootMoonTotal) {
-        return `Hearts: round total must be 26 (or ${shootMoonTotal} for shoot the moon).`;
+      const shootMoonTotal = normalTotal * Math.max(0, players.length - 1);
+      if (total !== normalTotal && total !== shootMoonTotal) {
+        return `Hearts: round total must be ${normalTotal} (or ${shootMoonTotal} for shoot the moon).`;
       }
     }
 
@@ -2638,7 +2704,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return;
     }
     if (state.presetKey === "hearts") {
-      const normalized = normalizeHeartsShootMoonScores(activePlayers(), scores);
+      const normalized = normalizeHeartsShootMoonScores(
+        activePlayers(),
+        scores,
+        state.heartsDeckCount,
+      );
       scores = normalized.scores;
     }
     const winnerOnlyNormalized = normalizeWinnerOnlyScores(scores);
@@ -2762,6 +2832,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       els.preRoundTargetPoints.value = String(state.target);
     }
     renderCustomGameNameUi(allowPreRoundPresetChange);
+    renderHeartsDeckUi(allowPreRoundPresetChange);
     renderCustomWinModeUi(allowPreRoundPresetChange);
     renderPreRoundSpadesTeamPicker(
       allowPreRoundPresetChange && state.presetKey === "spades",
@@ -2888,6 +2959,25 @@ import { createScoreboardController } from "./js/scoreboard.js";
       applyPreset(e.target.value);
       save();
       renderAll();
+    });
+  }
+  const onHeartsDeckCountChange = (value) => {
+    if (state.presetKey !== "hearts") return;
+    setHeartsDeckCount(value, {
+      persist: state.mode === "playing",
+    });
+  };
+  if (els.heartsDeckCount) {
+    els.heartsDeckCount.addEventListener("change", () => {
+      onHeartsDeckCountChange(els.heartsDeckCount.value);
+    });
+  }
+  if (els.preRoundHeartsDeckCount) {
+    els.preRoundHeartsDeckCount.addEventListener("change", () => {
+      if (!(state.mode === "playing" && state.rounds.length === 0)) {
+        return;
+      }
+      onHeartsDeckCountChange(els.preRoundHeartsDeckCount.value);
     });
   }
   if (els.preRoundSpadesPartner) {

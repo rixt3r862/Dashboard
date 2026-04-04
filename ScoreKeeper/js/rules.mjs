@@ -9,6 +9,17 @@ export function totalsByPlayerId(players, rounds) {
   return totals;
 }
 
+export function normalizeDeckCount(deckCount = 1, maxDecks = 4) {
+  const parsed = Number.parseInt(deckCount, 10);
+  return Number.isInteger(parsed)
+    ? Math.max(1, Math.min(maxDecks, parsed))
+    : 1;
+}
+
+export function heartsRoundPenaltyTotal(deckCount = 1) {
+  return 26 * normalizeDeckCount(deckCount);
+}
+
 export function phase10CompletionMap(players, round) {
   const ids = Array.isArray(players) ? players.map((p) => p.id) : [];
   const explicit = round?.phase10CompletedByPlayerId;
@@ -152,7 +163,7 @@ export function determineWinnerFromTotals(entries, winMode, target) {
   return eligible[0].id;
 }
 
-export function normalizeHeartsShootMoonScores(players, scores) {
+export function normalizeHeartsShootMoonScores(players, scores, deckCount = 1) {
   if (!Array.isArray(players) || !scores) {
     return { scores, shooterId: null };
   }
@@ -167,8 +178,9 @@ export function normalizeHeartsShootMoonScores(players, scores) {
     }),
   );
 
-  // Apply "shoot the moon" only for a single exact 26/0...0 pattern.
-  const shooters = ids.filter((id) => normalized[id] === 26);
+  const roundPenaltyTotal = heartsRoundPenaltyTotal(deckCount);
+  // Apply "shoot the moon" only for a single exact N/0...0 pattern.
+  const shooters = ids.filter((id) => normalized[id] === roundPenaltyTotal);
   if (shooters.length !== 1) {
     return { scores: normalized, shooterId: null };
   }
@@ -181,7 +193,9 @@ export function normalizeHeartsShootMoonScores(players, scores) {
     return { scores: normalized, shooterId: null };
   }
 
-  const moonScores = Object.fromEntries(ids.map((id) => [id, 26]));
+  const moonScores = Object.fromEntries(
+    ids.map((id) => [id, roundPenaltyTotal]),
+  );
   moonScores[shooterId] = 0;
   return { scores: moonScores, shooterId };
 }
@@ -190,6 +204,7 @@ export function validateRoundScores({
   scores,
   players,
   presetKey,
+  heartsDeckCount = 1,
   contextLabel = "round",
   minScore = -10000,
   maxScore = 10000,
@@ -225,8 +240,8 @@ export function validateRoundScores({
   if (presetKey === "hearts") {
     // Hearts totals outside normal/shoot-moon expectations are warnings, not hard errors.
     const total = players.reduce((sum, p) => sum + Number(scores[p.id] ?? 0), 0);
-    const normalTotal = 26;
-    const shootMoonTotal = 26 * Math.max(0, players.length - 1);
+    const normalTotal = heartsRoundPenaltyTotal(heartsDeckCount);
+    const shootMoonTotal = normalTotal * Math.max(0, players.length - 1);
     const validTotals = new Set([normalTotal, shootMoonTotal]);
     if (!validTotals.has(total)) {
       warnings.push(
