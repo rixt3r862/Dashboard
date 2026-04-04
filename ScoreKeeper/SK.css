@@ -2196,6 +2196,22 @@ td .sub{
     margin: 12mm;
   }
 
+  :root,
+  :root[data-theme="dark"]{
+    color-scheme: light !important;
+    --bg:#f6f8fb;
+    --card:#ffffff;
+    --text:#0f172a;
+    --muted:#64748b;
+    --line:#e5e7eb;
+    --accent:#2563eb;
+    --accent2:#8a3af9;
+    --good:#16a34a;
+    --warn:#b45309;
+    --bad:#dc2626;
+    --shadow:0 10px 30px rgba(2,6,23,.08);
+  }
+
   body{
     background: #fff !important;
     color: #000 !important;
