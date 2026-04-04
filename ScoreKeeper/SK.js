@@ -2048,6 +2048,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function applyPhase10UiText() {
     els.scoreboardCard.classList.toggle("phase10-mode", isPhase10());
     els.scoreboardCard.classList.toggle("hearts-mode", state.presetKey === "hearts");
+    els.scoreboardCard.classList.toggle("uno-mode", state.presetKey === "uno");
 
     if (els.targetLabel) {
       els.targetLabel.textContent = isPhase10() ? "Final phase" : "Target";
