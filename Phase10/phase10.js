@@ -127,6 +127,7 @@ const state = {
   humanPhasePreviewRequested: false,
   setupBotNames: BOT_NAMES.slice(0, 3),
   setupBotDifficulties: ["medium", "medium", "medium"],
+  friendlyShuffle: true,
   currentSessionId: null,
   selectedSessionId: "",
   sessionStatusMessage: "",
@@ -138,6 +139,7 @@ const els = {
   setupForm: document.getElementById("setupForm"),
   humanName: document.getElementById("humanName"),
   botCount: document.getElementById("botCount"),
+  friendlyShuffleToggle: document.getElementById("friendlyShuffleToggle"),
   botNameFields: document.getElementById("botNameFields"),
   startGameBtn: document.getElementById("startGameBtn"),
   resetTableBtn: document.getElementById("resetTableBtn"),
@@ -201,6 +203,9 @@ function bindEvents() {
   els.botCount.addEventListener("change", () => {
     syncSetupBotConfigFromInputs();
     renderBotNameFields();
+  });
+  els.friendlyShuffleToggle.addEventListener("change", () => {
+    state.friendlyShuffle = els.friendlyShuffleToggle.checked;
   });
   els.botNameFields.addEventListener("input", (event) => {
     const input = event.target.closest("input[id^='botName']");
@@ -538,6 +543,7 @@ function snapshotState() {
     roundHistorySortDir: state.roundHistorySortDir,
     humanExtraPlayUndoStack: state.humanExtraPlayUndoStack,
     humanPhasePreviewRequested: state.humanPhasePreviewRequested,
+    friendlyShuffle: state.friendlyShuffle,
     currentSessionId: state.currentSessionId,
     mobileView: state.mobileView,
   };
@@ -587,6 +593,7 @@ function buildHydratedState(payload, options = {}) {
     roundHistorySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
     humanExtraPlayUndoStack: normalizeHumanExtraPlayUndoStack(payload.humanExtraPlayUndoStack),
     humanPhasePreviewRequested: Boolean(payload.humanPhasePreviewRequested),
+    friendlyShuffle: normalizeFriendlyShuffle(payload.friendlyShuffle, false),
     currentSessionId:
       currentSessionId != null
         ? normalizeSelectedCardId(currentSessionId)
@@ -623,6 +630,7 @@ function applyHydratedState(nextState) {
   state.roundHistorySortDir = nextState.roundHistorySortDir;
   state.humanExtraPlayUndoStack = nextState.humanExtraPlayUndoStack;
   state.humanPhasePreviewRequested = nextState.humanPhasePreviewRequested;
+  state.friendlyShuffle = nextState.friendlyShuffle;
   state.currentSessionId = nextState.currentSessionId;
   state.mobileView = nextState.mobileView;
 }
@@ -785,6 +793,10 @@ function normalizeBotDifficulty(value) {
   return BOT_DIFFICULTIES.includes(value) ? value : "medium";
 }
 
+function normalizeFriendlyShuffle(value, fallback = true) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function syncSetupControlsFromState() {
   const human = humanPlayer();
   if (human) {
@@ -795,6 +807,7 @@ function syncSetupControlsFromState() {
   if (botCount >= 1 && botCount <= 3) {
     els.botCount.value = String(botCount);
   }
+  els.friendlyShuffleToggle.checked = state.friendlyShuffle;
   renderBotNameFields(
     botPlayers.map((player) => player.name),
     botPlayers.map((player) => player.difficulty),
@@ -877,6 +890,7 @@ function startNewGame() {
   setSessionStatusMessage("");
   const humanName = normalizeName(els.humanName.value, "Player 1");
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
+  state.friendlyShuffle = els.friendlyShuffleToggle.checked;
   const setupBotConfig = syncSetupBotConfigFromInputs();
   const customBotNames = setupBotConfig.names.slice(0, botCount);
   const customBotDifficulties = setupBotConfig.difficulties.slice(0, botCount);
@@ -941,6 +955,7 @@ function resetTable() {
   state.currentSessionId = null;
   state.sessionToolsExpanded = true;
   state.mobileView = "play";
+  els.friendlyShuffleToggle.checked = state.friendlyShuffle;
   clearSavedGame();
   render();
 }
@@ -1212,7 +1227,7 @@ function startRound() {
   state.pendingRoundSummary = null;
   state.humanExtraPlayUndoStack = [];
   state.humanPhasePreviewRequested = false;
-  state.deck = shuffle(buildDeck());
+  state.deck = buildRoundDeck();
   state.discardPile = [];
 
   for (const player of state.players) {
@@ -1263,13 +1278,111 @@ function buildDeck() {
   return deck;
 }
 
+function buildRoundDeck() {
+  const baseDeck = buildDeck();
+  if (!state.friendlyShuffle) {
+    return shuffle(baseDeck);
+  }
+
+  let bestDeck = null;
+  let bestPenalty = Number.POSITIVE_INFINITY;
+  for (let attempt = 0; attempt < 96; attempt += 1) {
+    const candidate = shuffle(baseDeck);
+    const penalty = friendlyShufflePenalty(candidate, state.players.length);
+    if (penalty < bestPenalty) {
+      bestPenalty = penalty;
+      bestDeck = candidate;
+      if (penalty === 0) break;
+    }
+  }
+  return bestDeck ?? shuffle(baseDeck);
+}
+
+function friendlyShufflePenalty(deck, playerCount) {
+  if (!Array.isArray(deck) || !deck.length || !playerCount) return 0;
+  const simulation = [...deck];
+  const hands = Array.from({ length: playerCount }, () => []);
+
+  for (let deal = 0; deal < 10; deal += 1) {
+    for (let playerIndex = 0; playerIndex < playerCount; playerIndex += 1) {
+      const card = simulation.pop();
+      if (card) {
+        hands[playerIndex].push(card);
+      }
+    }
+  }
+
+  const discard = simulation.pop() ?? null;
+  let penalty = discard?.type === "skip" ? 18 : 0;
+
+  hands.forEach((hand) => {
+    let skipCount = 0;
+    let actionCount = 0;
+    const numberCounts = new Map();
+
+    hand.forEach((card) => {
+      if (card.type === "skip") skipCount += 1;
+      if (card.type === "skip" || card.type === "wild") actionCount += 1;
+      if (card.type === "number") {
+        numberCounts.set(card.value, (numberCounts.get(card.value) ?? 0) + 1);
+      }
+    });
+
+    if (skipCount > 1) penalty += (skipCount - 1) * 18;
+    if (actionCount > 2) penalty += (actionCount - 2) * 7;
+
+    numberCounts.forEach((count) => {
+      if (count > 2) {
+        penalty += (count - 2) * 8;
+      }
+    });
+  });
+
+  const previewWindow = simulation.slice(-18).reverse();
+  let previousValue = null;
+  let repeatRun = 1;
+  previewWindow.forEach((card) => {
+    if (card.type !== "number") {
+      previousValue = null;
+      repeatRun = 1;
+      return;
+    }
+    if (card.value === previousValue) {
+      repeatRun += 1;
+      penalty += repeatRun >= 3 ? 6 : 2;
+    } else {
+      previousValue = card.value;
+      repeatRun = 1;
+    }
+  });
+
+  return penalty;
+}
+
 function shuffle(items) {
   const array = [...items];
   for (let index = array.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
+    const swapIndex = randomInt(index + 1);
     [array[index], array[swapIndex]] = [array[swapIndex], array[index]];
   }
   return array;
+}
+
+function randomInt(maxExclusive) {
+  if (!Number.isInteger(maxExclusive) || maxExclusive <= 0) return 0;
+  const cryptoObject = globalThis.crypto;
+  if (!cryptoObject?.getRandomValues) {
+    return Math.floor(Math.random() * maxExclusive);
+  }
+
+  const limit = Math.floor(0x100000000 / maxExclusive) * maxExclusive;
+  const buffer = new Uint32Array(1);
+  let value = 0;
+  do {
+    cryptoObject.getRandomValues(buffer);
+    value = buffer[0];
+  } while (value >= limit);
+  return value % maxExclusive;
 }
 
 function drawFromDeckInternal() {
@@ -1686,7 +1799,11 @@ function chooseBotDiscard(player) {
     if (leftRank !== rightRank) return leftRank - rightRank;
     return cardPoints(right) - cardPoints(left);
   });
-  return ordered[0] ?? null;
+  const topChoice = ordered[0] ?? null;
+  if (topChoice?.type === "skip" && !shouldBotUseSkipNow(player)) {
+    return ordered.find((card) => card.type !== "skip") ?? topChoice;
+  }
+  return topChoice;
 }
 
 function chooseBotSkipTarget(player) {
@@ -1707,6 +1824,37 @@ function chooseBotSkipTarget(player) {
   });
 
   return scoredTargets[0]?.target ?? null;
+}
+
+function shouldBotUseSkipNow(player) {
+  if (!player) return false;
+  const target = chooseBotSkipTarget(player);
+  if (!target) return false;
+
+  const leader = [...skipTargetsFor(player)].sort((left, right) => {
+    const rightCompleted = completedPhaseNumberFor(right);
+    const leftCompleted = completedPhaseNumberFor(left);
+    if (rightCompleted !== leftCompleted) return rightCompleted - leftCompleted;
+    if (left.score !== right.score) return left.score - right.score;
+    return left.hand.length - right.hand.length;
+  })[0];
+
+  const urgent =
+    target.hand.length <= 3 ||
+    target.completedPhaseThisRound ||
+    leader?.id === target.id;
+  const difficulty = botDifficulty(player);
+
+  if (difficulty === "easy") {
+    return Boolean(player.laidGroups.length && target.hand.length <= 2);
+  }
+  if (difficulty === "hard") {
+    return Boolean(
+      urgent ||
+      (player.laidGroups.length && (target.hand.length <= 5 || target.isHuman)),
+    );
+  }
+  return Boolean(urgent || (player.laidGroups.length && target.hand.length <= 4));
 }
 
 function layPhaseForPlayer(player, options = {}) {
@@ -2407,12 +2555,13 @@ function scoreCardKeepValue(card, player, hand) {
   }
   if (card.type === "skip") {
     const target = chooseBotSkipTarget(player);
-    let score = target?.isHuman ? 14 : 8;
+    let score = target?.isHuman ? 8 : 5;
     if (target?.completedPhaseThisRound) score += 8;
-    if ((target?.hand.length ?? 99) <= 4) score += 10;
+    if ((target?.hand.length ?? 99) <= 3) score += 12;
+    if ((target?.hand.length ?? 99) <= 5) score += 4;
     if (player.laidGroups.length) score += 6;
-    if (hand.length <= 4) score += 6;
-    if (hand.length >= 8) score -= 6;
+    if (!player.laidGroups.length && hand.length >= 7) score -= 10;
+    if (hand.length <= 4) score += 4;
     return score;
   }
 
@@ -3230,11 +3379,11 @@ function scoreSkipTarget(player, target) {
     playerIndex === -1 ? null : state.players[(playerIndex + 1) % state.players.length];
 
   let score = 0;
-  if (target.isHuman) score += 6;
+  if (target.isHuman) score += 2;
   if (target.completedPhaseThisRound) score += 8;
   if (target.hand.length <= 4) score += 10;
   if (leader?.id === target.id) score += 7;
-  if (nextPlayer?.id === target.id) score += 4;
+  if (nextPlayer?.id === target.id) score += 3;
   score += Math.max(0, 5 - target.hand.length);
   return score;
 }
