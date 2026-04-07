@@ -2616,6 +2616,55 @@ function miniCardMarkup(card, options = {}) {
   const undoableCardIds = options.undoableCardIds ?? new Set();
   const isUndoable = undoableCardIds.has(card.id);
   const flashedClass = state.flashedCardId === card.id ? "flashed" : "";
+  if (card.type === "number") {
+    const short = String(card.value);
+    return `
+      <span
+        class="mini-card ${baseClass} mini-card-number ${isUndoable ? "undoable" : ""} ${flashedClass}"
+        ${isUndoable ? `data-undo-card-id="${escapeHtml(card.id)}"` : ""}
+        ${isUndoable ? `title="Return ${escapeHtml(cardLabel(card))} to your hand"` : ""}
+      >
+        <span class="mini-card-band mini-card-band-top">
+          <span>${escapeHtml(short)}</span>
+          <span>${escapeHtml(short)}</span>
+        </span>
+        <span class="mini-card-value">${escapeHtml(short)}</span>
+        <span class="mini-card-band mini-card-band-bottom">
+          <span>${escapeHtml(short)}</span>
+          <span>${escapeHtml(short)}</span>
+        </span>
+      </span>
+    `;
+  }
+  if (card.type === "wild" || card.type === "skip") {
+    const short = card.type === "wild" ? "W" : "S";
+    const word = card.type === "wild" ? "WILD" : "SKIP";
+    return `
+      <span
+        class="mini-card ${baseClass} mini-card-special ${isUndoable ? "undoable" : ""} ${flashedClass}"
+        ${isUndoable ? `data-undo-card-id="${escapeHtml(card.id)}"` : ""}
+        ${isUndoable ? `title="Return ${escapeHtml(cardLabel(card))} to your hand"` : ""}
+      >
+        <span class="mini-card-band mini-card-band-special mini-card-band-top">
+          <span>${escapeHtml(short)}</span>
+          <span>${escapeHtml(short)}</span>
+        </span>
+        <span class="mini-card-special-body">
+          <span class="mini-card-stripes" aria-hidden="true">
+            <span class="special-stripe red"></span>
+            <span class="special-stripe blue"></span>
+            <span class="special-stripe green"></span>
+            <span class="special-stripe yellow"></span>
+          </span>
+          <span class="mini-card-special-word">${escapeHtml(word)}</span>
+        </span>
+        <span class="mini-card-band mini-card-band-special mini-card-band-bottom">
+          <span>${escapeHtml(short)}</span>
+          <span>${escapeHtml(short)}</span>
+        </span>
+      </span>
+    `;
+  }
   return `
     <span
       class="mini-card ${baseClass} ${isUndoable ? "undoable" : ""} ${flashedClass}"
@@ -2652,6 +2701,61 @@ function faceCardMarkup(card, options = {}) {
     styleVars.push(`--deal-index: ${options.dealIndex}`);
   }
   const styleAttr = styleVars.length ? `style="${styleVars.join("; ")}"` : "";
+
+  if (card.type === "number") {
+    return `
+      <${tag}
+        class="hand-card card-type-number ${card.color} ${selectedClass} ${drawnClass} ${previewedClass} ${dealtClass}"
+        ${dataAttr}
+        ${buttonType}
+        ${styleAttr}
+        aria-label="${escapeHtml(label)}"
+      >
+        <div class="card-band card-band-top">
+          <span class="card-corner">${escapeHtml(short)}</span>
+          <span class="card-corner">${escapeHtml(short)}</span>
+        </div>
+        <div class="card-body card-body-number">
+          <div class="card-value">${escapeHtml(short)}</div>
+        </div>
+        <div class="card-band card-band-bottom">
+          <span class="card-corner">${escapeHtml(short)}</span>
+          <span class="card-corner">${escapeHtml(short)}</span>
+        </div>
+      </${tag}>
+    `;
+  }
+  if (card.type === "wild" || card.type === "skip") {
+    const short = card.type === "wild" ? "W" : "S";
+    const word = card.type === "wild" ? "WILD" : "SKIP";
+    return `
+      <${tag}
+        class="hand-card card-type-${card.type} card-type-special ${selectedClass} ${drawnClass} ${previewedClass} ${dealtClass}"
+        ${dataAttr}
+        ${buttonType}
+        ${styleAttr}
+        aria-label="${escapeHtml(label)}"
+      >
+        <div class="card-band card-band-special card-band-top">
+          <span class="card-corner">${escapeHtml(short)}</span>
+          <span class="card-corner">${escapeHtml(short)}</span>
+        </div>
+        <div class="card-body card-body-special">
+          <div class="card-special-stripes" aria-hidden="true">
+            <span class="special-stripe red"></span>
+            <span class="special-stripe blue"></span>
+            <span class="special-stripe green"></span>
+            <span class="special-stripe yellow"></span>
+          </div>
+          <div class="card-special-word">${escapeHtml(word)}</div>
+        </div>
+        <div class="card-band card-band-special card-band-bottom">
+          <span class="card-corner">${escapeHtml(short)}</span>
+          <span class="card-corner">${escapeHtml(short)}</span>
+        </div>
+      </${tag}>
+    `;
+  }
 
   return `
     <${tag}
