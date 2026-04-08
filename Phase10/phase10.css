@@ -1197,6 +1197,16 @@ body.game-active .deck-card-badge {
   margin-top: 0.05rem;
   min-height: 0;
   gap: 0.35rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: start;
+}
+
+.human-seat-summary .meld-card {
+  height: 100%;
+}
+
+.human-seat-summary .mini-card-row {
+  flex-wrap: wrap;
 }
 
 .human-hand {
@@ -2440,6 +2450,10 @@ body.game-active .hero-copy {
 
   .human-hand .card-meta {
     font-size: 0.53rem;
+  }
+
+  .human-seat-summary .meld-stack {
+    grid-template-columns: 1fr;
   }
 
   .round-history-mobile-list {
