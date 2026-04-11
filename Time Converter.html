@@ -773,7 +773,7 @@
       </div>
 
       <aside class="hero-side">
-        <div class="result-card result-card-24" aria-live="polite">
+        <div class="result-card result-card-24" id="resultCard24" aria-live="polite">
           <div class="result-label">
             <span>12-hour result</span>
             <span id="copyState">Ready</span>
@@ -786,7 +786,7 @@
           </div>
         </div>
 
-        <div class="result-card result-card-pm" aria-live="polite">
+        <div class="result-card result-card-pm" id="resultCardPm" aria-live="polite">
           <div class="result-label">
             <span>24-hour PM result</span>
             <span id="copyPmState">Ready</span>
@@ -876,6 +876,8 @@
     const resultMeta = document.getElementById("resultMeta");
     const pmResultValue = document.getElementById("pmResultValue");
     const pmResultMeta = document.getElementById("pmResultMeta");
+    const resultCard24 = document.getElementById("resultCard24");
+    const resultCardPm = document.getElementById("resultCardPm");
     const statusLine = document.getElementById("statusLine");
     const pmStatusLine = document.getElementById("pmStatusLine");
     const copyButton = document.getElementById("copyButton");
@@ -885,9 +887,30 @@
     const copyState = document.getElementById("copyState");
     const copyPmState = document.getElementById("copyPmState");
     const referenceGrid = document.getElementById("referenceGrid");
+    let lastAutoJump24 = "";
+    let lastAutoJumpPm = "";
 
     function normalizeTwoDigits(value) {
       return String(value).padStart(2, "0");
+    }
+
+    function shouldAutoJumpFromRawInput(rawValue) {
+      return isMobileAutoJumpEnabled() && /^\d{4}$/.test(rawValue.trim());
+    }
+
+    function isMobileAutoJumpEnabled() {
+      return window.matchMedia("(max-width: 820px)").matches;
+    }
+
+    function jumpToResultCard(card) {
+      if (!card) {
+        return;
+      }
+
+      card.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
 
     function parseInput(rawValue) {
@@ -1081,7 +1104,9 @@
     }
 
     function renderConversion() {
-      const parsed = parseInput(timeInput.value);
+      const rawValue = timeInput.value;
+      const parsed = parseInput(rawValue);
+      const shouldAutoJump = shouldAutoJumpFromRawInput(rawValue);
       resetCopyState();
 
       if (parsed.empty) {
@@ -1089,6 +1114,7 @@
         resultMeta.textContent = "We will normalize the 24-hour time here before converting it.";
         copyButton.disabled = true;
         copyButton.dataset.value = "";
+        lastAutoJump24 = "";
         setStatus("Enter a time to see the converted result.");
         return;
       }
@@ -1098,6 +1124,9 @@
         resultMeta.textContent = parsed.error;
         copyButton.disabled = true;
         copyButton.dataset.value = "";
+        if (!shouldAutoJump) {
+          lastAutoJump24 = "";
+        }
         setStatus(parsed.error, "error");
         return;
       }
@@ -1127,10 +1156,19 @@
           (hasSeconds ? " with seconds included." : "."),
         "success",
       );
+
+      if (shouldAutoJump && lastAutoJump24 !== rawValue.trim()) {
+        lastAutoJump24 = rawValue.trim();
+        jumpToResultCard(resultCard24);
+      } else if (!shouldAutoJump) {
+        lastAutoJump24 = "";
+      }
     }
 
     function renderPmConversion() {
-      const parsed = parsePmInput(pmInput.value);
+      const rawValue = pmInput.value;
+      const parsed = parsePmInput(rawValue);
+      const shouldAutoJump = shouldAutoJumpFromRawInput(rawValue);
       resetPmCopyState();
 
       if (parsed.empty) {
@@ -1138,6 +1176,7 @@
         pmResultMeta.textContent = "We will treat your entry as PM and convert it to 24-hour time.";
         copyPmButton.disabled = true;
         copyPmButton.dataset.value = "";
+        lastAutoJumpPm = "";
         setPmStatus("Enter a PM time to convert it into 24-hour format.");
         return;
       }
@@ -1147,6 +1186,9 @@
         pmResultMeta.textContent = parsed.error;
         copyPmButton.disabled = true;
         copyPmButton.dataset.value = "";
+        if (!shouldAutoJump) {
+          lastAutoJumpPm = "";
+        }
         setPmStatus(parsed.error, "error");
         return;
       }
@@ -1166,6 +1208,13 @@
           (hasSeconds ? " with seconds included." : "."),
         "success",
       );
+
+      if (shouldAutoJump && lastAutoJumpPm !== rawValue.trim()) {
+        lastAutoJumpPm = rawValue.trim();
+        jumpToResultCard(resultCardPm);
+      } else if (!shouldAutoJump) {
+        lastAutoJumpPm = "";
+      }
     }
 
     function applySample(value) {
