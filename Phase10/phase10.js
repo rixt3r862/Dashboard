@@ -2735,6 +2735,7 @@ function faceCardMarkup(card, options = {}) {
         class="hand-card card-type-${card.type} card-type-special ${selectedClass} ${drawnClass} ${previewedClass} ${dealtClass}"
         ${dataAttr}
         ${buttonType}
+        ${titleAttr}
         ${styleAttr}
         aria-label="${escapeHtml(label)}"
       >
