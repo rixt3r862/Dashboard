@@ -2693,6 +2693,7 @@ function faceCardMarkup(card, options = {}) {
   const dataAttr = options.cardId ? ` data-card-id="${escapeHtml(options.cardId)}"` : "";
   const tag = options.interactive ? "button" : "div";
   const buttonType = options.interactive ? ` type="button"` : "";
+  const titleAttr = options.interactive ? ` title="${escapeHtml(`${label} • ${cardPoints(card)} pts`)}"` : "";
   const styleVars = [];
   if (card.type === "number") {
     styleVars.push(`--color: ${colorMeta?.css ?? "#36a56c"}`);
@@ -2708,6 +2709,7 @@ function faceCardMarkup(card, options = {}) {
         class="hand-card card-type-number ${card.color} ${selectedClass} ${drawnClass} ${previewedClass} ${dealtClass}"
         ${dataAttr}
         ${buttonType}
+        ${titleAttr}
         ${styleAttr}
         aria-label="${escapeHtml(label)}"
       >
@@ -2762,6 +2764,7 @@ function faceCardMarkup(card, options = {}) {
       class="hand-card card-type-${card.type} ${selectedClass} ${drawnClass} ${previewedClass} ${dealtClass}"
       ${dataAttr}
       ${buttonType}
+      ${titleAttr}
       ${styleAttr}
       aria-label="${escapeHtml(label)}"
     >
