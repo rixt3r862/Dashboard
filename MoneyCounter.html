@@ -132,6 +132,86 @@
       margin:.25rem 0 .6rem; font-size:1.05rem;
       color: var(--muted); font-weight:700;
     }
+    .panel-full{ grid-column:1 / -1; }
+
+    .field-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap:.8rem;
+    }
+    .field{
+      display:grid;
+      gap:.35rem;
+    }
+    .field label{
+      color:var(--muted);
+      font-size: var(--font-sm);
+      font-weight:600;
+    }
+    .field input[type="text"],
+    .field input[type="date"],
+    .field textarea,
+    .summary input[type="number"]{
+      width:100%;
+      padding:.55rem .7rem;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:transparent;
+      color:inherit;
+      font:inherit;
+      outline:none;
+    }
+    .field input[type="text"]:focus,
+    .field input[type="date"]:focus,
+    .field textarea:focus,
+    .summary input[type="number"]:focus{
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+    .field textarea{
+      min-height: 5.5rem;
+      resize: vertical;
+    }
+    .field--notes{ grid-column:1 / -1; }
+
+    .print-header{ display:none; }
+    .print-title{
+      margin:0;
+      font-size:1.15rem;
+    }
+    .print-meta{
+      margin:.25rem 0 0;
+      color:var(--muted);
+      font-size: var(--font-sm);
+    }
+    .print-totals{
+      display:grid;
+      gap:.2rem;
+      text-align:right;
+    }
+    .print-totals strong{
+      font-size:1.15rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .helper-strip{
+      display:flex;
+      flex-wrap:wrap;
+      gap:.5rem;
+    }
+    .chipbtn{
+      appearance:none;
+      border:1px solid var(--line);
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      color:var(--text);
+      border-radius:999px;
+      padding:.5rem .8rem;
+      font:inherit;
+      font-size: var(--font-sm);
+      cursor:pointer;
+    }
+    .chipbtn:hover{ border-color: var(--accent); }
 
     table{
       width:100%; border-collapse:separate; border-spacing:0;
@@ -228,12 +308,45 @@
       font-weight:800; font-variant-numeric: tabular-nums;
       text-align:right;
     }
+    .summary input[type="number"]{
+      max-width: 12rem;
+      justify-self:end;
+      text-align:right;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary output.is-positive{ color: var(--success); }
+    .summary output.is-negative{ color:#dc2626; }
+    .summary output.summary-strong{ font-size:1.05rem; }
+
+    .check-amount{ width:min(100%, 8rem) !important; }
+    .check-actions{
+      display:flex;
+      justify-content:center;
+      gap:.35rem;
+    }
+    .iconbtn{
+      appearance:none;
+      border:1px solid var(--line);
+      background:transparent;
+      color:inherit;
+      border-radius:9px;
+      padding:.35rem .55rem;
+      font:inherit;
+      font-size: var(--font-sm);
+      cursor:pointer;
+    }
+    .iconbtn:hover{ border-color: var(--accent); }
 
     .actions{
-      display:flex; gap:.6rem; justify-content:flex-end;
+      display:flex; gap:.6rem; justify-content:flex-end; align-items:center; flex-wrap:wrap;
       padding: clamp(8px, 2vw, 12px);
       border-top:1px solid var(--line);
       background: linear-gradient(180deg, transparent, rgba(0,0,0,.02));
+    }
+    .status-note{
+      margin-right:auto;
+      color:var(--muted);
+      font-size: var(--font-sm);
     }
     .btn{
       appearance:none; border:none; cursor:pointer;
@@ -281,6 +394,15 @@
     padding: 0 !important;
     gap: 6mm !important;
   }
+  .print-header{
+    display:flex !important;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8mm;
+    border-bottom: 1px solid #000;
+    padding-bottom: 4mm;
+    margin-bottom: 6mm;
+  }
   .panel-grid{
     grid-template-columns: 1fr !important;
     gap: 6mm !important;
@@ -304,6 +426,18 @@
     color: #0b3b73 !important;
   }
 
+  .helper-panel,
+  .status-note,
+  .iconbtn,
+  .chipbtn{
+    display:none !important;
+  }
+
+  .checks-table th:last-child,
+  .checks-table td:last-child{
+    display:none !important;
+  }
+
   .back-link, .header, .actions, .stepbtn{
     display:none !important;
   }
@@ -314,6 +448,12 @@
     background: transparent !important;
     color: #000 !important;
     padding: 0 !important;
+  }
+
+  textarea{
+    border:none !important;
+    resize:none !important;
+    min-height:auto !important;
   }
 
   input[readonly]{
@@ -341,6 +481,50 @@
 
     <section class="content">
       <form id="moneyForm" autocomplete="off">
+        <section class="print-header" aria-hidden="true">
+          <div>
+            <h2 class="print-title">CashBox Deposit Summary</h2>
+            <p class="print-meta" id="printMetaLine"></p>
+          </div>
+          <div class="print-totals">
+            <span>Total Counted</span>
+            <strong id="printTotal">$0.00</strong>
+            <span id="printDifference">$0.00 difference</span>
+          </div>
+        </section>
+
+        <section class="panel panel-full">
+          <h2>Deposit Info</h2>
+          <div class="field-grid">
+            <div class="field">
+              <label for="depositDate">Deposit Date</label>
+              <input type="date" id="depositDate" data-persist />
+            </div>
+            <div class="field">
+              <label for="depositAccount">Account Number</label>
+              <input type="text" id="depositAccount" placeholder="Account number" data-persist />
+            </div>
+            <div class="field field--notes">
+              <label for="depositNotes">Notes</label>
+              <textarea id="depositNotes" rows="3" placeholder="Optional notes for this deposit" data-persist></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-full helper-panel">
+          <h2>Quick Add</h2>
+          <div class="helper-strip" id="quickAdd">
+            <button type="button" class="chipbtn" data-denom="pny" data-add="50">Penny Roll +50</button>
+            <button type="button" class="chipbtn" data-denom="nck" data-add="40">Nickel Roll +40</button>
+            <button type="button" class="chipbtn" data-denom="dme" data-add="50">Dime Roll +50</button>
+            <button type="button" class="chipbtn" data-denom="qtr" data-add="40">Quarter Roll +40</button>
+            <button type="button" class="chipbtn" data-denom="one" data-add="25">$1 Strap +25</button>
+            <button type="button" class="chipbtn" data-denom="fiv" data-add="20">$5 Strap +20</button>
+            <button type="button" class="chipbtn" data-denom="ten" data-add="10">$10 Strap +10</button>
+            <button type="button" class="chipbtn" data-denom="twe" data-add="5">$20 Strap +5</button>
+          </div>
+        </section>
+
         <div class="panel-grid">
           <!-- Cash panel -->
           <section class="panel">
@@ -355,10 +539,10 @@
           <!-- Checks panel -->
           <section class="panel">
             <h2>Checks</h2>
-            <table>
-              <thead><tr><th>#</th><th>Amount</th><th>Formatted</th></tr></thead>
+            <table class="checks-table">
+              <thead><tr><th>#</th><th>Amount</th><th>Formatted</th><th>Actions</th></tr></thead>
               <tbody id="check-rows"></tbody>
-              <tfoot><tr><td></td><td>Checks Total</td><td><input id="checksTotal" readonly tabindex="-1" /></td></tr></tfoot>
+              <tfoot><tr><td></td><td>Checks Total</td><td><input id="checksTotal" readonly tabindex="-1" /></td><td></td></tr></tfoot>
             </table>
           </section>
         </div>
@@ -367,11 +551,15 @@
         <section class="summary">
           <label>Cash</label><output id="summaryCash">$0.00</output>
           <label>Checks</label><output id="summaryChecks">$0.00</output>
-          <label>Total (Cash + Checks)</label><output id="summaryBoth">$0.00</output>
+          <label>Total (Cash + Checks)</label><output id="summaryBoth" class="summary-strong">$0.00</output>
+          <label for="expectedTotal">Expected Total</label><input id="expectedTotal" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" data-persist />
+          <label>Difference</label><output id="summaryDifference">$0.00</output>
         </section>
 
         <div class="actions">
-          <button type="button" class="btn primary" onclick="window.print()">Print</button>
+          <span class="status-note" id="saveStatus">Draft stays saved on this device.</span>
+          <button type="button" class="btn ghost" id="copySummaryBtn">Copy Summary</button>
+          <button type="button" class="btn primary" id="printBtn">Print</button>
           <button type="reset" class="btn ghost">Reset</button>
         </div>
       </form>
@@ -381,6 +569,8 @@
   <script>
     const usd = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
     const toUsd=c=>usd.format(c/100);
+    const formatSignedUsd=c=>`${c<0?"-":""}${usd.format(Math.abs(c)/100)}`;
+    const STORAGE_KEY="cashbox.form.v1";
     const parseMoneyToCents=s=>{
       if(!s)return 0;
       const c=String(s).replace(/[^\d.]/g,"");
@@ -414,11 +604,24 @@
     const moneyForm=document.getElementById("moneyForm");
     const cashTbody=document.getElementById("cash-rows");
     const checkTbody=document.getElementById("check-rows");
+    const depositDateEl=document.getElementById("depositDate");
+    const depositAccountEl=document.getElementById("depositAccount");
+    const depositNotesEl=document.getElementById("depositNotes");
     const cashTotalEl=document.getElementById("grandTotalCash");
     const checksTotalEl=document.getElementById("checksTotal");
     const summaryCash=document.getElementById("summaryCash");
     const summaryChecks=document.getElementById("summaryChecks");
     const summaryBoth=document.getElementById("summaryBoth");
+    const expectedTotalEl=document.getElementById("expectedTotal");
+    const summaryDifference=document.getElementById("summaryDifference");
+    const quickAddEl=document.getElementById("quickAdd");
+    const saveStatusEl=document.getElementById("saveStatus");
+    const printMetaLine=document.getElementById("printMetaLine");
+    const printTotal=document.getElementById("printTotal");
+    const printDifference=document.getElementById("printDifference");
+    const copySummaryBtn=document.getElementById("copySummaryBtn");
+    const printBtn=document.getElementById("printBtn");
+    let totalsState={cash:0,checks:0,total:0,expected:0,difference:0};
 
     // Build cash rows WITH +/- buttons
     DENOMS.forEach(d=>{
@@ -476,18 +679,27 @@
     });
 
     let checkCount=0;
-    function addCheckRow(){
+    function addCheckRow(value=""){
       checkCount++;
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${checkCount}</td>
-        <td><input type="number" step="0.01" inputmode="decimal" id="chk_${checkCount}" placeholder="0.00"></td>
-        <td style="text-align:right"><input id="chk_${checkCount}_fmt" readonly tabindex="-1"></td>`;
+      tr.innerHTML=`<td class="check-index">${checkCount}</td>
+        <td><input class="check-amount" type="number" step="0.01" inputmode="decimal" id="chk_${checkCount}" placeholder="0.00" value="${value}"></td>
+        <td style="text-align:right"><input id="chk_${checkCount}_fmt" readonly tabindex="-1"></td>
+        <td><div class="check-actions"><button type="button" class="iconbtn" data-check-action="clear">Clear</button><button type="button" class="iconbtn" data-check-action="remove">Remove</button></div></td>`;
       checkTbody.appendChild(tr);
     }
 
+    function renumberCheckRows(){
+      [...checkTbody.querySelectorAll("tr")].forEach((row,index)=>{
+        const cell=row.querySelector(".check-index");
+        if(cell) cell.textContent=String(index+1);
+      });
+    }
+
     function ensureExtraCheckRow(){
-      const inputs=checkTbody.querySelectorAll('input[type="number"]');
+      const inputs=checkTbody.querySelectorAll(".check-amount");
       if(inputs.length===0||inputs[inputs.length-1].value.trim()!=="") addCheckRow();
+      renumberCheckRows();
     }
 
     function calcCash(){
@@ -503,7 +715,7 @@
 
     function calcChecks(){
       let c=0;
-      const inputs=checkTbody.querySelectorAll('input[type="number"]');
+      const inputs=checkTbody.querySelectorAll(".check-amount");
       inputs.forEach(inp=>{
         const cents=parseMoneyToCents(inp.value.trim());
         c+=cents;
@@ -513,11 +725,124 @@
       return c;
     }
 
+    function formatPrintDate(value){
+      if(!value) return "No deposit date";
+      const parts=value.split("-");
+      if(parts.length!==3) return value;
+      const [year,month,day]=parts;
+      return new Date(Number(year), Number(month)-1, Number(day)).toLocaleDateString("en-US",{
+        year:"numeric",
+        month:"short",
+        day:"numeric"
+      });
+    }
+
+    function syncPrintHeader(){
+      const account=depositAccountEl.value.trim()||"No account number";
+      const printedAt=new Date().toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"});
+      printMetaLine.textContent=`Account ${account} | ${formatPrintDate(depositDateEl.value)} | Printed ${printedAt}`;
+      printTotal.textContent=toUsd(totalsState.total);
+      printDifference.textContent=expectedTotalEl.value.trim()?`${formatSignedUsd(totalsState.difference)} difference`:"Expected total not set";
+    }
+
+    function updateSaveStatus(message){
+      saveStatusEl.textContent=message;
+    }
+
+    function getSerializedChecks(){
+      const values=[...checkTbody.querySelectorAll(".check-amount")].map(input=>input.value.trim());
+      let lastFilled=-1;
+      values.forEach((value,index)=>{
+        if(value!=="") lastFilled=index;
+      });
+      const keepCount=Math.max(1, Math.min(values.length, lastFilled+2));
+      return values.slice(0, keepCount);
+    }
+
+    function saveDraft(){
+      try{
+        const state={
+          depositDate: depositDateEl.value,
+          depositAccount: depositAccountEl.value,
+          depositNotes: depositNotesEl.value,
+          expectedTotal: expectedTotalEl.value,
+          cash: Object.fromEntries(DENOMS.map(d=>[d.key, document.getElementById(d.key).value])),
+          checks: getSerializedChecks()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        updateSaveStatus(`Draft saved ${new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}.`);
+      }catch{
+        updateSaveStatus("Unable to save draft on this device.");
+      }
+    }
+
+    function clearDraft(){
+      try{ localStorage.removeItem(STORAGE_KEY); }catch{}
+      updateSaveStatus("Draft cleared.");
+    }
+
+    function restoreDraft(){
+      try{
+        const raw=localStorage.getItem(STORAGE_KEY);
+        if(!raw) return false;
+        const state=JSON.parse(raw);
+        depositDateEl.value=state.depositDate||"";
+        depositAccountEl.value=state.depositAccount||"";
+        depositNotesEl.value=state.depositNotes||"";
+        expectedTotalEl.value=state.expectedTotal||"";
+        DENOMS.forEach(d=>{
+          document.getElementById(d.key).value=state.cash?.[d.key]||"";
+        });
+        checkTbody.innerHTML="";
+        checkCount=0;
+        const checks=Array.isArray(state.checks)&&state.checks.length?state.checks:[""];
+        checks.forEach(value=>addCheckRow(value));
+        ensureExtraCheckRow();
+        calcAll();
+        updateSaveStatus("Draft restored.");
+        return true;
+      }catch{
+        updateSaveStatus("Saved draft could not be restored.");
+        return false;
+      }
+    }
+
+    function setDefaultDepositDate(){
+      if(!depositDateEl.value){
+        const today=new Date();
+        depositDateEl.value=[
+          today.getFullYear(),
+          String(today.getMonth()+1).padStart(2,"0"),
+          String(today.getDate()).padStart(2,"0")
+        ].join("-");
+      }
+    }
+
+    function buildSummaryText(){
+      const lines=[
+        `Cash: ${toUsd(totalsState.cash)}`,
+        `Checks: ${toUsd(totalsState.checks)}`,
+        `Total: ${toUsd(totalsState.total)}`,
+        `Expected: ${expectedTotalEl.value.trim()?toUsd(totalsState.expected):"Not set"}`,
+        `Difference: ${expectedTotalEl.value.trim()?formatSignedUsd(totalsState.difference):"Not set"}`
+      ];
+      if(depositDateEl.value) lines.unshift(`Deposit Date: ${formatPrintDate(depositDateEl.value)}`);
+      if(depositAccountEl.value.trim()) lines.unshift(`Account Number: ${depositAccountEl.value.trim()}`);
+      if(depositNotesEl.value.trim()) lines.push(`Notes: ${depositNotesEl.value.trim()}`);
+      return lines.join("\n");
+    }
+
     function calcAll(){
-      const cash=calcCash(),checks=calcChecks();
+      const hasExpected=expectedTotalEl.value.trim()!=="";
+      const cash=calcCash(),checks=calcChecks(),total=cash+checks,expected=parseMoneyToCents(expectedTotalEl.value.trim()),difference=total-expected;
+      totalsState={cash,checks,total,expected,difference};
       summaryCash.textContent=toUsd(cash);
       summaryChecks.textContent=toUsd(checks);
-      summaryBoth.textContent=toUsd(cash+checks);
+      summaryBoth.textContent=toUsd(total);
+      summaryDifference.textContent=hasExpected?formatSignedUsd(difference):"$0.00";
+      summaryDifference.classList.toggle("is-positive", hasExpected&&difference>0);
+      summaryDifference.classList.toggle("is-negative", hasExpected&&difference<0);
+      syncPrintHeader();
     }
 
     function getEditableInputs(){
@@ -541,22 +866,89 @@
       }
     });
 
+    quickAddEl.addEventListener("click",e=>{
+      const btn=e.target.closest("[data-denom]");
+      if(!btn) return;
+      const input=document.getElementById(btn.dataset.denom);
+      const nextValue=parseInt(input.value||"0",10)+parseInt(btn.dataset.add||"0",10);
+      input.value=String(nextValue);
+      input.dispatchEvent(new Event("input",{bubbles:true}));
+      input.focus();
+      input.select?.();
+    });
+
+    checkTbody.addEventListener("click",e=>{
+      const btn=e.target.closest("[data-check-action]");
+      if(!btn) return;
+      const row=btn.closest("tr");
+      const input=row?.querySelector(".check-amount");
+      if(!row||!input) return;
+
+      if(btn.dataset.checkAction==="clear"){
+        input.value="";
+        input.dispatchEvent(new Event("input",{bubbles:true}));
+        input.focus();
+        return;
+      }
+
+      row.remove();
+      if(!checkTbody.querySelector("tr")) addCheckRow();
+      ensureExtraCheckRow();
+      calcAll();
+      saveDraft();
+    });
+
     moneyForm.addEventListener("input",e=>{
       if(e.target.matches('#cash-rows input')) calcAll();
-      if(e.target.matches('#check-rows input')){
+      if(e.target.matches('.check-amount')){
         ensureExtraCheckRow();
         calcAll();
       }
+      if(e.target.matches('#expectedTotal')) calcAll();
+      if(e.target.matches('[data-persist]')) syncPrintHeader();
+      if(e.target.matches('#cash-rows input, .check-amount, #expectedTotal, [data-persist]')) saveDraft();
     });
+
+    copySummaryBtn.addEventListener("click",async()=>{
+      const text=buildSummaryText();
+      try{
+        await navigator.clipboard.writeText(text);
+        updateSaveStatus("Summary copied to clipboard.");
+      }catch{
+        updateSaveStatus("Clipboard copy was blocked.");
+      }
+    });
+
+    printBtn.addEventListener("click",()=>{
+      syncPrintHeader();
+      window.print();
+    });
+
+    window.addEventListener("beforeprint",syncPrintHeader);
 
     moneyForm.addEventListener("reset",()=>{
       setTimeout(()=>{
         cashTbody.querySelectorAll('input[type="number"]').forEach(i=>i.value="");
-        checkTbody.innerHTML=""; checkCount=0; addCheckRow(); calcAll();
+        checkTbody.innerHTML="";
+        checkCount=0;
+        addCheckRow();
+        setDefaultDepositDate();
+        syncPrintHeader();
+        calcAll();
+        clearDraft();
       },0);
     });
 
-    window.addEventListener("DOMContentLoaded",()=>{ addCheckRow(); calcAll(); });
+    window.addEventListener("DOMContentLoaded",()=>{
+      const restored=restoreDraft();
+      if(!restored){
+        setDefaultDepositDate();
+        addCheckRow();
+        calcAll();
+        saveDraft();
+      }
+      syncPrintHeader();
+    });
   </script>
 </body>
 </html>
