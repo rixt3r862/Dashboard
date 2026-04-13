@@ -244,6 +244,18 @@
     .btn.ghost{ background:transparent; color:var(--text); border:1px solid var(--line) }
 
 @media print{
+  :root,
+  :root[data-theme="dark"],
+  :root[data-theme="light"]{
+    color-scheme: light !important;
+    --bg:#fff !important;
+    --card:#fff !important;
+    --text:#000 !important;
+    --muted:#444 !important;
+    --line:#000 !important;
+    --shadow:none !important;
+  }
+
   @page{
     size: auto;
     margin: 12mm;
@@ -255,15 +267,10 @@
     display:block !important;
   }
 
-  /* Fit-to-one-page nudge */
   .card{
-    transform: scale(0.94);
-    transform-origin: bottom left;
-
-    /* width compensation (must be in same rule so it doesn't get overwritten) */
-    width: calc(100% / 0.94) !important;
+    width: 100% !important;
     max-width: none !important;
-
+    margin: 0 !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
@@ -292,7 +299,12 @@
     border: 1px solid #000 !important;
   }
 
-  .header, .actions, .stepbtn{
+  thead th{
+    background: #dbeafe !important;
+    color: #0b3b73 !important;
+  }
+
+  .back-link, .header, .actions, .stepbtn{
     display:none !important;
   }
 
@@ -399,6 +411,7 @@
       {key:"hun",label:"$100.00",cents:10000}
     ];
 
+    const moneyForm=document.getElementById("moneyForm");
     const cashTbody=document.getElementById("cash-rows");
     const checkTbody=document.getElementById("check-rows");
     const cashTotalEl=document.getElementById("grandTotalCash");
@@ -507,7 +520,28 @@
       summaryBoth.textContent=toUsd(cash+checks);
     }
 
-    document.getElementById("moneyForm").addEventListener("input",e=>{
+    function getEditableInputs(){
+      return [...moneyForm.querySelectorAll('input[type="number"]:not([readonly])')];
+    }
+
+    moneyForm.addEventListener("keydown",e=>{
+      if(e.key!=="Enter"||!e.target.matches('input[type="number"]:not([readonly])')) return;
+      e.preventDefault();
+
+      if(e.target.closest("#check-rows")&&e.target.value.trim()!=="") ensureExtraCheckRow();
+
+      const inputs=getEditableInputs();
+      const next=inputs[inputs.indexOf(e.target)+1];
+
+      if(next){
+        next.focus();
+        next.select?.();
+      }else{
+        e.target.blur();
+      }
+    });
+
+    moneyForm.addEventListener("input",e=>{
       if(e.target.matches('#cash-rows input')) calcAll();
       if(e.target.matches('#check-rows input')){
         ensureExtraCheckRow();
@@ -515,7 +549,7 @@
       }
     });
 
-    document.getElementById("moneyForm").addEventListener("reset",()=>{
+    moneyForm.addEventListener("reset",()=>{
       setTimeout(()=>{
         cashTbody.querySelectorAll('input[type="number"]').forEach(i=>i.value="");
         checkTbody.innerHTML=""; checkCount=0; addCheckRow(); calcAll();
