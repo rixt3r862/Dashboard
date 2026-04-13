@@ -167,6 +167,21 @@ export function createRoundEntryController(deps) {
     });
   }
 
+  function syncRenderedScoreInputs() {
+    if (!els.roundPreviewBody) return;
+    els.roundPreviewBody
+      .querySelectorAll('input[data-preview-action="input"][data-player-id]')
+      .forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) return;
+        const playerId = input.getAttribute("data-player-id");
+        if (!playerId) return;
+        const nextValue = String(Number(state.currentRoundScores?.[playerId] ?? 0));
+        if (input.value !== nextValue) {
+          input.value = nextValue;
+        }
+      });
+  }
+
   function setRoundScoreInputValue(playerId, value, opts = {}) {
     const { silent = false } = opts;
     if (!state.players.some((p) => p.id === playerId)) return;
@@ -550,7 +565,7 @@ export function createRoundEntryController(deps) {
             <span class="round-preview-score-controls">
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
-              <input type="number" inputmode="numeric" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Points left for ${playerNameEsc}" />
+              <input type="number" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Points left for ${playerNameEsc}" />
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
             </span>
@@ -569,7 +584,7 @@ export function createRoundEntryController(deps) {
           : `
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
-            <input type="number" inputmode="numeric" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Score for ${playerNameEsc}" />
+            <input type="number" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Score for ${playerNameEsc}" />
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
             ${isSkyjo ? "" : skyjoWentOutUi}
@@ -626,6 +641,7 @@ export function createRoundEntryController(deps) {
       `;
     }
     renderRoundHelpers();
+    syncRenderedScoreInputs();
     onRoundInputsChanged?.();
   }
 
@@ -637,6 +653,7 @@ export function createRoundEntryController(deps) {
       state.players.map((p) => [p.id, 0]),
     );
     renderRoundPreview();
+    syncRenderedScoreInputs();
   }
 
   function bindEvents() {

@@ -153,7 +153,10 @@ export function determineWinnerFromTotals(entries, winMode, target) {
     if (!gameOver) return null;
     // Once game-over is triggered, lowest cumulative score wins.
     const sorted = [...entries].sort((a, b) => (a.total ?? 0) - (b.total ?? 0));
-    return sorted[0]?.id ?? null;
+    const bestTotal = sorted[0]?.total ?? null;
+    if (bestTotal === null) return null;
+    const leaders = sorted.filter((entry) => (entry.total ?? 0) === bestTotal);
+    return leaders.length === 1 ? leaders[0]?.id ?? null : null;
   }
 
   // "High wins" games require crossing target and picking the highest eligible total.

@@ -2483,6 +2483,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return resolveWinnerFromTotals(entries, state.winMode, state.target);
   }
 
+  function hasLowScoreTargetTie(entries) {
+    if (state.winMode !== "low" || !Array.isArray(entries) || !entries.length) {
+      return false;
+    }
+    const gameOver = entries.some((entry) => Number(entry.total ?? 0) >= state.target);
+    if (!gameOver) return false;
+    const eligible = entries.filter((entry) => !entry.retired);
+    if (!eligible.length) return false;
+    const bestTotal = Math.min(...eligible.map((entry) => Number(entry.total ?? 0)));
+    return eligible.filter((entry) => Number(entry.total ?? 0) === bestTotal).length > 1;
+  }
+
   function retirePlayer(playerId) {
     if (state.mode !== "playing") return;
     if (state.teams) {
@@ -2771,7 +2783,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
       if (state.gameState !== "free_play" && !state.winnerMilestones.length) {
         state.gameState = "in_progress";
       }
-      if (state.presetKey === "skyjo" && round.skyjoWentOutPlayerId) {
+      if (hasLowScoreTargetTie(entries)) {
+        const tieMessage =
+          state.presetKey === "hearts"
+            ? "Hearts target reached with a tie for lowest score. Play continues until the tie is broken."
+            : "Target reached with a tie for lowest score. Play continues until the tie is broken.";
+        showMsg(els.roundMsg, tieMessage);
+        setLive(tieMessage);
+      } else if (state.presetKey === "skyjo" && round.skyjoWentOutPlayerId) {
         setLive(
           `Round ${nextN} added. ${entityName(round.skyjoWentOutPlayerId)} went out this round.`,
         );
