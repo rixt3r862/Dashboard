@@ -193,6 +193,7 @@ renderBotNameFields();
 hydrateSavedGame();
 render();
 resumeRestoredBotTurn();
+initializeDebugTools();
 
 function bindEvents() {
   els.setupForm.addEventListener("submit", (event) => {
@@ -3605,6 +3606,128 @@ function uid() {
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function initializeDebugTools() {
+  window.phase10Debug = {
+    snapshot: (trackedValues = [7, 9]) => buildCardDistributionSnapshot(trackedValues),
+    logSnapshot: (trackedValues = [7, 9]) => logCardDistributionSnapshot(trackedValues),
+    countValue: (value) => buildCardDistributionSnapshot([value]),
+  };
+}
+
+function buildCardDistributionSnapshot(trackedValues = [7, 9]) {
+  const tracked = normalizeTrackedValues(trackedValues);
+  const snapshot = {
+    round: state.roundNumber,
+    turnStage: state.turnStage,
+    currentPlayer: currentPlayer()?.name ?? null,
+    deckCount: state.deck.length,
+    discardTop: cardLabel(topDiscard()),
+    tracked,
+    totals: {},
+    zones: {},
+  };
+
+  tracked.forEach((target) => {
+    const key = trackedValueKey(target);
+    snapshot.totals[key] = countCardsMatching([...state.deck, ...state.discardPile, ...allPlayerCards()], target);
+    snapshot.zones[key] = {
+      deck: summarizeMatchingCards(state.deck, target),
+      discard: summarizeMatchingCards(state.discardPile, target),
+      players: state.players.map((player) => ({
+        name: player.name,
+        hand: summarizeMatchingCards(player.hand, target),
+        laid: summarizeMatchingCards(player.laidGroups.flatMap((group) => group.cards), target),
+      })),
+    };
+  });
+
+  return snapshot;
+}
+
+function logCardDistributionSnapshot(trackedValues = [7, 9]) {
+  const snapshot = buildCardDistributionSnapshot(trackedValues);
+  console.groupCollapsed(
+    `[Phase10 debug] Round ${snapshot.round} · ${snapshot.currentPlayer ?? "No player"} · ${snapshot.turnStage}`,
+  );
+  console.log(snapshot);
+  snapshot.tracked.forEach((target) => {
+    const key = trackedValueKey(target);
+    const zone = snapshot.zones[key];
+    console.group(`${key} distribution`);
+    console.log(`Total in round: ${snapshot.totals[key]}`);
+    console.table([
+      { zone: "Deck", count: zone.deck.count, cards: zone.deck.labels.join(", ") || "-" },
+      { zone: "Discard", count: zone.discard.count, cards: zone.discard.labels.join(", ") || "-" },
+      ...zone.players.map((player) => ({
+        zone: `${player.name} hand`,
+        count: player.hand.count,
+        cards: player.hand.labels.join(", ") || "-",
+      })),
+      ...zone.players.map((player) => ({
+        zone: `${player.name} laid`,
+        count: player.laid.count,
+        cards: player.laid.labels.join(", ") || "-",
+      })),
+    ]);
+    console.groupEnd();
+  });
+  console.groupEnd();
+  return snapshot;
+}
+
+function normalizeTrackedValues(values) {
+  const rawValues = Array.isArray(values) ? values : [values];
+  const normalized = rawValues
+    .map((value) => {
+      if (typeof value === "string") {
+        const lowered = value.trim().toLowerCase();
+        if (lowered === "wild" || lowered === "skip") return lowered;
+        const numeric = Number.parseInt(lowered, 10);
+        return Number.isInteger(numeric) ? numeric : null;
+      }
+      return Number.isInteger(value) ? value : null;
+    })
+    .filter((value) =>
+      value === "wild" ||
+      value === "skip" ||
+      (Number.isInteger(value) && value >= 1 && value <= 12),
+    );
+
+  return normalized.length ? [...new Set(normalized)] : [7, 9];
+}
+
+function trackedValueKey(value) {
+  if (value === "wild") return "Wild";
+  if (value === "skip") return "Skip";
+  return String(value);
+}
+
+function countCardsMatching(cards, target) {
+  return cards.filter((card) => cardMatchesTarget(card, target)).length;
+}
+
+function summarizeMatchingCards(cards, target) {
+  const matching = cards.filter((card) => cardMatchesTarget(card, target));
+  return {
+    count: matching.length,
+    labels: matching.map((card) => cardLabel(card)),
+  };
+}
+
+function cardMatchesTarget(card, target) {
+  if (!card) return false;
+  if (target === "wild") return card.type === "wild";
+  if (target === "skip") return card.type === "skip";
+  return card.type === "number" && card.value === target;
+}
+
+function allPlayerCards() {
+  return state.players.flatMap((player) => [
+    ...player.hand,
+    ...player.laidGroups.flatMap((group) => group.cards),
+  ]);
 }
 
 function scoreSkipTarget(player, target) {
