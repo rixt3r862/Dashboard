@@ -2562,8 +2562,19 @@ function discardRankForBot(card, player, hand) {
 }
 
 function scoreCardKeepValue(card, player, hand) {
+  const phase = currentPhaseFor(player);
+  const pureRunContext = !player?.laidGroups.length ? analyzePureRunPhaseContext(hand, phase) : null;
+
   if (card.type === "wild") {
-    return player.laidGroups.length ? 58 : 96;
+    if (player.laidGroups.length) return 58;
+    let score = 96;
+    if (pureRunContext) {
+      score = 78 + pureRunContext.bestWindow.coverage * 5;
+      if (pureRunContext.excessWilds > 0) {
+        score -= pureRunContext.excessWilds * 22;
+      }
+    }
+    return score;
   }
   if (card.type === "skip") {
     const target = chooseBotSkipTarget(player);
@@ -2583,7 +2594,6 @@ function scoreCardKeepValue(card, player, hand) {
   const sameColorCount = numbers.filter((entry) => entry.color === card.color).length;
   const uniqueValues = new Set(numbers.map((entry) => entry.value));
 
-  const phase = currentPhaseFor(player);
   if (phase) {
     for (const group of phase.groups) {
       if (group.kind === "set") {
@@ -2600,8 +2610,66 @@ function scoreCardKeepValue(card, player, hand) {
     }
   }
 
+  if (pureRunContext && card.type === "number") {
+    score += pureRunCardAdjustment(card, pureRunContext);
+  }
+
   if (player.laidGroups.length && canCardBeHitAnywhere(card, player.id)) {
     score += 70;
+  }
+
+  return score;
+}
+
+function analyzePureRunPhaseContext(hand, phase) {
+  if (!phase || phase.groups.length !== 1 || phase.groups[0].kind !== "run") return null;
+  const runSize = phase.groups[0].size;
+  const bestWindow = analyzeRunWindows(hand, runSize)[0];
+  if (!bestWindow) return null;
+
+  const valueCounts = new Map();
+  let wildCount = 0;
+  hand.forEach((card) => {
+    if (card.type === "number") {
+      valueCounts.set(card.value, (valueCounts.get(card.value) ?? 0) + 1);
+      return;
+    }
+    if (card.type === "wild") {
+      wildCount += 1;
+    }
+  });
+
+  return {
+    runSize,
+    bestWindow,
+    valueCounts,
+    wildCount,
+    excessWilds: Math.max(0, wildCount - bestWindow.wildCoverage),
+  };
+}
+
+function pureRunCardAdjustment(card, context) {
+  if (!context || card.type !== "number") return 0;
+  const { bestWindow, valueCounts, runSize } = context;
+  const count = valueCounts.get(card.value) ?? 0;
+  const inBestWindow = bestWindow.start <= card.value && card.value <= bestWindow.end;
+  let score = 0;
+
+  if (!inBestWindow) {
+    score -= runSize >= 8 ? 30 : 18;
+  }
+
+  if (count > 1) {
+    score -= (count - 1) * (runSize >= 8 ? 34 : 20);
+  }
+
+  if (inBestWindow && count === 1) {
+    const touchesNeighbor =
+      bestWindow.uniqueValues.has(card.value - 1) ||
+      bestWindow.uniqueValues.has(card.value + 1);
+    if (touchesNeighbor) {
+      score += 6;
+    }
   }
 
   return score;
@@ -2718,6 +2786,8 @@ function analyzeRunWindows(hand, size) {
       end,
       score,
       coverage,
+      naturalsCovered,
+      wildCoverage,
       uniqueValues,
     });
   }
