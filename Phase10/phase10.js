@@ -1777,6 +1777,10 @@ function chooseBotDrawSource(player) {
   const withDiscard = Boolean(findBestPhaseMeld([...player.hand, discard], phase));
   if (!withoutDiscard && withDiscard) return "discard";
 
+  const progressWithout = estimatePhaseProgressScore(player.hand, phase);
+  const progressWith = estimatePhaseProgressScore([...player.hand, discard], phase);
+  const progressGain = progressWith - progressWithout;
+
   const difficulty = botDifficulty(player);
   if (difficulty === "hard") {
     const bestWithout = findBestPhaseMeld(player.hand, phase);
@@ -1784,6 +1788,13 @@ function chooseBotDrawSource(player) {
     if (bestWith && bestWithout && bestWith.points > bestWithout.points + 8) {
       return "discard";
     }
+    if (progressGain >= 14) {
+      return "discard";
+    }
+  }
+
+  if (difficulty === "medium" && progressGain >= 18) {
+    return "discard";
   }
 
   const keepScore = scoreCardKeepValue(discard, player, [...player.hand, discard]);
@@ -2581,9 +2592,9 @@ function scoreCardKeepValue(card, player, hand) {
         score += sameColorCount * 10;
       }
       if (group.kind === "run") {
-        if (uniqueValues.has(card.value - 1)) score += 10;
-        if (uniqueValues.has(card.value + 1)) score += 10;
-        score += 4;
+        score += scoreRunCardPotential(card, hand, group.size);
+        if (uniqueValues.has(card.value - 1)) score += 6;
+        if (uniqueValues.has(card.value + 1)) score += 6;
       }
     }
   }
@@ -2593,6 +2604,128 @@ function scoreCardKeepValue(card, player, hand) {
   }
 
   return score;
+}
+
+function estimatePhaseProgressScore(hand, phase) {
+  if (!phase) return 0;
+  return phase.groups.reduce((sum, group) => {
+    if (group.kind === "set") {
+      return sum + estimateSetProgressScore(hand, group.size);
+    }
+    if (group.kind === "color") {
+      return sum + estimateColorProgressScore(hand, group.size);
+    }
+    return sum + estimateRunProgressScore(hand, group.size);
+  }, 0);
+}
+
+function estimateSetProgressScore(hand, size) {
+  const wildCount = hand.filter((card) => card.type === "wild").length;
+  let bestCovered = 0;
+
+  for (let value = 1; value <= 12; value += 1) {
+    const naturals = hand.filter(
+      (card) => card.type === "number" && card.value === value,
+    ).length;
+    bestCovered = Math.max(bestCovered, Math.min(size, naturals + wildCount));
+  }
+
+  return bestCovered * 18 - (size - bestCovered) * 24;
+}
+
+function estimateColorProgressScore(hand, size) {
+  const wildCount = hand.filter((card) => card.type === "wild").length;
+  let bestCovered = 0;
+
+  for (const color of COLORS) {
+    const naturals = hand.filter(
+      (card) => card.type === "number" && card.color === color.id,
+    ).length;
+    bestCovered = Math.max(bestCovered, Math.min(size, naturals + wildCount));
+  }
+
+  return bestCovered * 16 - (size - bestCovered) * 22;
+}
+
+function estimateRunProgressScore(hand, size) {
+  const windows = analyzeRunWindows(hand, size);
+  return windows[0]?.score ?? -(size * 24);
+}
+
+function scoreRunCardPotential(card, hand, size) {
+  if (card.type !== "number") return 0;
+
+  const valueCounts = new Map();
+  hand.forEach((entry) => {
+    if (entry.type !== "number") return;
+    valueCounts.set(entry.value, (valueCounts.get(entry.value) ?? 0) + 1);
+  });
+
+  const duplicateCount = Math.max(0, (valueCounts.get(card.value) ?? 1) - 1);
+  const relevantWindows = analyzeRunWindows(hand, size).filter(
+    (window) => window.start <= card.value && card.value <= window.end,
+  );
+
+  if (!relevantWindows.length) {
+    return duplicateCount ? -18 - duplicateCount * 8 : -10;
+  }
+
+  const bestWindowScore = relevantWindows[0].score;
+  const adjacencyBonus =
+    (relevantWindows[0].uniqueValues.has(card.value - 1) ? 8 : 0) +
+    (relevantWindows[0].uniqueValues.has(card.value + 1) ? 8 : 0);
+  const longRunBonus = size >= 8 && relevantWindows[0].coverage >= size - 2 ? 10 : 0;
+  const duplicatePenalty = duplicateCount * (size >= 7 ? 20 : 12);
+
+  return bestWindowScore + adjacencyBonus + longRunBonus - duplicatePenalty;
+}
+
+function analyzeRunWindows(hand, size) {
+  const wildCount = hand.filter((card) => card.type === "wild").length;
+  const valueCounts = new Map();
+  hand.forEach((card) => {
+    if (card.type !== "number") return;
+    valueCounts.set(card.value, (valueCounts.get(card.value) ?? 0) + 1);
+  });
+
+  const windows = [];
+  for (let start = 1; start <= 13 - size; start += 1) {
+    const end = start + size - 1;
+    const uniqueValues = new Set();
+    let duplicateCount = 0;
+
+    for (let value = start; value <= end; value += 1) {
+      const count = valueCounts.get(value) ?? 0;
+      if (count > 0) {
+        uniqueValues.add(value);
+        duplicateCount += Math.max(0, count - 1);
+      }
+    }
+
+    const naturalsCovered = uniqueValues.size;
+    const wildCoverage = Math.min(wildCount, Math.max(0, size - naturalsCovered));
+    const coverage = Math.min(size, naturalsCovered + wildCoverage);
+    const gaps = size - coverage;
+    const score =
+      naturalsCovered * 19 +
+      wildCoverage * 13 -
+      gaps * 24 -
+      duplicateCount * 7;
+
+    windows.push({
+      start,
+      end,
+      score,
+      coverage,
+      uniqueValues,
+    });
+  }
+
+  return windows.sort((left, right) => {
+    if (left.score !== right.score) return right.score - left.score;
+    if (left.coverage !== right.coverage) return right.coverage - left.coverage;
+    return left.start - right.start;
+  });
 }
 
 function cardPoints(card) {
