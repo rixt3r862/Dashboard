@@ -1459,6 +1459,17 @@ body.game-active .deck-card-badge {
   align-items: flex-start;
 }
 
+.player-head-pill-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.player-head-pill-stack .stat-pill {
+  white-space: nowrap;
+}
+
 .player-name {
   margin: 0;
   font-size: 1.03rem;
@@ -1470,6 +1481,17 @@ body.game-active .deck-card-badge {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.player-stats-bottom {
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.player-phase-complete-badge {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .badge,

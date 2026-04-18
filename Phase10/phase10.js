@@ -3336,7 +3336,6 @@ function renderBoard() {
         player === currentPlayer() && state.turnStage !== "round-end" && state.turnStage !== "game-over"
           ? `<span class="badge gold">Current turn</span>`
           : "",
-        player.completedPhaseThisRound ? `<span class="badge gold">Phase completed</span>` : "",
       ]
         .filter(Boolean)
         .join("");
@@ -3357,14 +3356,15 @@ function renderBoard() {
               <h3 class="player-name">${escapeHtml(player.name)}</h3>
               <div class="badge-row">${badges}</div>
             </div>
-            <div class="stat-row">
+            <div class="player-head-pill-stack">
               <span class="stat-pill gold">${player.score} pts</span>
+              <span class="stat-pill gold">Completed ${completedPhaseNumber}/10</span>
             </div>
           </div>
           <div class="player-stats">
-            <div class="stat-row">
+            <div class="stat-row player-stats-bottom">
               <span class="stat-pill">${player.hand.length} in hand</span>
-              <span class="stat-pill">Completed ${completedPhaseNumber}/10</span>
+              ${player.completedPhaseThisRound ? `<span class="badge gold player-phase-complete-badge">Phase completed</span>` : ""}
             </div>
           </div>
           ${renderMeldStack(player, targetIds, selectedCard)}
