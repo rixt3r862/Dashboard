@@ -1134,6 +1134,19 @@ body.game-active .deck-card-badge {
   gap: 0.32rem;
 }
 
+.human-seat-copy-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.human-seat-copy-main {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 0;
+}
+
 .human-seat-copy .badge-row:empty {
   display: none;
 }

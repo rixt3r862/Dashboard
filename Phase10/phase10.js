@@ -3442,7 +3442,6 @@ function renderHand() {
     human === currentPlayer() && state.turnStage !== "round-end" && state.turnStage !== "game-over"
       ? `<span class="badge gold">Current turn</span>`
       : "",
-    human.completedPhaseThisRound ? `<span class="badge gold">Phase completed</span>` : "",
   ]
     .filter(Boolean)
     .join("");
@@ -3469,12 +3468,19 @@ function renderHand() {
   );
   els.humanSeatSummary.innerHTML = `
     <div class="human-seat-copy">
-      <div class="badge-row">${badges}</div>
-      <p class="human-phase-inline">${escapeHtml(compactPhaseStatus)}</p>
-      <div class="stat-row">
-        <span class="stat-pill gold">${human.score} pts</span>
+      <div class="human-seat-copy-head">
+        <div class="human-seat-copy-main">
+          <div class="badge-row">${badges}</div>
+          <p class="human-phase-inline">${escapeHtml(compactPhaseStatus)}</p>
+        </div>
+        <div class="player-head-pill-stack">
+          <span class="stat-pill gold">${human.score} pts</span>
+          <span class="stat-pill gold">Completed ${completedPhaseNumber}/10</span>
+        </div>
+      </div>
+      <div class="stat-row player-stats-bottom">
         <span class="stat-pill">${human.hand.length} in hand</span>
-        <span class="stat-pill">Completed ${completedPhaseNumber}/10</span>
+        ${human.completedPhaseThisRound ? `<span class="badge gold player-phase-complete-badge">Phase completed</span>` : ""}
       </div>
     </div>
     ${renderPhasePreviewMarkup(previewMeld, phase)}
