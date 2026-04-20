@@ -1366,6 +1366,20 @@ body.game-active .deck-card-badge {
   text-transform: none;
 }
 
+.round-history-player-points {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  border-radius: 999px;
+  padding: 0.18rem 0.46rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--accent-strong);
+  background: rgba(240, 182, 79, 0.18);
+  white-space: nowrap;
+}
+
 .round-history-table tbody tr:last-child th,
 .round-history-table tbody tr:last-child td {
   border-bottom: 0;

@@ -3605,6 +3605,7 @@ function renderRoundHistory() {
           <div class="round-history-player-head">
             <span class="round-history-player-name">${escapeHtml(player.name)}</span>
             <span class="round-history-player-phase">${escapeHtml(phaseHeaderLabel)}</span>
+            <span class="round-history-player-points">${escapeHtml(`${player.score} pts`)}</span>
           </div>
         </th>
       `;
