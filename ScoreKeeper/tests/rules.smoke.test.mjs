@@ -6,8 +6,10 @@ import {
   determineWinnerFromTotals,
   heartsRoundPenaltyTotal,
   normalizeHeartsShootMoonScores,
+  normalizeRummikubRoundScores,
   phase10CompletionMap,
   phase10ProgressByPlayerId,
+  rummikubWinsByPlayerId,
   totalsByPlayerId,
   totalsByTeamId,
   validateRoundScores,
@@ -188,6 +190,53 @@ test("Hearts supports multi-deck round totals and shoot-the-moon normalization",
     c: 52,
     d: 52,
   });
+});
+
+test("Rummikub normalizes rack totals into official round scores", () => {
+  const players = [
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "c", name: "C" },
+  ];
+
+  const normalized = normalizeRummikubRoundScores(
+    players,
+    { a: 0, b: 18, c: 27 },
+    "a",
+  );
+  assert.equal(normalized.ok, true);
+  assert.deepEqual(normalized.scores, { a: 45, b: -18, c: -27 });
+
+  const poolEmpty = normalizeRummikubRoundScores(
+    players,
+    { a: 8, b: 15, c: 22 },
+    "a",
+  );
+  assert.equal(poolEmpty.ok, true);
+  assert.deepEqual(poolEmpty.scores, { a: 21, b: -15, c: -22 });
+});
+
+test("Rummikub winner uses games won first and score second", () => {
+  const entries = [
+    { id: "a", wins: 2, total: 40 },
+    { id: "b", wins: 3, total: 10 },
+    { id: "c", wins: 3, total: 28 },
+  ];
+  assert.equal(determineWinnerFromTotals(entries, "rummikub", 3), "c");
+});
+
+test("Rummikub tracks games won from round winner markers", () => {
+  const players = [
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "c", name: "C" },
+  ];
+  const rounds = [
+    { rummikubWinnerId: "a", scores: { a: 32, b: -12, c: -20 } },
+    { rummikubWinnerId: "b", scores: { a: -5, b: 14, c: -9 } },
+    { rummikubWinnerId: "a", scores: { a: 25, b: -11, c: -14 } },
+  ];
+  assert.deepEqual(rummikubWinsByPlayerId(players, rounds), { a: 2, b: 1, c: 0 });
 });
 
 test("team totals are summed from player totals (Spades-style)", () => {

@@ -117,8 +117,23 @@ export function createScoreboardController(deps) {
     return phase10ProgressByPlayerId(state.players, state.rounds, state.target);
   }
 
+  function isRummikub() {
+    return state.presetKey === "rummikub";
+  }
+
+  function rummikubWinsById() {
+    const wins = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    for (const round of state.rounds) {
+      const winnerId =
+        typeof round?.rummikubWinnerId === "string" ? round.rummikubWinnerId : null;
+      if (winnerId && winnerId in wins) wins[winnerId] += 1;
+    }
+    return wins;
+  }
+
   function renderScoreboard() {
     const playerTotals = totalsByPlayerId();
+    const rummikubWins = isRummikub() ? rummikubWinsById() : {};
     const lastRound = state.rounds.length
       ? state.rounds[state.rounds.length - 1]
       : null;
@@ -153,6 +168,7 @@ export function createScoreboardController(deps) {
         id: p.id,
         name: p.name,
         total: playerTotals[p.id] ?? 0,
+        wins: rummikubWins[p.id] ?? 0,
         phaseCompleted: phase10ByPlayerId[p.id]?.completedPhases ?? 0,
         retired: isPlayerRetired?.(p.id) || false,
       }));
@@ -182,6 +198,15 @@ export function createScoreboardController(deps) {
           if (phaseDiff !== 0) return phaseDiff;
           const pointsDiff = Number(a.total ?? 0) - Number(b.total ?? 0);
           if (pointsDiff !== 0) return pointsDiff;
+          return String(a.name || "").localeCompare(String(b.name || ""));
+        });
+      } else if (isRummikub()) {
+        entriesToShow.sort((a, b) => {
+          if (!!a.retired !== !!b.retired) return a.retired ? 1 : -1;
+          const winDiff = Number(b.wins ?? 0) - Number(a.wins ?? 0);
+          if (winDiff !== 0) return winDiff;
+          const scoreDiff = Number(b.total ?? 0) - Number(a.total ?? 0);
+          if (scoreDiff !== 0) return scoreDiff;
           return String(a.name || "").localeCompare(String(b.name || ""));
         });
       } else {
@@ -216,12 +241,16 @@ export function createScoreboardController(deps) {
       } else {
         const retiredSummary = e.retired
           ? `<div class="sub">Retired after Round ${retiredAfterRound?.(e.id) ?? 0}</div>`
+          : isRummikub()
+          ? `<div class="sub">Score: ${e.total}</div>`
           : "";
         tdName.innerHTML = `<div class="name">${escapeHtml(e.name)}</div>${retiredSummary}`;
       }
 
       const tdTotal = document.createElement("td");
-      tdTotal.innerHTML = `<div class="total">${e.total}</div>`;
+      tdTotal.innerHTML = isRummikub()
+        ? `<div class="total">${e.wins ?? 0}</div>`
+        : `<div class="total">${e.total}</div>`;
 
       const tdThis = document.createElement("td");
       const showRetiredBlank =
@@ -275,12 +304,16 @@ export function createScoreboardController(deps) {
       const name = entityName(state.winnerId);
       const winnerSuffix = isPhase10()
         ? `${winnerTotal} pts`
+        : isRummikub()
+        ? `${rummikubWinsById()[state.winnerId] ?? 0} wins`
         : String(winnerTotal);
       els.winnerText.textContent = `🏆 Winner: ${name} (${winnerSuffix})`;
 
       const rulesLine =
         isPhase10()
           ? `Final phase is ${state.target}. If multiple players finish Phase ${state.target} in the same round, the lowest total points wins.`
+          : isRummikub()
+          ? `Target was ${state.target} game wins. Standings rank by games won first, with score breaking ties.`
           : state.winMode === "low"
           ? `Target was ${state.target}. Game ends when someone reaches ${state.target}; lowest total wins.`
           : `Target was ${state.target}. First to reach the target wins.`;
@@ -293,7 +326,9 @@ export function createScoreboardController(deps) {
         const items = (state.winnerMilestones || [])
           .map((m) => {
             const winnerName = entityName(m.winnerId);
-            return `<li>Target ${m.target}: ${escapeHtml(winnerName)} (Round ${m.roundN})</li>`;
+            return `<li>${
+              isRummikub() ? `Target ${m.target} wins` : `Target ${m.target}`
+            }: ${escapeHtml(winnerName)} (Round ${m.roundN})</li>`;
           })
           .join("");
         els.winnerMilestones.innerHTML = items;

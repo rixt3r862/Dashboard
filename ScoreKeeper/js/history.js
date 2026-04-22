@@ -4,8 +4,11 @@ import {
   determineWinnerFromTotals as resolveWinnerFromTotals,
   heartsRoundPenaltyTotal,
   normalizeHeartsShootMoonScores,
+  normalizeRummikubRoundScores,
   phase10CompletionMap,
   phase10ProgressByPlayerId,
+  rummikubRackTotalsByPlayerId,
+  rummikubWinsByPlayerId,
 } from "./rules.mjs";
 
 export function createHistoryController(deps) {
@@ -41,6 +44,10 @@ export function createHistoryController(deps) {
 
   function canContinueFinishedGame() {
     return !isPhase10();
+  }
+
+  function isRummikub() {
+    return state.presetKey === "rummikub";
   }
 
   function inactiveRangesForPlayer(playerId) {
@@ -126,12 +133,20 @@ export function createHistoryController(deps) {
     const cumulativePlayerTotals = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    const cumulativeRummikubWins = isRummikub()
+      ? Object.fromEntries(state.players.map((p) => [p.id, 0]))
+      : null;
 
     for (let idx = 0; idx < state.rounds.length; idx += 1) {
       const round = state.rounds[idx];
       const adjusted = adjustedRoundScoresForGraph(round);
       for (const player of state.players) {
         cumulativePlayerTotals[player.id] += Number(adjusted?.[player.id] ?? 0);
+      }
+      if (isRummikub() && round?.rummikubWinnerId && cumulativeRummikubWins) {
+        if (round.rummikubWinnerId in cumulativeRummikubWins) {
+          cumulativeRummikubWins[round.rummikubWinnerId] += 1;
+        }
       }
 
       const entries = state.teams?.length
@@ -145,11 +160,14 @@ export function createHistoryController(deps) {
         : state.players.map((player) => ({
             id: player.id,
             total: Number(cumulativePlayerTotals[player.id] ?? 0),
+            wins: isRummikub()
+              ? Number(cumulativeRummikubWins?.[player.id] ?? 0)
+              : undefined,
           }));
 
       const winnerId = resolveWinnerFromTotals(
         entries,
-        state.winMode,
+        isRummikub() ? "rummikub" : state.winMode,
         normalizedTarget,
       );
       if (winnerId) {
@@ -209,11 +227,15 @@ export function createHistoryController(deps) {
         total: teamTotals[t.id] ?? 0,
       }));
     } else {
+      const rummikubWins = isRummikub()
+        ? rummikubWinsByPlayerId(state.players, state.rounds)
+        : null;
       entries = state.players
         .filter((p) => retiredAfterRound(p.id) === null)
         .map((p) => ({
           id: p.id,
           total: playerTotals[p.id] ?? 0,
+          wins: isRummikub() ? Number(rummikubWins?.[p.id] ?? 0) : undefined,
         }));
     }
 
@@ -345,6 +367,50 @@ export function createHistoryController(deps) {
       });
     }
 
+    if (isRummikub()) {
+      const winsByPlayer = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+      const scoreTotals = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+      const valuesByPlayerId = Object.fromEntries(
+        state.players.map((p) => [p.id, []]),
+      );
+
+      for (const round of state.rounds) {
+        const adjusted = adjustedRoundScoresForGraph(round);
+        const winnerId =
+          typeof round?.rummikubWinnerId === "string" ? round.rummikubWinnerId : null;
+        for (const player of state.players) {
+          if (!playerActiveInRound(player.id, round.n)) continue;
+          scoreTotals[player.id] += Number(adjusted?.[player.id] ?? 0);
+          if (winnerId === player.id) winsByPlayer[player.id] += 1;
+        }
+
+        const positionById = positionMapForEntries(
+          state.players
+            .filter((player) => playerActiveInRound(player.id, round.n))
+            .map((player) => ({
+              id: player.id,
+              label: player.name || "Player",
+              total: scoreTotals[player.id] ?? 0,
+              wins: winsByPlayer[player.id] ?? 0,
+            })),
+        );
+        for (const player of state.players) {
+          valuesByPlayerId[player.id].push(
+            playerActiveInRound(player.id, round.n)
+              ? positionById.get(player.id) ?? 1
+              : null,
+          );
+        }
+      }
+
+      return state.players.map((player, idx) => ({
+        id: player.id,
+        label: player.name || `Player ${idx + 1}`,
+        color: GRAPH_LINE_COLORS[idx % GRAPH_LINE_COLORS.length],
+        values: valuesByPlayerId[player.id],
+      }));
+    }
+
     const totalsByPlayer = Object.fromEntries(state.players.map((p) => [p.id, 0]));
     // Player graphs are cumulative per-round totals to highlight trajectory.
     return state.players.map((player, idx) => {
@@ -400,6 +466,14 @@ export function createHistoryController(deps) {
       return String(a.label || "").localeCompare(String(b.label || ""));
     }
 
+    if (isRummikub()) {
+      const winDiff = Number(b.wins ?? 0) - Number(a.wins ?? 0);
+      if (winDiff !== 0) return winDiff;
+      const scoreDiff = Number(b.total ?? 0) - Number(a.total ?? 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return String(a.label || "").localeCompare(String(b.label || ""));
+    }
+
     const totalDiff =
       state.winMode === "low"
         ? Number(a.total ?? 0) - Number(b.total ?? 0)
@@ -413,6 +487,12 @@ export function createHistoryController(deps) {
     if (isPhase10()) {
       return (
         Number(a.phaseCompleted ?? 0) === Number(b.phaseCompleted ?? 0) &&
+        Number(a.total ?? 0) === Number(b.total ?? 0)
+      );
+    }
+    if (isRummikub()) {
+      return (
+        Number(a.wins ?? 0) === Number(b.wins ?? 0) &&
         Number(a.total ?? 0) === Number(b.total ?? 0)
       );
     }
@@ -1136,6 +1216,10 @@ export function createHistoryController(deps) {
 
   function rankEntries(entries) {
     return [...entries].sort((a, b) => {
+      if (isRummikub()) {
+        const winDiff = Number(b.wins ?? 0) - Number(a.wins ?? 0);
+        if (winDiff !== 0) return winDiff;
+      }
       const diff =
         state.winMode === "low" ? a.value - b.value : b.value - a.value;
       if (diff !== 0) return diff;
@@ -1146,6 +1230,17 @@ export function createHistoryController(deps) {
   function pickBestIds(entries) {
     const numeric = entries.filter((entry) => Number.isFinite(entry.value));
     if (!numeric.length) return { bestValue: 0, ids: [] };
+    if (isRummikub()) {
+      const highestWins = Math.max(...numeric.map((entry) => Number(entry.wins ?? 0)));
+      const leaders = numeric.filter((entry) => Number(entry.wins ?? 0) === highestWins);
+      const bestValue = Math.max(...leaders.map((entry) => Number(entry.value ?? 0)));
+      return {
+        bestValue,
+        ids: leaders
+          .filter((entry) => Number(entry.value ?? 0) === bestValue)
+          .map((entry) => entry.id),
+      };
+    }
     const bestValue = bestValueForWinMode(numeric.map((entry) => entry.value));
     return {
       bestValue,
@@ -1223,6 +1318,11 @@ export function createHistoryController(deps) {
         id: row.id,
         label: row.label,
         value: seriesById.get(row.id)?.values?.[idx],
+        wins: isRummikub()
+          ? state.rounds
+              .slice(0, idx + 1)
+              .filter((round) => round?.rummikubWinnerId === row.id).length
+          : 0,
       }))
       .filter((entry) => Number.isFinite(entry.value));
       const leaderState = pickBestIds(cumulativeEntries);
@@ -1318,6 +1418,9 @@ export function createHistoryController(deps) {
     const labelById = new Map(rows.map((row) => [row.id, row.label]));
     const seriesById = new Map(series.map((entry) => [entry.id, entry]));
     const roundWins = Object.fromEntries(rows.map((row) => [row.id, 0]));
+    const rummikubWins = isRummikub()
+      ? rummikubWinsByPlayerId(state.players, state.rounds)
+      : null;
     const bestStreaks = Object.fromEntries(rows.map((row) => [row.id, 0]));
     const currentStreaks = Object.fromEntries(rows.map((row) => [row.id, 0]));
     let leadChanges = 0;
@@ -1340,7 +1443,14 @@ export function createHistoryController(deps) {
       const roundSpread = spreadValues.length
         ? Math.max(...spreadValues) - Math.min(...spreadValues)
         : 0;
-      const bestRound = pickBestIds(numericRoundEntries);
+      const bestRound = isRummikub()
+        ? {
+            ids:
+              typeof state.rounds[idx]?.rummikubWinnerId === "string"
+                ? [state.rounds[idx].rummikubWinnerId]
+                : [],
+          }
+        : pickBestIds(numericRoundEntries);
 
       if (!biggestSwing || roundSpread > biggestSwing.spread) {
         biggestSwing = {
@@ -1401,6 +1511,7 @@ export function createHistoryController(deps) {
             (sum, score) => sum + (Number.isFinite(score) ? score : 0),
             0,
           ),
+        wins: isRummikub() ? Number(rummikubWins?.[row.id] ?? 0) : 0,
       }))
       .filter((row) => playerActiveInRound(row.id, state.rounds.length)),
     );
@@ -1524,7 +1635,7 @@ export function createHistoryController(deps) {
       topRoundWinCount > 0
         ? `${formatEntityList(topRoundWinIds, labelById)} ${
             topRoundWinIds.length === 1 ? "has" : "have"
-          } the most round wins (${topRoundWinCount}).`
+          } the most ${isRummikub() ? "game wins" : "round wins"} (${topRoundWinCount}).`
         : null;
 
     return {
@@ -1680,7 +1791,7 @@ export function createHistoryController(deps) {
           analysis.topRoundWinCount > 0
             ? `${formatEntityList(analysis.topRoundWinIds, analysis.labelById)} · ${analysis.topRoundWinCount}`
             : "None yet",
-        meta: "Rounds won outright",
+        meta: isRummikub() ? "Games won outright" : "Rounds won outright",
       },
       ...(state.presetKey === "skyjo"
         ? [
@@ -1822,9 +1933,9 @@ export function createHistoryController(deps) {
     const trh = document.createElement("tr");
     const headers = [
       state.teams?.length ? "Team" : "Player",
-      "Total",
+      isRummikub() ? "Score" : "Total",
       "Avg",
-      "Round Wins",
+      isRummikub() ? "Games Won" : "Round Wins",
       "Best",
       "Worst",
       "Best Streak",
@@ -1953,6 +2064,18 @@ export function createHistoryController(deps) {
     return inp.getAttribute("data-history-edit-skyjo-went-out") || null;
   }
 
+  function readHistoryEditRummikubWinner(roundN) {
+    const selector =
+      `[data-history-edit-round="${roundN}"]` +
+      `[data-history-edit-rummikub-winner]:checked`;
+    const inp =
+      els.historyTable.querySelector(selector) ||
+      els.historyCards?.querySelector(selector) ||
+      null;
+    if (!(inp instanceof HTMLInputElement)) return null;
+    return inp.getAttribute("data-history-edit-rummikub-winner") || null;
+  }
+
   function saveHistoryEdit(roundN) {
     const idx = state.rounds.findIndex((r) => r.n === roundN);
     if (idx < 0) return;
@@ -1969,6 +2092,16 @@ export function createHistoryController(deps) {
         state.heartsDeckCount,
       );
       scores = normalized.scores;
+    } else if (isRummikub()) {
+      const winnerId = readHistoryEditRummikubWinner(roundN);
+      const normalized = normalizeRummikubRoundScores(state.players, scores, winnerId);
+      if (!normalized.ok) {
+        showMsg(els.roundMsg, normalized.error || "Invalid Rummikub game.");
+        return;
+      }
+      scores = normalized.scores;
+      state.rounds[idx].rummikubRackTotalsByPlayerId = normalized.rackTotals;
+      state.rounds[idx].rummikubWinnerId = normalized.winnerId;
     }
     const validation = validateRoundScores(scores, {
       contextLabel: `round ${roundN}`,
@@ -2037,12 +2170,18 @@ export function createHistoryController(deps) {
         state.presetKey === "skyjo"
           ? adjustSkyjoRoundScores(state.players, r)
           : null;
+      const rummikubRackTotals = isRummikub()
+        ? rummikubRackTotalsByPlayerId(state.players, r)
+        : null;
       const phase10CompletedMap = isPhase10()
         ? phase10CompletionMap(state.players, r)
         : null;
       const rawScoresById = Object.fromEntries(
         cols.map((pid) => {
-          const v = Number(r.scores?.[pid] ?? 0);
+          const sourceValue = isRummikub()
+            ? Number(rummikubRackTotals?.[pid] ?? 0)
+            : Number(r.scores?.[pid] ?? 0);
+          const v = sourceValue;
           return [pid, Number.isFinite(v) ? v : 0];
         }),
       );
@@ -2090,6 +2229,8 @@ export function createHistoryController(deps) {
             : false;
         const isPhase10CompleteCell =
           !retired && !!(isPhase10() && phase10CompletedMap?.[pid]);
+        const isRummikubWinnerCell =
+          !retired && isRummikub() && r?.rummikubWinnerId === pid;
         const isHeartsMoonShooter = !retired && heartsMoonShooterId === pid;
         const isHeartsMoonRecipient =
           !retired &&
@@ -2108,6 +2249,7 @@ export function createHistoryController(deps) {
           isWentOutCell,
           isDoubledCell,
           isPhase10CompleteCell,
+          isRummikubWinnerCell,
           isHeartsMoonShooter,
           isHeartsMoonRecipient,
         };
@@ -2199,6 +2341,45 @@ export function createHistoryController(deps) {
 
       input.appendChild(outLabel);
       return input;
+    } else if (isRummikub()) {
+      input = document.createElement("div");
+      input.className = "history-edit-skyjo";
+
+      const scoreInput = document.createElement("input");
+      scoreInput.type = "number";
+      scoreInput.inputMode = "numeric";
+      scoreInput.min = "0";
+      scoreInput.className = "history-edit-input";
+      scoreInput.value = String(Number.isFinite(cell.rawV) ? cell.rawV : 0);
+      scoreInput.setAttribute(
+        "aria-label",
+        `Round ${roundN} rack total for ${cell.playerName}`,
+      );
+      scoreInput.setAttribute("data-history-edit-round", String(roundN));
+      scoreInput.setAttribute("data-history-edit-score", cell.pid);
+      input.appendChild(scoreInput);
+
+      const winnerLabel = document.createElement("label");
+      winnerLabel.className = "history-edit-skyjo-out";
+
+      const winnerRadio = document.createElement("input");
+      winnerRadio.type = "radio";
+      winnerRadio.name = `historyEditRummikubWinner-${roundN}`;
+      winnerRadio.checked = cell.isRummikubWinnerCell;
+      winnerRadio.setAttribute(
+        "aria-label",
+        `Round ${roundN} ${cell.playerName} won the game`,
+      );
+      winnerRadio.setAttribute("data-history-edit-round", String(roundN));
+      winnerRadio.setAttribute("data-history-edit-rummikub-winner", cell.pid);
+      winnerLabel.appendChild(winnerRadio);
+
+      const winnerText = document.createElement("span");
+      winnerText.textContent = "Winner";
+      winnerLabel.appendChild(winnerText);
+
+      input.appendChild(winnerLabel);
+      return input;
     } else {
       input = document.createElement("input");
       input.type = "number";
@@ -2230,6 +2411,8 @@ export function createHistoryController(deps) {
     if (cell.isDoubledCell) classTarget.classList.add("history-score-doubled");
     if (cell.isPhase10CompleteCell)
       classTarget.classList.add("history-score-phase10-complete");
+    if (cell.isRummikubWinnerCell)
+      classTarget.classList.add("history-score-rummikub-winner");
     if (cell.isHeartsMoonShooter)
       classTarget.classList.add("history-score-hearts-moon");
     if (cell.isHeartsMoonRecipient)
@@ -2290,6 +2473,12 @@ export function createHistoryController(deps) {
       phaseBadge.className = "history-score-badge phase10";
       phaseBadge.textContent = `PH+ ${cell.phaseN > 0 ? cell.phaseN : ""}`.trim();
       parent.appendChild(phaseBadge);
+    }
+    if (cell.isRummikubWinnerCell) {
+      const winBadge = document.createElement("span");
+      winBadge.className = "history-score-badge out";
+      winBadge.textContent = "WIN";
+      parent.appendChild(winBadge);
     }
     if (cell.isHeartsMoonShooter) {
       const moonBadge = document.createElement("span");
@@ -2475,17 +2664,24 @@ export function createHistoryController(deps) {
     const baseSummary = state.rounds.length
       ? `Round History (${state.rounds.length})`
       : "Round History (0)";
+    if (isRummikub()) {
+      els.historySummaryText.textContent = state.rounds.length
+        ? `${baseSummary} • ${state.rounds.length} games played`
+        : baseSummary;
+      renderHistoryGraph();
+      return;
+    }
     const winsCount = Array.isArray(state.winnerMilestones)
       ? state.winnerMilestones.length
       : 0;
     if (state.gameState === "free_play") {
       els.historySummaryText.textContent =
         winsCount > 0
-          ? `${baseSummary} • Free Play • ${winsCount} target wins`
+          ? `${baseSummary} • Free Play • ${winsCount} ${isRummikub() ? "game wins" : "target wins"}`
           : `${baseSummary} • Free Play`;
     } else if (winsCount > 0) {
       const last = state.winnerMilestones[winsCount - 1];
-      els.historySummaryText.textContent = `${baseSummary} • ${winsCount} target wins • Last R${last.roundN}`;
+      els.historySummaryText.textContent = `${baseSummary} • ${winsCount} ${isRummikub() ? "game wins" : "target wins"} • Last R${last.roundN}`;
     } else {
       els.historySummaryText.textContent = baseSummary;
     }

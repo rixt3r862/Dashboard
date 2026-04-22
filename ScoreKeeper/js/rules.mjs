@@ -20,6 +20,104 @@ export function heartsRoundPenaltyTotal(deckCount = 1) {
   return 26 * normalizeDeckCount(deckCount);
 }
 
+export function rummikubRackTotalsByPlayerId(players, round) {
+  const ids = Array.isArray(players) ? players.map((p) => p.id) : [];
+  const explicit = round?.rummikubRackTotalsByPlayerId;
+  if (explicit && typeof explicit === "object") {
+    return Object.fromEntries(
+      ids.map((id) => {
+        const value = Number(explicit[id] ?? 0);
+        return [id, Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0];
+      }),
+    );
+  }
+
+  const winnerId =
+    typeof round?.rummikubWinnerId === "string" ? round.rummikubWinnerId : null;
+  return Object.fromEntries(
+    ids.map((id) => {
+      if (winnerId && id === winnerId) return [id, 0];
+      const value = Math.abs(Number(round?.scores?.[id] ?? 0));
+      return [id, Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0];
+    }),
+  );
+}
+
+export function rummikubWinsByPlayerId(players, rounds) {
+  const wins = Object.fromEntries((players || []).map((p) => [p.id, 0]));
+  for (const round of rounds || []) {
+    const winnerId =
+      typeof round?.rummikubWinnerId === "string" ? round.rummikubWinnerId : null;
+    if (winnerId && winnerId in wins) {
+      wins[winnerId] += 1;
+      continue;
+    }
+    const entries = (players || []).map((player) => ({
+      id: player.id,
+      score: Number(round?.scores?.[player.id] ?? 0),
+    }));
+    const bestScore = Math.max(...entries.map((entry) => entry.score));
+    const winners = entries.filter((entry) => entry.score === bestScore);
+    if (winners.length === 1 && winners[0].id in wins) {
+      wins[winners[0].id] += 1;
+    }
+  }
+  return wins;
+}
+
+export function normalizeRummikubRoundScores(players, rackTotalsByPlayerId, winnerId) {
+  if (!Array.isArray(players) || !players.length) {
+    return {
+      ok: false,
+      error: "Rummikub requires players before scoring a round.",
+    };
+  }
+  if (!winnerId || !players.some((player) => player.id === winnerId)) {
+    return {
+      ok: false,
+      error: "Rummikub: select the round winner.",
+    };
+  }
+
+  const rackTotals = {};
+  for (const player of players) {
+    const raw = Number(rackTotalsByPlayerId?.[player.id] ?? 0);
+    if (!Number.isInteger(raw) || raw < 0) {
+      return {
+        ok: false,
+        error: "Rummikub rack totals must be whole numbers at 0 or higher.",
+      };
+    }
+    rackTotals[player.id] = raw;
+  }
+
+  const winnerRackTotal = Number(rackTotals[winnerId] ?? 0);
+  const lowestRackTotal = Math.min(...Object.values(rackTotals));
+  if (winnerRackTotal > lowestRackTotal) {
+    return {
+      ok: false,
+      error: "Rummikub: the winner must have the lowest rack total for the round.",
+    };
+  }
+
+  const scores = Object.fromEntries(players.map((player) => [player.id, 0]));
+  let winnerScore = 0;
+  for (const player of players) {
+    if (player.id === winnerId) continue;
+    const rackTotal = Number(rackTotals[player.id] ?? 0);
+    scores[player.id] = -rackTotal;
+    winnerScore += rackTotal - winnerRackTotal;
+  }
+  scores[winnerId] = winnerScore;
+
+  return {
+    ok: true,
+    scores,
+    rackTotals,
+    winnerId,
+  };
+}
+
 export function phase10CompletionMap(players, round) {
   const ids = Array.isArray(players) ? players.map((p) => p.id) : [];
   const explicit = round?.phase10CompletedByPlayerId;
@@ -147,6 +245,17 @@ export function totalsByTeamId(teams, playerTotals) {
 }
 
 export function determineWinnerFromTotals(entries, winMode, target) {
+  if (winMode === "rummikub") {
+    const highestWins = Math.max(0, ...entries.map((entry) => Number(entry.wins ?? 0)));
+    if (highestWins < target) return null;
+    const leaders = entries.filter((entry) => Number(entry.wins ?? 0) === highestWins);
+    if (leaders.length === 1) return leaders[0]?.id ?? null;
+    leaders.sort((a, b) => Number(b.total ?? 0) - Number(a.total ?? 0));
+    const bestTotal = Number(leaders[0]?.total ?? 0);
+    const tiedLeaders = leaders.filter((entry) => Number(entry.total ?? 0) === bestTotal);
+    return tiedLeaders.length === 1 ? tiedLeaders[0]?.id ?? null : null;
+  }
+
   if (winMode === "low") {
     // "Low wins" games only end once someone reaches/passes target.
     const gameOver = entries.some((x) => (x.total ?? 0) >= target);

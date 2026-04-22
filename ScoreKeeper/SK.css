@@ -1513,6 +1513,10 @@ summary::-webkit-details-marker{ display:none; }
   background: rgba(5,150,105,.16);
   box-shadow: inset 0 0 0 1px rgba(5,150,105,.34);
 }
+.history-table td.history-score-rummikub-winner{
+  background: rgba(245,158,11,.16);
+  box-shadow: inset 0 0 0 1px rgba(217,119,6,.34);
+}
 .history-table td.history-score-hearts-moon{
   background: rgba(234,179,8,.2);
   box-shadow: inset 0 0 0 1px rgba(202,138,4,.42);
@@ -1542,6 +1546,9 @@ summary::-webkit-details-marker{ display:none; }
 }
 .history-score-note.skyjo-note{
   color: #7c2d12;
+}
+.history-score-note.rummikub-note{
+  color: #b45309;
 }
 .history-score-badge{
   display: inline-block;
@@ -1695,6 +1702,10 @@ summary::-webkit-details-marker{ display:none; }
 .history-card-score.history-score-phase10-complete{
   background: rgba(5,150,105,.16);
   box-shadow: inset 0 0 0 1px rgba(5,150,105,.34);
+}
+.history-card-score.history-score-rummikub-winner{
+  background: rgba(245,158,11,.18);
+  box-shadow: inset 0 0 0 1px rgba(217,119,6,.34);
 }
 .history-card-score.history-score-hearts-moon{
   background: rgba(234,179,8,.2);
@@ -1930,6 +1941,16 @@ summary::-webkit-details-marker{ display:none; }
   border-color: rgba(74,222,128,.42);
   box-shadow: inset 0 0 0 1px rgba(74,222,128,.18);
 }
+.round-preview-item.rummikub-winner{
+  background: rgba(245,158,11,.10);
+  border-color: rgba(217,119,6,.28);
+  box-shadow: inset 0 0 0 1px rgba(245,158,11,.10);
+}
+:root[data-theme="dark"] .round-preview-item.rummikub-winner{
+  background: rgba(245,158,11,.16);
+  border-color: rgba(251,191,36,.34);
+  box-shadow: inset 0 0 0 1px rgba(251,191,36,.12);
+}
 .round-preview-item.skyjo{
   grid-template-columns: minmax(72px, 1fr) minmax(0, var(--skyjo-score-col)) var(--skyjo-out-col) auto;
 }
@@ -1953,6 +1974,24 @@ summary::-webkit-details-marker{ display:none; }
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.round-preview-player-btn{
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.round-preview-player-btn:hover .round-preview-name{
+  color: var(--brand);
+}
+.round-preview-player-btn:focus-visible{
+  outline: 2px solid rgba(37,99,235,.45);
+  outline-offset: 4px;
+  border-radius: 10px;
 }
 .round-preview-name{
   font-weight: 650;
@@ -2066,6 +2105,24 @@ summary::-webkit-details-marker{ display:none; }
 }
 .round-preview-note.skyjo-note{
   color: #7c2d12;
+}
+.round-preview-note.rummikub-note{
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(180,83,9,.25);
+  background: rgba(251,191,36,.16);
+  color: #92400e;
+  font-weight: 700;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+:root[data-theme="dark"] .round-preview-note.rummikub-note{
+  border-color: rgba(251,191,36,.28);
+  background: rgba(251,191,36,.14);
+  color: #fcd34d;
 }
 .round-preview-actions.phase10{
   flex-wrap: wrap;

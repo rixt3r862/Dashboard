@@ -16,6 +16,7 @@ export function createRoundEntryController(deps) {
     $,
     onAddRound,
     onSkyjoMarkGoOut,
+    onRummikubMarkWinner,
     onRoundInputsChanged,
     activePlayers,
     inactivePlayers,
@@ -145,6 +146,10 @@ export function createRoundEntryController(deps) {
     return Number.isFinite(score) && score <= 0;
   }
 
+  function isRummikub() {
+    return state.presetKey === "rummikub";
+  }
+
   function syncSkyjoOutScoreHints() {
     if (!els.roundPreviewBody) return;
     els.roundPreviewBody.querySelectorAll("[data-preview-row]").forEach((row) => {
@@ -167,6 +172,42 @@ export function createRoundEntryController(deps) {
     });
   }
 
+  function syncRummikubWinnerUi() {
+    if (!els.roundPreviewBody) return;
+    els.roundPreviewBody.querySelectorAll("[data-preview-row]").forEach((row) => {
+      if (!(row instanceof HTMLElement)) return;
+      const playerId = row.getAttribute("data-preview-row");
+      if (!playerId) return;
+      const playerCell = row.querySelector(".round-preview-player");
+      if (!(playerCell instanceof HTMLElement)) return;
+      const isWinner = isRummikub() && state.rummikubCurrentRoundWinnerId === playerId;
+      row.classList.toggle("rummikub-winner", isWinner);
+      const existing = playerCell.querySelector(".round-preview-note.rummikub-note");
+      if (isWinner) {
+        if (!existing) {
+          const note = document.createElement("span");
+          note.className = "round-preview-note rummikub-note";
+          note.textContent = "Winner";
+          playerCell.appendChild(note);
+        }
+      } else if (existing) {
+        existing.remove();
+      }
+    });
+  }
+
+  function maybeAutoSelectRummikubWinner() {
+    if (!isRummikub()) return false;
+    const zeroPlayers = activePlayers().filter(
+      (player) => Number(state.currentRoundScores?.[player.id] ?? 0) === 0,
+    );
+    if (zeroPlayers.length !== 1) return false;
+    const nextWinnerId = zeroPlayers[0].id;
+    if (state.rummikubCurrentRoundWinnerId === nextWinnerId) return false;
+    state.rummikubCurrentRoundWinnerId = nextWinnerId;
+    return true;
+  }
+
   function syncRenderedScoreInputs() {
     if (!els.roundPreviewBody) return;
     els.roundPreviewBody
@@ -187,6 +228,7 @@ export function createRoundEntryController(deps) {
     if (!state.players.some((p) => p.id === playerId)) return;
     const n = Number.parseInt(value, 10);
     state.currentRoundScores[playerId] = Number.isNaN(n) ? 0 : n;
+    const autoSelectedRummikubWinner = maybeAutoSelectRummikubWinner();
     if (!silent) {
       showMsg(els.roundMsg, "");
       renderRoundPreview();
@@ -194,6 +236,9 @@ export function createRoundEntryController(deps) {
     }
     renderHeartsRoundTotal(state.currentRoundScores);
     syncSkyjoOutScoreHints();
+    if (autoSelectedRummikubWinner) {
+      syncRummikubWinnerUi();
+    }
   }
 
   function setPhase10CompletionValue(playerId, value, opts = {}) {
@@ -243,9 +288,20 @@ export function createRoundEntryController(deps) {
       return;
     }
     const lastRound = state.rounds[state.rounds.length - 1];
-    applyRoundScores(lastRound.scores || {});
+    applyRoundScores(
+      isRummikub()
+        ? lastRound.rummikubRackTotalsByPlayerId || {}
+        : lastRound.scores || {},
+    );
     if (isPhase10()) {
       applyPhase10Completions(phase10CompletionMap(activePlayers(), lastRound));
+    }
+    if (isRummikub()) {
+      state.rummikubCurrentRoundWinnerId =
+        typeof lastRound.rummikubWinnerId === "string"
+          ? lastRound.rummikubWinnerId
+          : null;
+      renderRoundPreview();
     }
     closeRoundHelperForm();
     showMsg(els.roundMsg, "");
@@ -516,7 +572,11 @@ export function createRoundEntryController(deps) {
       : {};
     renderHeartsRoundTotal(scores);
     const isSkyjo = state.presetKey === "skyjo" && !isPhase10();
-    const valueLabel = isPhase10() ? "Points & Phase" : "Score";
+    const valueLabel = isPhase10()
+      ? "Points & Phase"
+      : isRummikub()
+      ? "Rack Total"
+      : "Score";
 
     const ordered = orderedPlayers();
     const rows = ordered
@@ -528,7 +588,11 @@ export function createRoundEntryController(deps) {
         const phaseLabel = `Phase ${phaseNumber}`;
         const playerNameEsc = escapeHtml(p.name);
         const showSkyjoNegativeOutHint = shouldShowSkyjoNegativeOutHint(p.id);
-        const rowClass = phaseComplete && isPhase10() ? " phase10-complete" : "";
+        const isRummikubWinner =
+          isRummikub() && state.rummikubCurrentRoundWinnerId === p.id;
+        const rowClass = `${phaseComplete && isPhase10() ? " phase10-complete" : ""}${
+          isRummikubWinner ? " rummikub-winner" : ""
+        }`;
         const moveControls = `
           <button
             type="button"
@@ -546,7 +610,25 @@ export function createRoundEntryController(deps) {
             </span>
           </button>
         `;
-        const playerCell = `
+        const playerCell = isRummikub()
+          ? `
+          <button
+            type="button"
+            class="round-preview-player round-preview-player-btn"
+            data-preview-action="rummikub-winner"
+            data-player-id="${p.id}"
+            aria-label="Mark ${playerNameEsc} as the Rummikub winner"
+            title="Mark ${playerNameEsc} as winner"
+          >
+            <span class="round-preview-name">${playerNameEsc}</span>
+            ${
+              isRummikubWinner
+                ? `<span class="round-preview-note rummikub-note">Winner</span>`
+                : ""
+            }
+          </button>
+        `
+          : `
           <span class="round-preview-player">
             <span class="round-preview-name">${playerNameEsc}</span>
           </span>
@@ -584,7 +666,7 @@ export function createRoundEntryController(deps) {
           : `
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
-            <input type="number" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Score for ${playerNameEsc}" />
+            <input type="number" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" min="${isRummikub() ? "0" : ""}" aria-label="${isRummikub() ? `Rack total for ${playerNameEsc}` : `Score for ${playerNameEsc}`}" />
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
             ${isSkyjo ? "" : skyjoWentOutUi}
@@ -610,7 +692,7 @@ export function createRoundEntryController(deps) {
         }
 
         return `
-          <div class="round-preview-item${rowClass}" data-preview-row="${p.id}">
+            <div class="round-preview-item${rowClass}" data-preview-row="${p.id}">
             ${playerCell}
             <span class="round-preview-right">
             <span class="round-preview-value"></span>
@@ -642,6 +724,7 @@ export function createRoundEntryController(deps) {
     }
     renderRoundHelpers();
     syncRenderedScoreInputs();
+    syncRummikubWinnerUi();
     onRoundInputsChanged?.();
   }
 
@@ -676,6 +759,11 @@ export function createRoundEntryController(deps) {
       if (action === "phase-toggle") {
         const current = Number(readPhase10Completions()[playerId] ?? 0) > 0 ? 1 : 0;
         setPhase10CompletionValue(playerId, current ? 0 : 1);
+        return;
+      }
+
+      if (action === "rummikub-winner") {
+        onRummikubMarkWinner?.(playerId);
         return;
       }
 

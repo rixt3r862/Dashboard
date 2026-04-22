@@ -134,7 +134,7 @@
           <span id="continueModalPrompt">Choose how to continue.</span>
         </p>
         <div class="field">
-          <label for="continueTargetPoints">New target (recommended)</label>
+          <label id="continueTargetLabel" for="continueTargetPoints">New target (recommended)</label>
           <input
             id="continueTargetPoints"
             type="text"
@@ -244,6 +244,7 @@
               <select id="presetSelect">
                 <option value="custom">Custom</option>
                 <option value="uno">Uno</option>
+                <option value="rummikub">Rummikub</option>
                 <option value="phase10">Phase 10</option>
                 <option value="crazy8s">Crazy 8s</option>
                 <option value="skyjo">SkyJo</option>
@@ -378,6 +379,7 @@
               <select id="preRoundPresetSelect">
                 <option value="custom">Custom</option>
                 <option value="uno">Uno</option>
+                <option value="rummikub">Rummikub</option>
                 <option value="phase10">Phase 10</option>
                 <option value="crazy8s">Crazy 8s</option>
                 <option value="skyjo">SkyJo</option>
@@ -386,7 +388,7 @@
               </select>
             </div>
             <div class="field" style="max-width: 220px">
-              <label for="preRoundTargetPoints">Target<br /><em>(Can be changed before Round 1)</em></label>
+              <label id="preRoundTargetLabel" for="preRoundTargetPoints">Target<br /><em>(Can be changed before Round 1)</em></label>
               <input
                 id="preRoundTargetPoints"
                 type="text"
@@ -439,7 +441,7 @@
 
           <div class="row" style="justify-content: space-between">
             <div class="pill">
-              <strong>Target:</strong> <span id="targetPill">0</span>
+              <strong id="targetPillLabel">Target:</strong> <span id="targetPill">0</span>
             </div>
             <div class="pill">
               <strong>Round:</strong> <span id="roundPill">1</span>

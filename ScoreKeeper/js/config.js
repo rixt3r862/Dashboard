@@ -14,6 +14,14 @@ export const PRESETS = {
     notes:
       "Winner-only scoring: enter opponents' hand points and set winner to 0. App totals opponents into winner points.",
   },
+  rummikub: {
+    label: "Rummikub",
+    target: 3,
+    winMode: "high",
+    teams: false,
+    notes:
+      "Official-style session: enter each player's rack total, then declare the round winner. Standings rank by games won first, with cumulative score as the tiebreak.",
+  },
   phase10: {
     label: "Phase 10",
     target: 10,
@@ -55,6 +63,7 @@ export const PRESETS = {
 
 export const PRESET_BACKGROUNDS = {
   uno: "./img/Uno.png",
+  rummikub: "./img/Rummikub.jpg",
   phase10: "./img/Phase 10.png",
   crazy8s: "./img/Crazy8s.png",
   skyjo: "./img/SkyJo.png",

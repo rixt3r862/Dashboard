@@ -13,6 +13,8 @@ import {
   phase10ProgressByPlayerId,
   determineWinnerFromTotals as resolveWinnerFromTotals,
   normalizeHeartsShootMoonScores,
+  normalizeRummikubRoundScores,
+  rummikubWinsByPlayerId,
   totalsByPlayerId as sumTotalsByPlayerId,
   totalsByTeamId as sumTotalsByTeamId,
   validateRoundScores as validateScoresByRules,
@@ -85,10 +87,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
     preRoundCustomWinModeRow: $("preRoundCustomWinModeRow"),
     preRoundCustomWinModeSelect: $("preRoundCustomWinModeSelect"),
     preRoundTargetPoints: $("preRoundTargetPoints"),
+    preRoundTargetLabel: $("preRoundTargetLabel"),
     winModeText: $("winModeText"),
 
     playerCount: $("playerCount"),
     targetPoints: $("targetPoints"),
+    continueTargetLabel: $("continueTargetLabel"),
     playerNamesWrap: $("playerNamesWrap"),
 
     teamPreview: $("teamPreview"),
@@ -99,6 +103,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     spadesPartnerLabel: $("spadesPartnerLabel"),
 
     targetPill: $("targetPill"),
+    targetPillLabel: $("targetPillLabel"),
     roundPill: $("roundPill"),
     roundPreview: $("roundPreview"),
     roundHeartsTotal: $("roundHeartsTotal"),
@@ -238,6 +243,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     // SkyJo per-round "went out" marker for the current round entry.
     skyjoCurrentRoundWentOutPlayerId: null,
+    // Rummikub per-round winner marker for raw rack totals.
+    rummikubCurrentRoundWinnerId: null,
   };
 
   const roundEntry = createRoundEntryController({
@@ -250,6 +257,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     $,
     onAddRound: () => addRound(),
     onSkyjoMarkGoOut: (playerId) => markSkyjoWentOutForCurrentRound(playerId),
+    onRummikubMarkWinner: (playerId) => markRummikubWinnerForCurrentRound(playerId),
     onRoundInputsChanged: () => updateAddRoundButtonState(),
     activePlayers,
     inactivePlayers,
@@ -333,6 +341,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       presetNote: state.presetNote,
       skyjoCurrentRoundWentOutPlayerId:
         state.skyjoCurrentRoundWentOutPlayerId,
+      rummikubCurrentRoundWinnerId: state.rummikubCurrentRoundWinnerId,
       currentSessionId: state.currentSessionId,
     };
   }
@@ -1019,6 +1028,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function buildWinnerEntries(playerTotals) {
     const eligiblePlayers = activePlayers();
+    if (state.presetKey === "rummikub") {
+      const winsByPlayerId = rummikubWinsByPlayerId(state.players, state.rounds);
+      return eligiblePlayers.map((p) => ({
+        id: p.id,
+        total: playerTotals[p.id] ?? 0,
+        wins: winsByPlayerId[p.id] ?? 0,
+      }));
+    }
     if (isPhase10()) {
       const progress = phase10Progress();
       return eligiblePlayers.map((p) => ({
@@ -1042,6 +1059,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function suggestedContinueTarget() {
     const requirement = continueTargetRequirement();
+    if (state.presetKey === "rummikub") {
+      return requirement.minTarget;
+    }
     // Recommend the next higher 50-point milestone that is safely above
     // all current totals, so "continue" never starts in an already-won state.
     return Math.ceil(requirement.minTarget / 50) * 50;
@@ -1050,6 +1070,24 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function continueTargetRequirement() {
     const playerTotals = totalsByPlayerId();
     const entries = buildWinnerEntries(playerTotals);
+    if (state.presetKey === "rummikub") {
+      const topEntry = entries.reduce((best, entry) => {
+        const wins = Number(entry?.wins ?? 0);
+        const total = Number(entry?.total ?? 0);
+        if (!Number.isFinite(wins)) return best;
+        if (!best || wins > best.wins || (wins === best.wins && total > best.total)) {
+          return { id: entry.id, wins, total };
+        }
+        return best;
+      }, null);
+
+      const highestWins = Number(topEntry?.wins ?? 0);
+      return {
+        highestId: topEntry?.id ?? null,
+        highestTotal: highestWins,
+        minTarget: Math.max(APP_LIMITS.targetMin, highestWins + 1),
+      };
+    }
     const topEntry = entries.reduce((best, entry) => {
       const total = Number(entry?.total ?? 0);
       if (!Number.isFinite(total)) return best;
@@ -1083,7 +1121,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const highestLabel = requirement.highestId
       ? entityName(requirement.highestId)
       : "A player";
-    const requirementLine = `${highestLabel} is already at ${requirement.highestTotal}, so the new target must be at least `;
+    const requirementLine =
+      state.presetKey === "rummikub"
+        ? `${highestLabel} already has ${requirement.highestTotal} game${requirement.highestTotal === 1 ? "" : "s"} won, so the new target must be at least `
+        : `${highestLabel} is already at ${requirement.highestTotal}, so the new target must be at least `;
 
     if (
       els.continueModalIntro &&
@@ -1093,7 +1134,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     ) {
       els.continueModalIntro.textContent = firstLine;
       els.continueTargetRequirementText.innerHTML =
-        `${requirementLine}<strong class="continue-target-min">${requirement.minTarget}</strong>.`;
+        `${requirementLine}<strong class="continue-target-min">${requirement.minTarget}</strong>${state.presetKey === "rummikub" ? " game wins" : ""}.`;
       els.continueTargetRequirement.classList.toggle("is-invalid", invalid);
       els.continueModalPrompt.textContent = "Choose how to continue.";
       return;
@@ -1375,6 +1416,25 @@ import { createScoreboardController } from "./js/scoreboard.js";
         n: Number(r.n),
         scores: r.scores || {},
         ts: r.ts || Date.now(),
+        rummikubRackTotalsByPlayerId:
+          r.rummikubRackTotalsByPlayerId &&
+          typeof r.rummikubRackTotalsByPlayerId === "object"
+            ? Object.fromEntries(
+                state.players.map((p) => [
+                  p.id,
+                  Math.max(
+                    0,
+                    Number.isFinite(Number(r.rummikubRackTotalsByPlayerId?.[p.id]))
+                      ? Math.trunc(Number(r.rummikubRackTotalsByPlayerId?.[p.id]))
+                      : 0,
+                  ),
+                ]),
+              )
+            : null,
+        rummikubWinnerId:
+          typeof r.rummikubWinnerId === "string"
+            ? String(r.rummikubWinnerId)
+            : null,
         phase10CompletedByPlayerId:
           r.phase10CompletedByPlayerId &&
           typeof r.phase10CompletedByPlayerId === "object"
@@ -1448,6 +1508,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
         typeof payload.skyjoCurrentRoundWentOutPlayerId === "string"
           ? payload.skyjoCurrentRoundWentOutPlayerId
           : null;
+      state.rummikubCurrentRoundWinnerId =
+        typeof payload.rummikubCurrentRoundWinnerId === "string"
+          ? payload.rummikubCurrentRoundWinnerId
+          : null;
       if (
         state.presetKey !== "skyjo" ||
         (state.skyjoCurrentRoundWentOutPlayerId &&
@@ -1456,6 +1520,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
           ))
       ) {
         state.skyjoCurrentRoundWentOutPlayerId = null;
+      }
+      if (
+        state.presetKey !== "rummikub" ||
+        (state.rummikubCurrentRoundWinnerId &&
+          !state.players.some((p) => p.id === state.rummikubCurrentRoundWinnerId))
+      ) {
+        state.rummikubCurrentRoundWinnerId = null;
       }
 
       state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex)
@@ -1820,6 +1891,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
     state.skyjoCurrentRoundWentOutPlayerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
     state.presetNote = "";
     state.spadesPartnerIndex = 2;
 
@@ -1892,6 +1965,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
     state.skyjoCurrentRoundWentOutPlayerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
@@ -2037,6 +2112,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function updateWinModeText() {
+    if (state.presetKey === "rummikub") {
+      els.winModeText.textContent = "Most games won, score breaks ties";
+      return;
+    }
     els.winModeText.textContent =
       state.winMode === "low" ? "Lowest score wins" : "Highest score wins";
   }
@@ -2049,15 +2128,37 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.scoreboardCard.classList.toggle("phase10-mode", isPhase10());
     els.scoreboardCard.classList.toggle("hearts-mode", state.presetKey === "hearts");
     els.scoreboardCard.classList.toggle("uno-mode", state.presetKey === "uno");
+    const isRummikub = state.presetKey === "rummikub";
 
     if (els.targetLabel) {
-      els.targetLabel.textContent = isPhase10() ? "Final phase" : "Target";
+      els.targetLabel.textContent = isPhase10()
+        ? "Final phase"
+        : isRummikub
+        ? "Games"
+        : "Target";
+    }
+    if (els.preRoundTargetLabel) {
+      els.preRoundTargetLabel.innerHTML = `${
+        isRummikub ? "Games" : "Target"
+      }<br /><em>(Can be changed before Round 1)</em>`;
+    }
+    if (els.targetPillLabel) {
+      els.targetPillLabel.textContent = isRummikub ? "Games:" : "Target:";
+    }
+    if (els.continueTargetLabel) {
+      els.continueTargetLabel.textContent = isRummikub
+        ? "New games target (recommended)"
+        : "New target (recommended)";
     }
     if (els.colHeadTotal) {
-      els.colHeadTotal.textContent = isPhase10() ? "Points" : "Total";
+      els.colHeadTotal.textContent = isPhase10()
+        ? "Points"
+        : isRummikub
+        ? "Games Won"
+        : "Total";
     }
     if (els.colHeadThis) {
-      els.colHeadThis.textContent = "Last Round";
+      els.colHeadThis.textContent = isRummikub ? "Last Game" : "Last Round";
     }
 
     // Phase 10 reference (hints/reminders)
@@ -2073,6 +2174,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function applyPreset(key) {
     const preset = PRESETS[key] || PRESETS.custom;
     state.presetKey = key in PRESETS ? key : "custom";
+    state.rummikubCurrentRoundWinnerId = null;
 
     if (Number.isInteger(preset.target)) {
       state.target = preset.target;
@@ -2415,6 +2517,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
     state.skyjoCurrentRoundWentOutPlayerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
 
     showMsg(els.setupMsg, "");
     showMsg(els.roundMsg, "");
@@ -2447,6 +2551,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function leaderIdFromTotals(entries) {
     const eligibleEntries = entries.filter((entry) => !entry.retired);
     if (!eligibleEntries.length) return null;
+    if (state.presetKey === "rummikub") {
+      const bestWins = Math.max(
+        ...eligibleEntries.map((entry) => Number(entry.wins ?? 0)),
+      );
+      const leaders = eligibleEntries.filter(
+        (entry) => Number(entry.wins ?? 0) === bestWins,
+      );
+      if (leaders.length === 1) return leaders[0]?.id ?? null;
+      const bestScore = Math.max(...leaders.map((entry) => Number(entry.total ?? 0)));
+      const tied = leaders.filter((entry) => Number(entry.total ?? 0) === bestScore);
+      return tied.length === 1 ? tied[0]?.id ?? null : null;
+    }
     if (isPhase10()) {
       const bestPhase = Math.max(
         ...eligibleEntries.map((entry) => Number(entry.phaseCompleted ?? 0)),
@@ -2480,7 +2596,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (isPhase10()) {
       return determinePhase10Winner(activePlayers(), state.rounds, state.target);
     }
-    return resolveWinnerFromTotals(entries, state.winMode, state.target);
+    return resolveWinnerFromTotals(
+      entries,
+      state.presetKey === "rummikub" ? "rummikub" : state.winMode,
+      state.target,
+    );
   }
 
   function hasLowScoreTargetTie(entries) {
@@ -2493,6 +2613,18 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (!eligible.length) return false;
     const bestTotal = Math.min(...eligible.map((entry) => Number(entry.total ?? 0)));
     return eligible.filter((entry) => Number(entry.total ?? 0) === bestTotal).length > 1;
+  }
+
+  function markRummikubWinnerForCurrentRound(playerId) {
+    if (state.presetKey !== "rummikub" || state.mode !== "playing") return;
+    if (!activePlayers().some((p) => p.id === playerId)) return;
+
+    state.rummikubCurrentRoundWinnerId = playerId;
+    const name = entityName(playerId);
+    showMsg(els.roundMsg, `${name} marked as the Rummikub round winner.`);
+    save();
+    renderAll();
+    setLive(`${name} marked as the Rummikub round winner.`);
   }
 
   function retirePlayer(playerId) {
@@ -2518,6 +2650,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundPhase10Completed[playerId] = 0;
     if (state.skyjoCurrentRoundWentOutPlayerId === playerId) {
       state.skyjoCurrentRoundWentOutPlayerId = null;
+    }
+    if (state.rummikubCurrentRoundWinnerId === playerId) {
+      state.rummikubCurrentRoundWinnerId = null;
     }
     syncWinnerLifecycleAfterLoad();
     save();
@@ -2674,6 +2809,26 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return "SkyJo: select who went out this round.";
     }
 
+    if (state.presetKey === "rummikub") {
+      if (!state.rummikubCurrentRoundWinnerId) {
+        return "Rummikub: select the round winner.";
+      }
+      for (const player of players) {
+        const rackTotal = Number(roundScores?.[player.id] ?? 0);
+        if (!Number.isInteger(rackTotal) || rackTotal < 0) {
+          return "Rummikub: rack totals must be whole numbers at 0 or higher.";
+        }
+      }
+      const winnerId = state.rummikubCurrentRoundWinnerId;
+      const winnerRackTotal = Number(roundScores?.[winnerId] ?? 0);
+      const lowestRackTotal = Math.min(
+        ...players.map((p) => Number(roundScores?.[p.id] ?? 0)),
+      );
+      if (winnerRackTotal > lowestRackTotal) {
+        return "Rummikub: the selected winner must have the lowest rack total.";
+      }
+    }
+
     if (state.presetKey === "hearts") {
       const normalTotal = heartsPenaltyPoints();
       const total = players.reduce(
@@ -2708,6 +2863,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (state.mode !== "playing") return;
 
     let scores = roundEntry.readRoundScores();
+    const rawRoundScores = { ...scores };
     const phase10CompletedByPlayerId = isPhase10()
       ? roundEntry.readPhase10Completions()
       : null;
@@ -2722,6 +2878,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
         scores,
         state.heartsDeckCount,
       );
+      scores = normalized.scores;
+    } else if (state.presetKey === "rummikub") {
+      const normalized = normalizeRummikubRoundScores(
+        activePlayers(),
+        scores,
+        state.rummikubCurrentRoundWinnerId,
+      );
+      if (!normalized.ok) {
+        showMsg(els.roundMsg, normalized.error || "Invalid Rummikub round.");
+        return;
+      }
       scores = normalized.scores;
     }
     const winnerOnlyNormalized = normalizeWinnerOnlyScores(scores);
@@ -2744,6 +2911,19 @@ import { createScoreboardController } from "./js/scoreboard.js";
       n: nextN,
       scores,
       ts: Date.now(),
+      rummikubRackTotalsByPlayerId:
+        state.presetKey === "rummikub"
+          ? Object.fromEntries(
+              state.players.map((p) => [
+                p.id,
+                Math.max(0, Number(rawRoundScores[p.id] ?? 0)),
+              ]),
+            )
+          : null,
+      rummikubWinnerId:
+        state.presetKey === "rummikub"
+          ? state.rummikubCurrentRoundWinnerId || null
+          : null,
       phase10CompletedByPlayerId,
       skyjoWentOutPlayerId:
         state.presetKey === "skyjo"
@@ -2761,6 +2941,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
     state.skyjoCurrentRoundWentOutPlayerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
 
     const playerTotals = totalsByPlayerId();
     const entries = buildWinnerEntries(playerTotals);
@@ -2825,6 +3006,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
     state.skyjoCurrentRoundWentOutPlayerId = null;
+    state.rummikubCurrentRoundWinnerId = null;
     closeContinueModal();
 
     save();
