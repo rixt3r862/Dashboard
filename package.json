@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "build:dashboard-css": "tailwindcss -i ./dashboard.tailwind.css -o ./dashboard.generated.css --minify"
+    "build:dashboard-css": "tailwindcss -i ./dashboard.tailwind.css -o ./dashboard.generated.css --minify",
+    "test": "node ScoreKeeper/tests/rules.smoke.test.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.2",

@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v4";
+const VERSION = "dashboard-v5";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -6,6 +6,7 @@ const REMOTE_CACHE = `${VERSION}-remote`;
 const CORE_ASSETS = [
   "./",
   "./index.html",
+  "./dashboard.generated.css",
   "./app.webmanifest",
   "./offline.html",
   "./shared/pwa.js",
@@ -35,6 +36,7 @@ const CORE_ASSETS = [
   "./ScoreKeeper/img/Crazy8s.png",
   "./ScoreKeeper/img/Hearts.png",
   "./ScoreKeeper/img/Phase%2010.png",
+  "./ScoreKeeper/img/Rummikub.jpg",
   "./ScoreKeeper/img/SK.png",
   "./ScoreKeeper/img/SkyJo.png",
   "./ScoreKeeper/img/Spades.png",

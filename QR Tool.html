@@ -366,6 +366,14 @@
     let cameraScanCanvas = null;
     let cameraLastValue = "";
 
+    function hasQrGenerator() {
+      return typeof QRCode === "function";
+    }
+
+    function hasQrScanner() {
+      return typeof jsQR === "function";
+    }
+
     async function copyToClipboard(text) {
       try {
         await navigator.clipboard.writeText(text);
@@ -389,7 +397,11 @@
     }
 
     function supportsCameraScan() {
-      return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      return !!(
+        hasQrScanner() &&
+        navigator.mediaDevices &&
+        navigator.mediaDevices.getUserMedia
+      );
     }
 
     function updateCameraUi(active) {
@@ -422,6 +434,11 @@
     }
 
     function scanCurrentCameraFrame() {
+      if (!hasQrScanner()) {
+        stopCameraScan({ preserveStatus: true });
+        setScanStatus("QR scanner library is unavailable. Reconnect and refresh to scan codes.");
+        return;
+      }
       if (!cameraStream || !cameraPreviewEl.videoWidth || !cameraPreviewEl.videoHeight) {
         cameraFrameId = requestAnimationFrame(scanCurrentCameraFrame);
         return;
@@ -457,6 +474,10 @@
     }
 
     async function startCameraScan() {
+      if (!hasQrScanner()) {
+        setScanStatus("QR scanner library is unavailable. Reconnect and refresh to scan codes.");
+        return;
+      }
       if (!supportsCameraScan()) {
         setScanStatus("Camera scanning is not supported in this browser.");
         return;
@@ -498,6 +519,12 @@
     }
 
     function generateQr() {
+      if (!hasQrGenerator()) {
+        qrcodeEl.innerHTML = "";
+        downloadBtnEl.disabled = true;
+        setScanStatus("QR generator library is unavailable. Reconnect and refresh to create codes.");
+        return;
+      }
       const value = qrInputEl.value.trim();
       if (!value) return;
 
@@ -538,6 +565,10 @@
     }
 
     async function scanFile() {
+      if (!hasQrScanner()) {
+        setScanStatus("QR scanner library is unavailable. Reconnect and refresh to scan codes.");
+        return;
+      }
       const file = qrFileEl.files && qrFileEl.files[0];
       if (!file) {
         setScanStatus("Choose an image file first.");
@@ -597,12 +628,20 @@
 
     qrInputEl.value = "https://example.com";
     updateCameraUi(false);
+    generateBtnEl.disabled = !hasQrGenerator();
+    downloadBtnEl.disabled = !hasQrGenerator();
+    scanBtnEl.disabled = !hasQrScanner();
     if (!supportsCameraScan()) {
       startCameraBtnEl.disabled = true;
-      cameraPlaceholderEl.textContent =
-        "Live camera scanning is not supported in this browser. You can still scan uploaded images.";
+      cameraPlaceholderEl.textContent = hasQrScanner()
+        ? "Live camera scanning is not supported in this browser. You can still scan uploaded images."
+        : "QR scanning is unavailable until the scanner library loads. Reconnect and refresh to scan codes.";
     }
-    generateQr();
+    if (hasQrGenerator()) {
+      generateQr();
+    } else {
+      setScanStatus("QR generator library is unavailable. Reconnect and refresh to create codes.");
+    }
 
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) stopCameraScan({ preserveStatus: true });
