@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="manifest" href="./app.webmanifest" />
+  <link rel="apple-touch-icon" href="./img/dashboard-icon.svg" />
   <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
   <title>QR Generator + Scanner</title>
   <script>
@@ -25,6 +26,8 @@
       --line: #d1d5db;
       --accent: #2563eb;
       --accent-soft: #dbeafe;
+      --accent-border: #93b4f2;
+      --focus-ring: rgba(37, 99, 235, 0.24);
       --result-bg: #f1f5f9;
       --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
     }
@@ -38,6 +41,8 @@
         --line: #374151;
         --accent: #60a5fa;
         --accent-soft: #1e3a8a;
+        --accent-border: #4b86d0;
+        --focus-ring: rgba(96, 165, 250, 0.24);
         --result-bg: #1f2937;
         --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
       }
@@ -51,6 +56,8 @@
       --line: #d1d5db;
       --accent: #2563eb;
       --accent-soft: #dbeafe;
+      --accent-border: #93b4f2;
+      --focus-ring: rgba(37, 99, 235, 0.24);
       --result-bg: #f1f5f9;
       --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
     }
@@ -63,6 +70,8 @@
       --line: #374151;
       --accent: #60a5fa;
       --accent-soft: #1e3a8a;
+      --accent-border: #4b86d0;
+      --focus-ring: rgba(96, 165, 250, 0.24);
       --result-bg: #1f2937;
       --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
     }
@@ -163,7 +172,7 @@
     button:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
 
     .actions {
@@ -177,7 +186,7 @@
       cursor: pointer;
       font-weight: 600;
       background: var(--accent-soft);
-      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+      border-color: var(--accent-border);
     }
 
     .qr-preview {
@@ -322,7 +331,7 @@
           <button id="stopCameraBtn" type="button" disabled>Stop Camera</button>
         </div>
         <div class="camera-wrap">
-          <video id="cameraPreview" playsinline muted hidden></video>
+          <video id="cameraPreview" muted hidden></video>
           <div id="cameraPlaceholder" class="camera-placeholder">
             Start the camera to scan a QR code live. On phones, the rear camera is preferred.
           </div>
@@ -356,6 +365,7 @@
     const startCameraBtnEl = document.getElementById("startCameraBtn");
     const stopCameraBtnEl = document.getElementById("stopCameraBtn");
     const cameraPreviewEl = document.getElementById("cameraPreview");
+    cameraPreviewEl.playsInline = true;
     const cameraPlaceholderEl = document.getElementById("cameraPlaceholder");
     const scanOutputEl = document.getElementById("scanOutput");
     const scanStatusEl = document.getElementById("scanStatus");
