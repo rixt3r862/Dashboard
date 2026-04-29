@@ -11,6 +11,7 @@
   <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
   <link rel="icon" type="image/svg+xml" href="./img/scorekeeper-favicon.svg" />
   <link rel="shortcut icon" href="./img/scorekeeper-favicon.svg" />
+  <link rel="apple-touch-icon" href="./img/SK.png" />
   <script>
     (() => {
       const THEME_KEY = "dash.theme";
@@ -184,7 +185,7 @@
                 autocomplete="off"
               />
             </div>
-            <div class="field" style="max-width: 220px">
+            <div class="field u-max-w-220">
               <label for="sessionBrowserSort">Sort by</label>
               <select id="sessionBrowserSort">
                 <option value="updated">Recently updated</option>
@@ -244,6 +245,7 @@
               <select id="presetSelect">
                 <option value="custom">Custom</option>
                 <option value="uno">Uno</option>
+                <option value="quiz">Quiz</option>
                 <option value="rummikub">Rummikub</option>
                 <option value="phase10">Phase 10</option>
                 <option value="crazy8s">Crazy 8s</option>
@@ -253,7 +255,7 @@
               </select>
             </div>
 
-            <div class="field" id="heartsDeckRow" style="display: none; max-width: 180px">
+            <div class="field u-hidden u-max-w-180" id="heartsDeckRow">
               <label for="heartsDeckCount">Decks (Hearts)</label>
               <select id="heartsDeckCount">
                 <option value="1">1 deck</option>
@@ -263,7 +265,7 @@
               </select>
             </div>
 
-            <div class="field custom-game-field" id="customGameRow" style="display: none">
+            <div class="field custom-game-field u-hidden" id="customGameRow">
               <label for="customGameName">Game</label>
               <input
                 id="customGameName"
@@ -277,11 +279,10 @@
           </div>
 
           <div
-            class="row custom-win-mode-row"
+            class="row custom-win-mode-row u-hidden"
             id="customWinModeRow"
-            style="display: none"
           >
-            <div class="field custom-win-mode-field" style="max-width: 240px">
+            <div class="field custom-win-mode-field u-max-w-240">
               <label for="customWinModeSelect">Custom game win mode</label>
               <select id="customWinModeSelect">
                 <option value="high">Highest score wins</option>
@@ -291,7 +292,7 @@
           </div>
 
           <div class="row">
-            <div class="field" style="max-width: 200px">
+            <div class="field u-max-w-200">
               <label for="playerCount">Number of players</label>
               <input
                 id="playerCount"
@@ -306,7 +307,7 @@
               />
             </div>
 
-            <div class="field" style="max-width: 220px">
+            <div class="field u-max-w-220">
               <label id="targetLabel" for="targetPoints">Target</label>
               <input
                 id="targetPoints"
@@ -321,7 +322,7 @@
             </div>
           </div>
 
-          <div class="muted" style="margin-top: 8px">
+          <div class="muted u-mt-8">
             Win mode: <strong id="winModeText">Highest score wins</strong>
           </div>
 
@@ -332,12 +333,12 @@
           <div class="hr"></div>
 
           <!-- Team preview (Spades only) -->
-          <div id="teamPreview" style="display: none">
+          <div class="u-hidden" id="teamPreview">
             <div class="muted">Teams (Spades):</div>
 
             <!-- Team picker -->
-            <div class="row" style="margin-top: 8px" id="teamPickerRow">
-              <div class="field" style="max-width: 320px">
+            <div class="row u-mt-8" id="teamPickerRow">
+              <div class="field u-max-w-320">
                 <label id="spadesPartnerLabel" for="spadesPartner">Partner for Player 1</label>
                 <select id="spadesPartner" disabled></select>
               </div>
@@ -345,7 +346,7 @@
 
             <div class="chips" id="teamChips"></div>
 
-            <div class="muted" style="margin-top: 6px">
+            <div class="muted u-mt-6">
               Tip: Pick Player 1’s partner, and we’ll auto-form the other
               team.
             </div>
@@ -356,29 +357,29 @@
             <button class="btn primary" id="btnStart" type="button" disabled>
               Start Game
             </button>
-            <button class="btn" id="btnLoadSaved" type="button" style="display: none">
+            <button class="btn u-hidden" id="btnLoadSaved" type="button">
               Resume Autosave
             </button>
           </div>
 
           <div class="msg" id="setupMsg"></div>
-          <div class="muted" style="margin-top: 10px">
+          <div class="muted u-mt-10">
             Notes: Names must be unique. Scores default to 0 if left blank.
             Negative scores are allowed.
           </div>
         </div>
 
-        <div id="roundPanel" style="display: none">
+        <div class="u-hidden" id="roundPanel">
           <div
             id="preRoundPresetRow"
-            class="row pre-round-preset-row"
-            style="display: none; margin-bottom: 8px"
+            class="row pre-round-preset-row u-hidden u-mb-8"
           >
             <div class="field preset-field pre-round-preset-field">
               <label for="preRoundPresetSelect">Game preset<br /><em>(Can be changed before Round 1)</em></label>
               <select id="preRoundPresetSelect">
                 <option value="custom">Custom</option>
                 <option value="uno">Uno</option>
+                <option value="quiz">Quiz</option>
                 <option value="rummikub">Rummikub</option>
                 <option value="phase10">Phase 10</option>
                 <option value="crazy8s">Crazy 8s</option>
@@ -387,7 +388,7 @@
                 <option value="spades">Spades</option>
               </select>
             </div>
-            <div class="field" style="max-width: 220px">
+            <div class="field u-max-w-220">
               <label id="preRoundTargetLabel" for="preRoundTargetPoints">Target<br /><em>(Can be changed before Round 1)</em></label>
               <input
                 id="preRoundTargetPoints"
@@ -399,7 +400,7 @@
                 min="1"
               />
             </div>
-            <div class="field" id="preRoundHeartsDeckRow" style="display: none; max-width: 180px">
+            <div class="field u-hidden u-max-w-180" id="preRoundHeartsDeckRow">
               <label for="preRoundHeartsDeckCount">Decks<br /><em>(Can be changed before Round 1)</em></label>
               <select id="preRoundHeartsDeckCount">
                 <option value="1">1 deck</option>
@@ -408,14 +409,13 @@
                 <option value="4">4 decks</option>
               </select>
             </div>
-            <div class="field" id="preRoundSpadesTeamRow" style="display: none; max-width: 320px">
+            <div class="field u-hidden u-max-w-320" id="preRoundSpadesTeamRow">
               <label id="preRoundSpadesPartnerLabel" for="preRoundSpadesPartner">Assign Teams (Spades)</label>
               <select id="preRoundSpadesPartner"></select>
             </div>
             <div
-              class="field custom-game-field pre-round-custom-game-field"
+              class="field custom-game-field pre-round-custom-game-field u-hidden"
               id="preRoundCustomGameRow"
-              style="display: none"
             >
               <label for="preRoundCustomGameName">Game</label>
               <input
@@ -427,9 +427,8 @@
               />
             </div>
             <div
-              class="field pre-round-custom-win-mode-field"
+              class="field pre-round-custom-win-mode-field u-hidden u-max-w-240"
               id="preRoundCustomWinModeRow"
-              style="display: none; max-width: 240px"
             >
               <label for="preRoundCustomWinModeSelect">Custom game win mode</label>
               <select id="preRoundCustomWinModeSelect">
@@ -439,7 +438,7 @@
             </div>
           </div>
 
-          <div class="row" style="justify-content: space-between">
+          <div class="row u-row-space-between">
             <div class="pill">
               <strong id="targetPillLabel">Target:</strong> <span id="targetPill">0</span>
             </div>
@@ -458,10 +457,10 @@
             <div id="roundPreviewBody" class="round-preview-grid"></div>
           </div>
 
-          <div id="roundHelperBar" class="round-helper-bar" style="display: none" aria-label="Round helpers">
+          <div id="roundHelperBar" class="round-helper-bar u-hidden" aria-label="Round helpers">
             <div class="muted"><strong>Quick Actions</strong></div>
             <div id="roundHelperButtons" class="round-helper-buttons"></div>
-            <div id="roundHelperForm" class="round-helper-form" style="display: none"></div>
+            <div id="roundHelperForm" class="round-helper-form u-hidden"></div>
           </div>
 
           <div class="hr"></div>
@@ -494,8 +493,8 @@
           aria-hidden="true"
         />
         <div class="scoreboard-head">
-          <h2 id="scoreboardTitle" style="margin: 0">Scoreboard</h2>
-          <div class="row" style="justify-content: flex-end">
+          <h2 class="u-m-0" id="scoreboardTitle">Scoreboard</h2>
+          <div class="row u-row-end">
             <button class="btn" id="btnToggleSort" type="button" disabled title="Toggle sorting by score">
               Sort: Off
             </button>
@@ -506,13 +505,13 @@
           Set up a game to see the scoreboard.
         </div>
 
-        <div id="scoreboardArea" style="display: none">
+        <div class="u-hidden" id="scoreboardArea">
           <table aria-label="Running totals">
             <thead>
               <tr>
-                <th style="width: 48%" id="colHeadEntity">Player</th>
-                <th id="colHeadTotal" style="width: 26%">Total</th>
-                <th id="colHeadThis" style="width: 26%">This round</th>
+                <th class="u-w-48" id="colHeadEntity">Player</th>
+                <th class="u-w-26" id="colHeadTotal">Total</th>
+                <th class="u-w-26" id="colHeadThis">This round</th>
               </tr>
             </thead>
             <tbody id="scoreboardBody"></tbody>
@@ -534,7 +533,7 @@
             </ol>
           </section>
 
-          <div style="margin-top: 12px">
+          <div class="u-mt-12">
             <details id="historyDetails">
               <summary>
                 <span id="historySummaryText">Round History</span>
@@ -547,7 +546,7 @@
                   Order: Oldest first
                 </button>
               </div>
-              <div class="history-wrap" style="margin-top: 10px">
+              <div class="history-wrap u-mt-10">
                 <table class="history-table" aria-label="Round history" id="historyTable"></table>
                 <div class="history-cards" id="historyCards" hidden></div>
               </div>
@@ -634,7 +633,7 @@
             </details>
           </div>
 
-          <div class="muted" style="margin-top: 10px">
+          <div class="muted u-mt-10">
             Tip: Press Enter in the last score field to add the round.
           </div>
         </div>

@@ -50,6 +50,10 @@ export function createHistoryController(deps) {
     return state.presetKey === "rummikub";
   }
 
+  function isQuiz() {
+    return state.presetKey === "quiz";
+  }
+
   function inactiveRangesForPlayer(playerId) {
     return Array.isArray(state.playerInactiveRanges?.[playerId])
       ? state.playerInactiveRanges[playerId]
@@ -160,6 +164,7 @@ export function createHistoryController(deps) {
         : state.players.map((player) => ({
             id: player.id,
             total: Number(cumulativePlayerTotals[player.id] ?? 0),
+            roundsPlayed: isQuiz() ? idx + 1 : undefined,
             wins: isRummikub()
               ? Number(cumulativeRummikubWins?.[player.id] ?? 0)
               : undefined,
@@ -167,7 +172,7 @@ export function createHistoryController(deps) {
 
       const winnerId = resolveWinnerFromTotals(
         entries,
-        isRummikub() ? "rummikub" : state.winMode,
+        isRummikub() ? "rummikub" : isQuiz() ? "quiz" : state.winMode,
         normalizedTarget,
       );
       if (winnerId) {
@@ -235,6 +240,7 @@ export function createHistoryController(deps) {
         .map((p) => ({
           id: p.id,
           total: playerTotals[p.id] ?? 0,
+          roundsPlayed: isQuiz() ? state.rounds.length : undefined,
           wins: isRummikub() ? Number(rummikubWins?.[p.id] ?? 0) : undefined,
         }));
     }
@@ -263,11 +269,13 @@ export function createHistoryController(deps) {
     // Free-play keeps scoring and history, but intentionally has no active winner state.
     if (state.gameState === "free_play") {
       state.winnerId = null;
+      state.quizTieIds = [];
       state.mode = state.players.length ? "playing" : "setup";
       state.bannerDismissed = true;
     } else {
       if (winner) {
         state.winnerId = winner;
+        state.quizTieIds = [];
         state.mode = "finished";
         if (state.gameState !== "extended") {
           state.gameState = "completed";
@@ -275,16 +283,35 @@ export function createHistoryController(deps) {
         const winnerChanged = prevMode !== "finished" || prevWinnerId !== winner;
         state.bannerDismissed = winnerChanged ? false : prevBannerDismissed;
       } else {
-        state.winnerId = null;
-        state.mode = state.players.length ? "playing" : "setup";
-        if (state.gameState === "extended") {
-          if (!state.winnerMilestones?.length) state.gameState = "in_progress";
+        const quizTieIds =
+          isQuiz() && state.rounds.length >= state.target
+            ? entries
+                .filter((entry) => !entry.retired)
+                .filter((entry, _, list) => {
+                  const best = Math.max(...list.map((x) => Number(x.total ?? 0)));
+                  return Number(entry.total ?? 0) === best;
+                })
+                .map((entry) => entry.id)
+            : [];
+        if (quizTieIds.length > 1) {
+          state.winnerId = null;
+          state.quizTieIds = quizTieIds;
+          state.mode = "finished";
+          state.gameState = "completed";
+          state.bannerDismissed = false;
         } else {
-          state.gameState = "in_progress";
-          state.winnerMilestones = [];
-          syncWinnerAnchors();
+          state.winnerId = null;
+          state.quizTieIds = [];
+          state.mode = state.players.length ? "playing" : "setup";
+          if (state.gameState === "extended") {
+            if (!state.winnerMilestones?.length) state.gameState = "in_progress";
+          } else {
+            state.gameState = "in_progress";
+            state.winnerMilestones = [];
+            syncWinnerAnchors();
+          }
+          state.bannerDismissed = true;
         }
-        state.bannerDismissed = true;
       }
     }
 

@@ -14,6 +14,16 @@ export const PRESETS = {
     notes:
       "Winner-only scoring: enter opponents' hand points and set winner to 0. App totals opponents into winner points.",
   },
+  quiz: {
+    label: "Quiz",
+    target: 60,
+    winMode: "high",
+    teams: false,
+    defaultPlayers: 1,
+    minPlayers: 1,
+    notes:
+      "Each player can earn 0 or 1 point per round. Use the point button to award the round point.",
+  },
   rummikub: {
     label: "Rummikub",
     target: 3,

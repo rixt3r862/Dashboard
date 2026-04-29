@@ -281,6 +281,10 @@ export function createScoreboardController(deps) {
   function renderWinnerBanner() {
     const playerTotals = totalsByPlayerId();
     let winnerTotal = 0;
+    const quizTieIds =
+      state.presetKey === "quiz" && Array.isArray(state.quizTieIds)
+        ? state.quizTieIds
+        : [];
     const showContinueButton =
       state.mode === "finished" &&
       !!state.winnerId &&
@@ -300,7 +304,18 @@ export function createScoreboardController(deps) {
       }
     }
 
-    if (state.mode === "finished" && state.winnerId && !state.bannerDismissed) {
+    if (state.mode === "finished" && quizTieIds.length > 1 && !state.bannerDismissed) {
+      const bestTotal = Math.max(
+        ...quizTieIds.map((id) => Number(playerTotals[id] ?? 0)),
+      );
+      const names = quizTieIds.map((id) => entityName(id)).join(" & ");
+      els.winnerText.textContent = `🤝 Tie: ${names} (${bestTotal})`;
+      els.winnerSub.textContent = `🎉 ${state.target} questions complete. Highest score tied at ${bestTotal}.`;
+      if (els.winnerMilestones) {
+        els.winnerMilestones.innerHTML = "";
+      }
+      els.winnerBanner.classList.add("show");
+    } else if (state.mode === "finished" && state.winnerId && !state.bannerDismissed) {
       const name = entityName(state.winnerId);
       const winnerSuffix = isPhase10()
         ? `${winnerTotal} pts`
@@ -312,6 +327,8 @@ export function createScoreboardController(deps) {
       const rulesLine =
         isPhase10()
           ? `Final phase is ${state.target}. If multiple players finish Phase ${state.target} in the same round, the lowest total points wins.`
+          : state.presetKey === "quiz"
+          ? `${state.target} questions complete. Highest total score wins.`
           : isRummikub()
           ? `Target was ${state.target} game wins. Standings rank by games won first, with score breaking ties.`
           : state.winMode === "low"
@@ -327,7 +344,11 @@ export function createScoreboardController(deps) {
           .map((m) => {
             const winnerName = entityName(m.winnerId);
             return `<li>${
-              isRummikub() ? `Target ${m.target} wins` : `Target ${m.target}`
+              state.presetKey === "quiz"
+                ? `${m.target} questions`
+                : isRummikub()
+                ? `Target ${m.target} wins`
+                : `Target ${m.target}`
             }: ${escapeHtml(winnerName)} (Round ${m.roundN})</li>`;
           })
           .join("");

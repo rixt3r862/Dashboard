@@ -36,6 +36,22 @@
 
 *{ box-sizing:border-box; }
 [hidden]{ display: none !important; }
+.u-hidden{ display: none; }
+.u-max-w-180{ max-width: 180px; }
+.u-max-w-200{ max-width: 200px; }
+.u-max-w-220{ max-width: 220px; }
+.u-max-w-240{ max-width: 240px; }
+.u-max-w-320{ max-width: 320px; }
+.u-m-0{ margin: 0; }
+.u-mt-6{ margin-top: 6px; }
+.u-mt-8{ margin-top: 8px; }
+.u-mt-10{ margin-top: 10px; }
+.u-mt-12{ margin-top: 12px; }
+.u-mb-8{ margin-bottom: 8px; }
+.u-row-space-between{ justify-content: space-between; }
+.u-row-end{ justify-content: flex-end; }
+.u-w-48{ width: 48%; }
+.u-w-26{ width: 26%; }
 html,body{ height:100%; }
 body{
   margin:0;
@@ -446,6 +462,49 @@ select:disabled{
   border-color: rgba(37,99,235,.9);
   color: #fff;
 }
+.btn.round-ack{
+  animation: addRoundButtonAck 760ms ease-out;
+}
+@keyframes addRoundButtonAck{
+  0%{
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 0 rgba(37,99,235,.00);
+  }
+  28%{
+    transform: translateY(0) scale(1.03);
+    box-shadow: 0 0 0 4px rgba(37,99,235,.18);
+  }
+  100%{
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 0 rgba(37,99,235,.00);
+  }
+}
+:root[data-theme="dark"] .btn.round-ack{
+  animation-name: addRoundButtonAckDark;
+}
+@keyframes addRoundButtonAckDark{
+  0%{
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 0 rgba(96,165,250,.00);
+  }
+  28%{
+    transform: translateY(0) scale(1.03);
+    box-shadow: 0 0 0 4px rgba(96,165,250,.26);
+  }
+  100%{
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 0 rgba(96,165,250,.00);
+  }
+}
+@media (prefers-reduced-motion: reduce){
+  .btn.round-ack{
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.18);
+  }
+  :root[data-theme="dark"] .btn.round-ack{
+    box-shadow: 0 0 0 3px rgba(96,165,250,.26);
+  }
+}
 .btn.danger{
   border-color: rgba(220,38,38,.35);
   color: var(--bad);
@@ -495,6 +554,49 @@ select:disabled{
   position: relative;
   isolation: isolate;
   overflow: hidden;
+}
+#scoreboardCard.round-ack{
+  animation: scoreboardRoundAck 820ms ease-out;
+}
+@keyframes scoreboardRoundAck{
+  0%{
+    transform: translateZ(0) scale(1);
+    box-shadow: var(--shadow), 0 0 0 0 rgba(37,99,235,.00);
+  }
+  28%{
+    transform: translateZ(0) scale(1.006);
+    box-shadow: 0 16px 40px rgba(2,6,23,.12), 0 0 0 4px rgba(37,99,235,.14);
+  }
+  100%{
+    transform: translateZ(0) scale(1);
+    box-shadow: var(--shadow), 0 0 0 0 rgba(37,99,235,.00);
+  }
+}
+:root[data-theme="dark"] #scoreboardCard.round-ack{
+  animation-name: scoreboardRoundAckDark;
+}
+@keyframes scoreboardRoundAckDark{
+  0%{
+    transform: translateZ(0) scale(1);
+    box-shadow: var(--shadow), 0 0 0 0 rgba(96,165,250,.00);
+  }
+  28%{
+    transform: translateZ(0) scale(1.006);
+    box-shadow: 0 24px 46px rgba(0,0,0,.5), 0 0 0 4px rgba(96,165,250,.22);
+  }
+  100%{
+    transform: translateZ(0) scale(1);
+    box-shadow: var(--shadow), 0 0 0 0 rgba(96,165,250,.00);
+  }
+}
+@media (prefers-reduced-motion: reduce){
+  #scoreboardCard.round-ack{
+    animation: none;
+    box-shadow: var(--shadow), 0 0 0 3px rgba(37,99,235,.18);
+  }
+  :root[data-theme="dark"] #scoreboardCard.round-ack{
+    box-shadow: var(--shadow), 0 0 0 3px rgba(96,165,250,.24);
+  }
 }
 #scoreboardCard.has-bg{
   background: rgba(var(--scoreboard-tint-rgb, 255, 255, 255), .14);
@@ -2180,6 +2282,19 @@ summary::-webkit-details-marker{ display:none; }
 .round-preview-btn.active{
   background: rgba(37,99,235,.12);
   border-color: rgba(37,99,235,.45);
+}
+.round-preview-quiz-btn{
+  min-width: 88px;
+}
+.round-preview-quiz-btn.active{
+  background: rgba(22,163,74,.14);
+  border-color: rgba(22,163,74,.38);
+  color: #166534;
+}
+:root[data-theme="dark"] .round-preview-quiz-btn.active{
+  background: rgba(34,197,94,.18);
+  border-color: rgba(74,222,128,.34);
+  color: #bbf7d0;
 }
 
 .round-helper-bar{

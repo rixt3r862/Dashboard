@@ -218,6 +218,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     roundEntryOrder: [], // player ids for round-entry display only
     playerInactiveRanges: {}, // { [playerId]: [{ startRound, endRound|null }] }
     winnerId: null, // playerId or teamId (depending on mode)
+    quizTieIds: [],
     gameState: "in_progress", // in_progress | completed | extended | free_play
     firstWinnerAt: null, // { winnerId, roundN, target, ts }
     finalWinnerAt: null, // { winnerId, roundN, target, ts }
@@ -299,9 +300,41 @@ import { createScoreboardController } from "./js/scoreboard.js";
   });
 
   const uid = () => Math.random().toString(36).slice(2, 10);
+  let scoreboardRoundAckTimer = null;
+  let addRoundButtonAckTimer = null;
 
   function setLive(text) {
     els.ariaLive.textContent = text;
+  }
+
+  function flashScoreboardRoundAck() {
+    if (!els.scoreboardCard) return;
+    if (scoreboardRoundAckTimer) {
+      window.clearTimeout(scoreboardRoundAckTimer);
+      scoreboardRoundAckTimer = null;
+    }
+    els.scoreboardCard.classList.remove("round-ack");
+    void els.scoreboardCard.offsetWidth;
+    els.scoreboardCard.classList.add("round-ack");
+    scoreboardRoundAckTimer = window.setTimeout(() => {
+      els.scoreboardCard?.classList.remove("round-ack");
+      scoreboardRoundAckTimer = null;
+    }, 900);
+  }
+
+  function flashAddRoundButtonAck() {
+    if (!els.btnAddRound) return;
+    if (addRoundButtonAckTimer) {
+      window.clearTimeout(addRoundButtonAckTimer);
+      addRoundButtonAckTimer = null;
+    }
+    els.btnAddRound.classList.remove("round-ack");
+    void els.btnAddRound.offsetWidth;
+    els.btnAddRound.classList.add("round-ack");
+    addRoundButtonAckTimer = window.setTimeout(() => {
+      els.btnAddRound?.classList.remove("round-ack");
+      addRoundButtonAckTimer = null;
+    }, 820);
   }
 
   function activeMessageEl() {
@@ -330,6 +363,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       teams: state.teams,
       rounds: state.rounds,
       winnerId: state.winnerId,
+      quizTieIds: state.quizTieIds,
       gameState: state.gameState,
       firstWinnerAt: state.firstWinnerAt,
       finalWinnerAt: state.finalWinnerAt,
@@ -1012,6 +1046,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function clearWinnerLifecycle() {
     state.winnerId = null;
+    state.quizTieIds = [];
     state.winnerMilestones = [];
     syncWinnerAnchorsFromMilestones();
     state.gameState = "in_progress";
@@ -1028,6 +1063,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function buildWinnerEntries(playerTotals) {
     const eligiblePlayers = activePlayers();
+    if (state.presetKey === "quiz") {
+      return eligiblePlayers.map((p) => ({
+        id: p.id,
+        total: playerTotals[p.id] ?? 0,
+        roundsPlayed: state.rounds.length,
+      }));
+    }
     if (state.presetKey === "rummikub") {
       const winsByPlayerId = rummikubWinsByPlayerId(state.players, state.rounds);
       return eligiblePlayers.map((p) => ({
@@ -1059,6 +1101,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function suggestedContinueTarget() {
     const requirement = continueTargetRequirement();
+    if (state.presetKey === "quiz") {
+      return requirement.minTarget;
+    }
     if (state.presetKey === "rummikub") {
       return requirement.minTarget;
     }
@@ -1070,6 +1115,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function continueTargetRequirement() {
     const playerTotals = totalsByPlayerId();
     const entries = buildWinnerEntries(playerTotals);
+    if (state.presetKey === "quiz") {
+      const roundsPlayed = state.rounds.length;
+      return {
+        highestId: null,
+        highestTotal: roundsPlayed,
+        minTarget: Math.max(APP_LIMITS.targetMin, roundsPlayed + 1),
+      };
+    }
     if (state.presetKey === "rummikub") {
       const topEntry = entries.reduce((best, entry) => {
         const wins = Number(entry?.wins ?? 0);
@@ -1122,7 +1175,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
       ? entityName(requirement.highestId)
       : "A player";
     const requirementLine =
-      state.presetKey === "rummikub"
+      state.presetKey === "quiz"
+        ? `The game already has ${requirement.highestTotal} question${requirement.highestTotal === 1 ? "" : "s"}, so the new target must be at least `
+        : state.presetKey === "rummikub"
         ? `${highestLabel} already has ${requirement.highestTotal} game${requirement.highestTotal === 1 ? "" : "s"} won, so the new target must be at least `
         : `${highestLabel} is already at ${requirement.highestTotal}, so the new target must be at least `;
 
@@ -1134,7 +1189,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
     ) {
       els.continueModalIntro.textContent = firstLine;
       els.continueTargetRequirementText.innerHTML =
-        `${requirementLine}<strong class="continue-target-min">${requirement.minTarget}</strong>${state.presetKey === "rummikub" ? " game wins" : ""}.`;
+        `${requirementLine}<strong class="continue-target-min">${requirement.minTarget}</strong>${
+          state.presetKey === "quiz"
+            ? " questions"
+            : state.presetKey === "rummikub"
+            ? " game wins"
+            : ""
+        }.`;
       els.continueTargetRequirement.classList.toggle("is-invalid", invalid);
       els.continueModalPrompt.textContent = "Choose how to continue.";
       return;
@@ -1174,6 +1235,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (state.gameState === "free_play") {
       state.mode = state.players.length ? "playing" : "setup";
       state.winnerId = null;
+      state.quizTieIds = [];
       return;
     }
 
@@ -1184,6 +1246,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     if (resolvedWinner) {
       state.winnerId = resolvedWinner;
+      state.quizTieIds = [];
       state.mode = "finished";
       const marker = makeWinnerMarker(resolvedWinner);
       appendWinnerMilestone(marker);
@@ -1193,7 +1256,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
       return;
     }
 
+    const quizTieIds = resolveQuizTieIds(entries);
+    if (quizTieIds.length) {
+      state.winnerId = null;
+      state.quizTieIds = quizTieIds;
+      state.mode = "finished";
+      state.gameState = "completed";
+      return;
+    }
+
     state.winnerId = null;
+    state.quizTieIds = [];
     state.mode = state.players.length ? "playing" : "setup";
     if (state.gameState !== "extended") {
       state.gameState = "in_progress";
@@ -1451,6 +1524,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
             : null,
       }));
       state.winnerId = payload.winnerId || null;
+      state.quizTieIds = Array.isArray(payload.quizTieIds)
+        ? payload.quizTieIds.filter((id) => typeof id === "string")
+        : [];
       state.gameState =
         payload.gameState === "completed" ||
         payload.gameState === "extended" ||
@@ -2093,9 +2169,36 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return heartsRoundPenaltyTotal(state.heartsDeckCount);
   }
 
+  function playerCountLimitsForPreset(presetKey = state.presetKey) {
+    const preset = PRESETS[presetKey] || PRESETS.custom;
+    const min = Number.isInteger(preset.minPlayers)
+      ? Math.max(1, preset.minPlayers)
+      : APP_LIMITS.playerCountMin;
+    const max = Number.isInteger(preset.maxPlayers)
+      ? Math.min(APP_LIMITS.playerCountMax, Math.max(min, preset.maxPlayers))
+      : APP_LIMITS.playerCountMax;
+    return { min, max };
+  }
+
+  function defaultPlayerCountForPreset(presetKey = state.presetKey) {
+    const preset = PRESETS[presetKey] || PRESETS.custom;
+    const limits = playerCountLimitsForPreset(presetKey);
+    const defaultPlayers = Number.isInteger(preset.defaultPlayers)
+      ? preset.defaultPlayers
+      : APP_LIMITS.defaultPlayerCount;
+    return Math.min(limits.max, Math.max(limits.min, defaultPlayers));
+  }
+
   function validateSetup(names, target) {
-    if (names.length < APP_LIMITS.playerCountMin)
-      return APP_MESSAGES.setup.minPlayers;
+    const limits = playerCountLimitsForPreset();
+    if (names.length < limits.min) {
+      return limits.min === APP_LIMITS.playerCountMin
+        ? APP_MESSAGES.setup.minPlayers
+        : `This preset requires at least ${limits.min} player${limits.min === 1 ? "" : "s"}.`;
+    }
+    if (names.length > limits.max) {
+      return `This preset supports up to ${limits.max} players.`;
+    }
     if (!Number.isInteger(target) || target < APP_LIMITS.targetMin)
       return APP_MESSAGES.setup.targetWholePositive;
     if (names.some((n) => !n)) return APP_MESSAGES.setup.allNamesRequired;
@@ -2112,6 +2215,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function updateWinModeText() {
+    if (state.presetKey === "quiz") {
+      els.winModeText.textContent = "Most points after all questions";
+      return;
+    }
     if (state.presetKey === "rummikub") {
       els.winModeText.textContent = "Most games won, score breaks ties";
       return;
@@ -2129,24 +2236,33 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.scoreboardCard.classList.toggle("hearts-mode", state.presetKey === "hearts");
     els.scoreboardCard.classList.toggle("uno-mode", state.presetKey === "uno");
     const isRummikub = state.presetKey === "rummikub";
+    const isQuiz = state.presetKey === "quiz";
 
     if (els.targetLabel) {
       els.targetLabel.textContent = isPhase10()
         ? "Final phase"
+        : isQuiz
+        ? "Questions"
         : isRummikub
         ? "Games"
         : "Target";
     }
     if (els.preRoundTargetLabel) {
       els.preRoundTargetLabel.innerHTML = `${
-        isRummikub ? "Games" : "Target"
+        isQuiz ? "Questions" : isRummikub ? "Games" : "Target"
       }<br /><em>(Can be changed before Round 1)</em>`;
     }
     if (els.targetPillLabel) {
-      els.targetPillLabel.textContent = isRummikub ? "Games:" : "Target:";
+      els.targetPillLabel.textContent = isQuiz
+        ? "Questions:"
+        : isRummikub
+        ? "Games:"
+        : "Target:";
     }
     if (els.continueTargetLabel) {
-      els.continueTargetLabel.textContent = isRummikub
+      els.continueTargetLabel.textContent = isQuiz
+        ? "New questions target (recommended)"
+        : isRummikub
         ? "New games target (recommended)"
         : "New target (recommended)";
     }
@@ -2195,6 +2311,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.presetNote = preset.notes || "";
     showMsg(els.setupMsg, state.presetNote);
     applyPhase10UiText();
+    if (state.mode === "setup") {
+      const setupNames = currentNameInputs();
+      if (Number.isInteger(preset.defaultPlayers) && !setupNames.some(Boolean)) {
+        els.playerCount.value = String(defaultPlayerCountForPreset());
+      }
+      renderSetupInputs();
+    }
 
     // Allow preset switching after game start only before Round 1:
     // re-evaluate whether this game uses teams (e.g., switching to/from Spades).
@@ -2217,7 +2340,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function renderSetupInputs(keepExisting = true) {
+    const limits = playerCountLimitsForPreset();
     const raw = String(els.playerCount.value ?? "").trim();
+    els.playerCount.min = String(limits.min);
+    els.playerCount.max = String(limits.max);
 
     // Allow empty mid-edit without snapping. Keep existing fields; just disable Start.
     if (raw === "") {
@@ -2227,10 +2353,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     const n = Number.parseInt(raw, 10);
     const count = Number.isNaN(n)
-      ? APP_LIMITS.playerCountMin
+      ? limits.min
       : Math.min(
-          APP_LIMITS.playerCountMax,
-          Math.max(APP_LIMITS.playerCountMin, n),
+          limits.max,
+          Math.max(limits.min, n),
         );
     els.playerCount.value = count;
 
@@ -2551,6 +2677,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function leaderIdFromTotals(entries) {
     const eligibleEntries = entries.filter((entry) => !entry.retired);
     if (!eligibleEntries.length) return null;
+    if (state.presetKey === "quiz") {
+      const bestTotal = Math.max(
+        ...eligibleEntries.map((entry) => Number(entry.total ?? 0)),
+      );
+      const leaders = eligibleEntries.filter(
+        (entry) => Number(entry.total ?? 0) === bestTotal,
+      );
+      return leaders.length === 1 ? leaders[0]?.id ?? null : null;
+    }
     if (state.presetKey === "rummikub") {
       const bestWins = Math.max(
         ...eligibleEntries.map((entry) => Number(entry.wins ?? 0)),
@@ -2598,9 +2733,26 @@ import { createScoreboardController } from "./js/scoreboard.js";
     }
     return resolveWinnerFromTotals(
       entries,
-      state.presetKey === "rummikub" ? "rummikub" : state.winMode,
+      state.presetKey === "rummikub"
+        ? "rummikub"
+        : state.presetKey === "quiz"
+        ? "quiz"
+        : state.winMode,
       state.target,
     );
+  }
+
+  function resolveQuizTieIds(entries) {
+    if (state.presetKey !== "quiz" || state.rounds.length < state.target) return [];
+    const eligibleEntries = (entries || []).filter((entry) => !entry.retired);
+    if (!eligibleEntries.length) return [];
+    const bestTotal = Math.max(
+      ...eligibleEntries.map((entry) => Number(entry.total ?? 0)),
+    );
+    const leaders = eligibleEntries.filter(
+      (entry) => Number(entry.total ?? 0) === bestTotal,
+    );
+    return leaders.length > 1 ? leaders.map((entry) => entry.id) : [];
   }
 
   function hasLowScoreTargetTie(entries) {
@@ -2801,6 +2953,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (state.mode !== "playing") return "Start a game to add rounds.";
     const roundScores = scores || roundEntry.readRoundScores();
     const players = activePlayers();
+    const playerCountLimits = playerCountLimitsForPreset();
+
+    if (players.length < playerCountLimits.min) {
+      return `${PRESETS[state.presetKey]?.label || "This preset"} requires at least ${playerCountLimits.min} active player${playerCountLimits.min === 1 ? "" : "s"}.`;
+    }
+    if (players.length > playerCountLimits.max) {
+      return `${PRESETS[state.presetKey]?.label || "This preset"} supports up to ${playerCountLimits.max} active players.`;
+    }
 
     if (
       state.presetKey === "skyjo" &&
@@ -2952,6 +3112,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
         : determineWinnerFromTotals(entries);
     if (w) {
       state.winnerId = w;
+      state.quizTieIds = [];
       state.mode = "finished";
       const marker = makeWinnerMarker(w);
       appendWinnerMilestone(marker);
@@ -2961,10 +3122,28 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.bannerDismissed = false;
       setLive(`Winner declared: ${entityName(w)}.`);
     } else {
-      if (state.gameState !== "free_play" && !state.winnerMilestones.length) {
+      const quizTieIds = resolveQuizTieIds(entries);
+      if (quizTieIds.length) {
+        state.winnerId = null;
+        state.quizTieIds = quizTieIds;
+        state.mode = "finished";
+        state.gameState = "completed";
+        state.bannerDismissed = false;
+      } else {
+        state.quizTieIds = [];
+      }
+      if (
+        state.gameState !== "free_play" &&
+        !quizTieIds.length &&
+        !state.winnerMilestones.length
+      ) {
         state.gameState = "in_progress";
       }
-      if (hasLowScoreTargetTie(entries)) {
+      if (quizTieIds.length) {
+        const tieMessage = "Quiz complete. The game ended in a tie.";
+        showMsg(els.roundMsg, tieMessage);
+        setLive(tieMessage);
+      } else if (hasLowScoreTargetTie(entries)) {
         const tieMessage =
           state.presetKey === "hearts"
             ? "Hearts target reached with a tie for lowest score. Play continues until the tie is broken."
@@ -2983,6 +3162,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     save();
     applyPhase10UiText();
     renderAll();
+    flashScoreboardRoundAck();
+    flashAddRoundButtonAck();
 
     if (state.mode === "playing") {
       roundEntry.clearRoundInputs();

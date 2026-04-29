@@ -64,6 +64,48 @@ test("Phase 10 validation allows normal leftover hand points", () => {
   assert.equal(ok.ok, true);
 });
 
+test("Quiz validation only allows 0 or 1 per player", () => {
+  const players = [
+    { id: "p1", name: "A" },
+    { id: "p2", name: "B" },
+  ];
+
+  const ok = validateRoundScores({
+    scores: { p1: 1, p2: 0 },
+    players,
+    presetKey: "quiz",
+  });
+  assert.equal(ok.ok, true);
+
+  const bad = validateRoundScores({
+    scores: { p1: 2, p2: 0 },
+    players,
+    presetKey: "quiz",
+  });
+  assert.equal(bad.ok, false);
+  assert.match(String(bad.error), /must be 0 or 1/i);
+});
+
+test("Quiz ends after the configured question count and allows ties", () => {
+  const beforeEnd = [
+    { id: "a", total: 5, roundsPlayed: 59 },
+    { id: "b", total: 7, roundsPlayed: 59 },
+  ];
+  assert.equal(determineWinnerFromTotals(beforeEnd, "quiz", 60), null);
+
+  const winner = [
+    { id: "a", total: 35, roundsPlayed: 60 },
+    { id: "b", total: 33, roundsPlayed: 60 },
+  ];
+  assert.equal(determineWinnerFromTotals(winner, "quiz", 60), "a");
+
+  const tie = [
+    { id: "a", total: 34, roundsPlayed: 60 },
+    { id: "b", total: 34, roundsPlayed: 60 },
+  ];
+  assert.equal(determineWinnerFromTotals(tie, "quiz", 60), null);
+});
+
 test("Phase 10 completion map honors explicit metadata and legacy yes/no rounds", () => {
   const players = [
     { id: "p1", name: "A" },

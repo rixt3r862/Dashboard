@@ -150,6 +150,10 @@ export function createRoundEntryController(deps) {
     return state.presetKey === "rummikub";
   }
 
+  function isQuiz() {
+    return state.presetKey === "quiz";
+  }
+
   function syncSkyjoOutScoreHints() {
     if (!els.roundPreviewBody) return;
     els.roundPreviewBody.querySelectorAll("[data-preview-row]").forEach((row) => {
@@ -574,6 +578,8 @@ export function createRoundEntryController(deps) {
     const isSkyjo = state.presetKey === "skyjo" && !isPhase10();
     const valueLabel = isPhase10()
       ? "Points & Phase"
+      : isQuiz()
+      ? "Point"
       : isRummikub()
       ? "Rack Total"
       : "Score";
@@ -663,6 +669,18 @@ export function createRoundEntryController(deps) {
               >${phaseLabel}</button>
             </span>
           `
+          : isQuiz()
+          ? `
+            <button
+              type="button"
+              class="round-preview-btn round-preview-quiz-btn ${val > 0 ? "active" : ""}"
+              data-preview-action="quiz-point-toggle"
+              data-player-id="${p.id}"
+              aria-label="${val > 0 ? `Remove ${playerNameEsc}'s point for this round` : `Award ${playerNameEsc} a point for this round`}"
+              aria-pressed="${val > 0 ? "true" : "false"}"
+              title="${val > 0 ? `Remove ${playerNameEsc}'s point` : `Add 1 point for ${playerNameEsc}`}"
+            >${val > 0 ? "Point Added" : "Add Point"}</button>
+          `
           : `
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
@@ -695,7 +713,7 @@ export function createRoundEntryController(deps) {
             <div class="round-preview-item${rowClass}" data-preview-row="${p.id}">
             ${playerCell}
             <span class="round-preview-right">
-            <span class="round-preview-value"></span>
+            <span class="round-preview-value">${isQuiz() ? escapeHtml(String(val)) : ""}</span>
             <span class="round-preview-actions${isPhase10() ? " phase10" : ""}">${actions}</span>
           </span>
           ${moveControls}
@@ -759,6 +777,12 @@ export function createRoundEntryController(deps) {
       if (action === "phase-toggle") {
         const current = Number(readPhase10Completions()[playerId] ?? 0) > 0 ? 1 : 0;
         setPhase10CompletionValue(playerId, current ? 0 : 1);
+        return;
+      }
+
+      if (action === "quiz-point-toggle") {
+        const current = Number(readRoundScores()[playerId] ?? 0) > 0 ? 1 : 0;
+        setRoundScoreInputValue(playerId, current ? 0 : 1);
         return;
       }
 

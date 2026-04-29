@@ -245,6 +245,19 @@ export function totalsByTeamId(teams, playerTotals) {
 }
 
 export function determineWinnerFromTotals(entries, winMode, target) {
+  if (winMode === "quiz") {
+    const roundsPlayed = Math.max(
+      0,
+      ...entries.map((entry) => Number(entry.roundsPlayed ?? 0)),
+    );
+    if (roundsPlayed < target) return null;
+    const sorted = [...entries].sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+    const bestTotal = sorted[0]?.total ?? null;
+    if (bestTotal === null) return null;
+    const leaders = sorted.filter((entry) => (entry.total ?? 0) === bestTotal);
+    return leaders.length === 1 ? leaders[0]?.id ?? null : null;
+  }
+
   if (winMode === "rummikub") {
     const highestWins = Math.max(0, ...entries.map((entry) => Number(entry.wins ?? 0)));
     if (highestWins < target) return null;
@@ -344,6 +357,13 @@ export function validateRoundScores({
       return {
         ok: false,
         error: outOfRangeMsg({ name: p.name, value: v }),
+      };
+    }
+
+    if (presetKey === "quiz" && v !== 0 && v !== 1) {
+      return {
+        ok: false,
+        error: `Quiz score for ${p.name} must be 0 or 1.`,
       };
     }
   }
