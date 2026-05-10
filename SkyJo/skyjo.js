@@ -793,11 +793,17 @@ function hiddenSlotEstimate(player) {
   return Math.max(3, revealed.reduce((sum, value) => sum + value, 0) / revealed.length);
 }
 
-function tableHiddenCardCount() {
+function tableCardProgress() {
   return state.players.reduce(
-    (count, player) =>
-      count + player.grid.filter((slot) => !slot.cleared && !slot.revealed).length,
-    0,
+    (progress, player) => {
+      for (const slot of player.grid) {
+        if (slot.cleared) continue;
+        progress.total += 1;
+        if (slot.revealed) progress.faceUp += 1;
+      }
+      return progress;
+    },
+    { faceUp: 0, total: 0 },
   );
 }
 
@@ -924,8 +930,8 @@ function renderStatus() {
   els.roundValue.textContent = state.gameStarted ? String(state.roundNumber) : "-";
   els.turnValue.textContent = player ? player.name : "-";
   els.targetValue.textContent = String(activeTargetScore());
-  const hiddenCount = tableHiddenCardCount();
-  els.endValue.textContent = state.gameStarted ? String(hiddenCount) : "-";
+  const progress = tableCardProgress();
+  els.endValue.textContent = state.gameStarted ? `${progress.faceUp}/${progress.total} up` : "-";
   els.statusText.textContent = statusText();
   const leader = scoreLeader();
   els.leaderText.textContent = leader

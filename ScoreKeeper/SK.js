@@ -392,6 +392,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return PRESETS[payload?.presetKey]?.label || "Custom";
   }
 
+  function sourceGameLabel(sourceGame) {
+    if (sourceGame === "skyjo-table") return "SkyJo";
+    if (sourceGame === "phase10-table") return "Phase 10";
+    return "";
+  }
+
   function normalizedRoundEntryOrder(order = state.roundEntryOrder, players = state.players) {
     const validIds = new Set(players.map((p) => p.id));
     const normalized = Array.isArray(order)
@@ -671,6 +677,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return [
       session.name,
       sessionPresetLabel(session),
+      session.sourceLabel,
       normalizeCustomGameName(session.payload?.customGameName),
       ...sessionPlayerNames(session),
     ]
@@ -750,6 +757,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
           ? entry.name.trim()
           : defaultSessionName(payload),
       payload,
+      sourceGame:
+        typeof entry.sourceGame === "string" && entry.sourceGame.trim()
+          ? entry.sourceGame.trim()
+          : "",
+      sourceLabel:
+        typeof entry.sourceLabel === "string" && entry.sourceLabel.trim()
+          ? entry.sourceLabel.trim()
+          : sourceGameLabel(entry.sourceGame),
       createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
       updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now(),
     };
@@ -928,6 +943,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
       const players = sessionPlayerNames(session);
       const rounds = sessionRoundCount(session);
+      const sourceLabel = normalizeName(session.sourceLabel, "");
       const statusLabel =
         session.payload?.mode === "finished"
           ? "Finished"
@@ -947,6 +963,11 @@ import { createScoreboardController } from "./js/scoreboard.js";
             ${
               session.id === state.currentSessionId
                 ? '<span class="session-badge current">Current</span>'
+                : ""
+            }
+            ${
+              sourceLabel
+                ? `<span class="session-badge">Imported from ${escapeHtml(sourceLabel)}</span>`
                 : ""
             }
           </div>
@@ -1674,6 +1695,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       id,
       name,
       payload,
+      sourceGame: existing?.sourceGame || "",
+      sourceLabel: existing?.sourceLabel || "",
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
@@ -1902,11 +1925,17 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const id = uid();
     const clonedPayload = cloneJson(payload);
     clonedPayload.currentSessionId = id;
+    const sourceLabel = sourceGameLabel(json.sourceGame);
 
     return {
       id,
       name: providedName,
       payload: clonedPayload,
+      sourceGame:
+        typeof json.sourceGame === "string" && json.sourceGame.trim()
+          ? json.sourceGame.trim()
+          : "",
+      sourceLabel,
       createdAt: now,
       updatedAt: now,
     };
