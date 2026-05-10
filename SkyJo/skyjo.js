@@ -62,6 +62,8 @@ const els = {
   humanName: document.getElementById("humanName"),
   botCount: document.getElementById("botCount"),
   targetScore: document.getElementById("targetScore"),
+  setupFields: document.getElementById("setupFields"),
+  setupSummary: document.getElementById("setupSummary"),
   botNameFields: document.getElementById("botNameFields"),
   resetTableBtn: document.getElementById("resetTableBtn"),
   saveSessionBtn: document.getElementById("saveSessionBtn"),
@@ -211,6 +213,10 @@ function syncBotConfigFromInputs() {
 
 function syncBotNamesFromInputs() {
   syncBotConfigFromInputs();
+}
+
+function setupLocked() {
+  return state.gameStarted && !state.winnerId;
 }
 
 function readTargetScore() {
@@ -807,18 +813,48 @@ function render() {
 }
 
 function renderSetupPanel() {
-  const lockPlayerSetup = state.gameStarted && !state.winnerId;
+  const lockPlayerSetup = setupLocked();
   if (lockPlayerSetup && state.players.length) {
     syncSetupFromPlayers();
+  }
+  if (els.setupFields) els.setupFields.hidden = lockPlayerSetup;
+  if (els.setupSummary) {
+    els.setupSummary.hidden = !lockPlayerSetup;
+    els.setupSummary.innerHTML = lockPlayerSetup ? setupSummaryMarkup() : "";
   }
 
   if (els.humanName) els.humanName.disabled = lockPlayerSetup;
   if (els.botCount) els.botCount.disabled = lockPlayerSetup;
+  if (els.targetScore) els.targetScore.disabled = lockPlayerSetup;
   if (els.botNameFields) {
     els.botNameFields.querySelectorAll("input[data-bot-index], select[data-bot-difficulty-index]").forEach((field) => {
       field.disabled = lockPlayerSetup;
     });
   }
+}
+
+function setupSummaryMarkup() {
+  const humanName = state.players.find((player) => !player.bot)?.name ?? "Player";
+  const bots = state.players.filter((player) => player.bot);
+  const botCount = bots.length;
+  const botLabel = `${botCount} bot${botCount === 1 ? "" : "s"}`;
+  const levelNames = [...new Set(bots.map((bot) => difficultyLabel(bot.difficulty)))];
+  const levelLabel =
+    levelNames.length === 1
+      ? levelNames[0]
+      : levelNames.length
+        ? "Mixed"
+        : "No bots";
+  return `
+    <div class="setup-summary-main">
+      <strong>${escapeHtml(humanName)}</strong>
+      <span>${escapeHtml(botLabel)}</span>
+      <span>Target ${escapeHtml(activeTargetScore())}</span>
+    </div>
+    <div class="setup-summary-sub">
+      <span>Bot level: ${escapeHtml(levelLabel)}</span>
+    </div>
+  `;
 }
 
 function renderSessionControls() {
@@ -888,9 +924,6 @@ function renderStatus() {
   els.roundValue.textContent = state.gameStarted ? String(state.roundNumber) : "-";
   els.turnValue.textContent = player ? player.name : "-";
   els.targetValue.textContent = String(activeTargetScore());
-  if (els.targetScore) {
-    els.targetScore.disabled = state.gameStarted && !state.winnerId;
-  }
   const hiddenCount = tableHiddenCardCount();
   els.endValue.textContent = state.gameStarted ? String(hiddenCount) : "-";
   els.statusText.textContent = statusText();

@@ -6,7 +6,7 @@
     <title>SkyJo Table</title>
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
-    <link rel="stylesheet" href="./skyjo.css?v=20260510f" />
+    <link rel="stylesheet" href="./skyjo.css?v=20260510h" />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23175545%22/><text x=%2250%22 y=%2267%22 text-anchor=%22middle%22 font-size=%2253%22 fill=%22%23f7d46a%22>SJ</text></svg>"
@@ -40,38 +40,41 @@
               <p>Set your name, choose bot count, and deal a fresh game.</p>
             </div>
             <form id="setupForm" class="setup-form">
-              <label class="field">
-                <span>Human player</span>
-                <input
-                  id="humanName"
-                  type="text"
-                  maxlength="24"
-                  autocomplete="off"
-                  placeholder="Player 1"
-                  value="Rick"
-                />
-              </label>
-              <label class="field">
-                <span>Bot players</span>
-                <select id="botCount">
-                  <option value="1">1 bot</option>
-                  <option value="2" selected>2 bots</option>
-                  <option value="3">3 bots</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Target score</span>
-                <input
-                  id="targetScore"
-                  type="number"
-                  min="25"
-                  max="500"
-                  step="5"
-                  inputmode="numeric"
-                  value="100"
-                />
-              </label>
-              <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+              <div id="setupSummary" class="setup-summary" hidden></div>
+              <div id="setupFields" class="setup-fields">
+                <label class="field">
+                  <span>Human player</span>
+                  <input
+                    id="humanName"
+                    type="text"
+                    maxlength="24"
+                    autocomplete="off"
+                    placeholder="Player 1"
+                    value="Rick"
+                  />
+                </label>
+                <label class="field">
+                  <span>Bot players</span>
+                  <select id="botCount">
+                    <option value="1">1 bot</option>
+                    <option value="2" selected>2 bots</option>
+                    <option value="3">3 bots</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Target score</span>
+                  <input
+                    id="targetScore"
+                    type="number"
+                    min="25"
+                    max="500"
+                    step="5"
+                    inputmode="numeric"
+                    value="100"
+                  />
+                </label>
+                <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+              </div>
               <div class="button-row">
                 <button id="startGameBtn" class="btn btn-primary" type="submit">
                   Start Game
@@ -89,34 +92,32 @@
                   Sessions
                 </button>
                 <div id="sessionToolsBody" class="session-tools-body">
-                  <div class="button-row session-button-row">
-                    <button id="saveSessionBtn" class="btn" type="button">
-                      Save Session
-                    </button>
-                    <button id="downloadSessionBtn" class="btn" type="button">
-                      Download JSON
-                    </button>
-                  </div>
-                  <div class="button-row session-button-row">
-                    <button id="importSessionBtn" class="btn" type="button">
-                      Import JSON
-                    </button>
-                    <button id="loadSessionBtn" class="btn" type="button">
-                      Load Saved
-                    </button>
-                  </div>
-                  <button id="exportScoreKeeperBtn" class="btn" type="button">
-                    Export to ScoreKeeper
-                  </button>
                   <label class="field">
                     <span>Saved sessions</span>
                     <select id="savedSessionSelect" aria-label="Saved SkyJo sessions">
                       <option value="">Saved sessions on this device</option>
                     </select>
                   </label>
-                  <button id="deleteSessionBtn" class="btn btn-danger" type="button">
-                    Delete Saved
-                  </button>
+                  <div class="session-tool-grid">
+                    <button id="saveSessionBtn" class="btn session-tool-wide" type="button">
+                      Save Session
+                    </button>
+                    <button id="loadSessionBtn" class="btn" type="button">
+                      Load Saved
+                    </button>
+                    <button id="deleteSessionBtn" class="btn btn-danger" type="button">
+                      Delete Saved
+                    </button>
+                    <button id="downloadSessionBtn" class="btn" type="button">
+                      Download JSON
+                    </button>
+                    <button id="importSessionBtn" class="btn" type="button">
+                      Import JSON
+                    </button>
+                    <button id="exportScoreKeeperBtn" class="btn session-tool-wide" type="button">
+                      Export to ScoreKeeper
+                    </button>
+                  </div>
                   <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
                   <p id="sessionStatus" class="session-status">
                     Save a session on this device or download a JSON backup copy.
@@ -213,6 +214,6 @@
         </section>
       </main>
     </div>
-    <script src="./skyjo.js?v=20260510n"></script>
+    <script src="./skyjo.js?v=20260510p"></script>
   </body>
 </html>
