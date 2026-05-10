@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SkyJo Table</title>
+    <link rel="manifest" href="../app.webmanifest" />
+    <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <link rel="stylesheet" href="./skyjo.css?v=20260510d" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23175545%22/><text x=%2250%22 y=%2267%22 text-anchor=%22middle%22 font-size=%2253%22 fill=%22%23f7d46a%22>SJ</text></svg>"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23175545%22/><text x=%2250%22 y=%2267%22 text-anchor=%22middle%22 font-size=%2253%22 fill=%22%23f7d46a%22>SJ</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Card Table</p>
+          <h1>SkyJo</h1>
+          <p class="hero-copy">
+            Reveal, replace, and clear columns in a fast single-device table
+            against one to three bots.
+          </p>
+          <p class="phone-support-note">
+            Best experience on tablet or desktop. Phone view keeps the full game playable.
+          </p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="panel setup-panel">
+            <div class="panel-head">
+              <h2>New Table</h2>
+              <p>Set your name, choose bot count, and deal a fresh game.</p>
+            </div>
+            <form id="setupForm" class="setup-form">
+              <label class="field">
+                <span>Human player</span>
+                <input
+                  id="humanName"
+                  type="text"
+                  maxlength="24"
+                  autocomplete="off"
+                  placeholder="Player 1"
+                  value="Rick"
+                />
+              </label>
+              <label class="field">
+                <span>Bot players</span>
+                <select id="botCount">
+                  <option value="1">1 bot</option>
+                  <option value="2" selected>2 bots</option>
+                  <option value="3">3 bots</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Target score</span>
+                <input
+                  id="targetScore"
+                  type="number"
+                  min="25"
+                  max="500"
+                  step="5"
+                  inputmode="numeric"
+                  value="100"
+                />
+              </label>
+              <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+              <div class="button-row">
+                <button id="startGameBtn" class="btn btn-primary" type="submit">
+                  Start Game
+                </button>
+                <button id="resetTableBtn" class="btn" type="button">Reset</button>
+              </div>
+              <div class="session-tools" id="sessionTools">
+                <button
+                  id="sessionToolsToggle"
+                  class="btn session-tools-toggle"
+                  type="button"
+                  aria-expanded="false"
+                  hidden
+                >
+                  Sessions
+                </button>
+                <div id="sessionToolsBody" class="session-tools-body">
+                  <div class="button-row session-button-row">
+                    <button id="saveSessionBtn" class="btn" type="button">
+                      Save Session
+                    </button>
+                    <button id="downloadSessionBtn" class="btn" type="button">
+                      Download JSON
+                    </button>
+                  </div>
+                  <div class="button-row session-button-row">
+                    <button id="importSessionBtn" class="btn" type="button">
+                      Import JSON
+                    </button>
+                    <button id="loadSessionBtn" class="btn" type="button">
+                      Load Saved
+                    </button>
+                  </div>
+                  <label class="field">
+                    <span>Saved sessions</span>
+                    <select id="savedSessionSelect" aria-label="Saved SkyJo sessions">
+                      <option value="">Saved sessions on this device</option>
+                    </select>
+                  </label>
+                  <button id="deleteSessionBtn" class="btn btn-danger" type="button">
+                    Delete Saved
+                  </button>
+                  <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
+                  <p id="sessionStatus" class="session-status">
+                    Save a session on this device or download a JSON backup copy.
+                  </p>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel status-panel">
+            <div class="panel-head">
+              <h2>Round Status</h2>
+              <p id="statusText">Deal a table to begin.</p>
+            </div>
+            <div class="status-grid">
+              <div class="status-chip">
+                <span class="chip-label">Round</span>
+                <strong id="roundValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Turn</span>
+                <strong id="turnValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Target</span>
+                <strong id="targetValue">100</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">End</span>
+                <strong id="endValue">Open</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel action-panel">
+            <div class="panel-head">
+              <h2>Actions</h2>
+              <p id="actionHint">Your controls will appear here once the game starts.</p>
+            </div>
+            <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
+          </section>
+        </aside>
+
+        <section class="table-area">
+          <section id="starterBanner" class="starter-banner" hidden></section>
+          <section id="finalTurnBanner" class="game-flow-banner final-turn-banner" hidden></section>
+          <section id="winnerBanner" class="game-flow-banner winner-banner" hidden></section>
+
+          <section class="panel players-panel">
+            <div class="panel-head board-head">
+              <div>
+                <h2>Players</h2>
+                <p id="leaderText">Scores and grids will appear here.</p>
+              </div>
+            </div>
+            <div id="playersBoard" class="players-board"></div>
+          </section>
+
+          <section class="panel current-card-panel">
+            <div class="panel-head">
+              <h2>Table Cards</h2>
+              <p id="currentCardHint">Draw or take a card to choose where it goes.</p>
+            </div>
+            <div class="table-card-row">
+              <div class="table-drawn-card-area">
+                <span class="pile-label">Drawn</span>
+                <div id="tableDrawnCardWrap" class="table-drawn-card-wrap"></div>
+              </div>
+              <div class="table-pile-row">
+                <button id="drawDeckBtn" class="pile-button" type="button" aria-label="Draw from deck">
+                  <span class="pile-label">Deck</span>
+                  <span id="deckPreview" class="pile-preview"></span>
+                </button>
+                <button id="takeDiscardBtn" class="pile-button" type="button" aria-label="Take discard">
+                  <span class="pile-label">Discard</span>
+                  <span id="discardPreview" class="pile-preview"></span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel round-history-panel">
+            <div class="panel-head round-history-head">
+              <div>
+                <h2>Round History</h2>
+                <p id="roundHistorySummary">Complete a round to start the table history.</p>
+              </div>
+              <button id="roundHistoryOrderBtn" class="btn round-history-order-btn" type="button">
+                Oldest First
+              </button>
+            </div>
+            <div id="roundHistoryWrap" class="round-history-wrap"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script src="./skyjo.js?v=20260510l"></script>
+  </body>
+</html>
