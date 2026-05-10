@@ -2271,6 +2271,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.scoreboardCard.classList.toggle("phase10-mode", isPhase10());
     els.scoreboardCard.classList.toggle("hearts-mode", state.presetKey === "hearts");
     els.scoreboardCard.classList.toggle("uno-mode", state.presetKey === "uno");
+    els.scoreboardCard.classList.toggle("skyjo-mode", state.presetKey === "skyjo");
     const isRummikub = state.presetKey === "rummikub";
     const isQuiz = state.presetKey === "quiz";
 

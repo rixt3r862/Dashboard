@@ -432,6 +432,13 @@ button {
   display: none;
 }
 
+.setup-control-slot,
+.table-control-slot,
+.table-control-block {
+  display: grid;
+  gap: 0.55rem;
+}
+
 .setup-summary {
   display: grid;
   gap: 0.32rem;
@@ -648,7 +655,7 @@ button {
   padding: 0.9rem;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  align-items: stretch;
+  align-items: start;
   gap: 0.85rem;
   background:
     radial-gradient(circle at right, rgba(255, 214, 127, 0.1), transparent 44%),
@@ -656,10 +663,19 @@ button {
 }
 
 .current-card-panel .panel-head {
+  grid-column: 1;
+  grid-row: 1;
   margin-bottom: 0;
 }
 
+.current-card-panel .table-control-slot {
+  grid-column: 1;
+  grid-row: 2;
+}
+
 .table-card-row {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   display: grid;
   grid-template-columns: minmax(6.6rem, 0.8fr) minmax(12rem, 1.35fr);
   align-items: start;
@@ -1135,6 +1151,13 @@ body.game-active .session-status {
 
   .current-card-panel {
     grid-template-columns: 1fr;
+  }
+
+  .current-card-panel .panel-head,
+  .current-card-panel .table-control-slot,
+  .table-card-row {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .players-board .current-card-panel {

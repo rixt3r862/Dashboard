@@ -1855,6 +1855,30 @@ summary::-webkit-details-marker{ display:none; }
   color: var(--bad);
   border-color: rgba(220,38,38,.35);
 }
+
+:root[data-theme="dark"] #scoreboardCard.skyjo-mode .history-action-btn{
+  background: rgba(7, 30, 22, .78);
+  color: #f8fafc;
+  border-color: rgba(187, 247, 208, .55);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset;
+}
+
+:root[data-theme="dark"] #scoreboardCard.skyjo-mode .history-action-btn:hover{
+  background: rgba(20, 83, 45, .82);
+  border-color: rgba(220, 252, 231, .78);
+}
+
+:root[data-theme="dark"] #scoreboardCard.skyjo-mode .history-action-btn.danger{
+  background: rgba(69, 10, 10, .78);
+  color: #fee2e2;
+  border-color: rgba(254, 202, 202, .64);
+}
+
+:root[data-theme="dark"] #scoreboardCard.skyjo-mode .history-action-btn.danger:hover{
+  background: rgba(127, 29, 29, .82);
+  border-color: rgba(254, 202, 202, .82);
+}
+
 .history-edit-input{
   width: 86px;
   padding: 6px 8px;

@@ -64,6 +64,9 @@ const els = {
   targetScore: document.getElementById("targetScore"),
   setupFields: document.getElementById("setupFields"),
   setupSummary: document.getElementById("setupSummary"),
+  setupControlSlot: document.getElementById("setupControlSlot"),
+  tableControlSlot: document.getElementById("tableControlSlot"),
+  tableControlBlock: document.getElementById("tableControlBlock"),
   botNameFields: document.getElementById("botNameFields"),
   resetTableBtn: document.getElementById("resetTableBtn"),
   saveSessionBtn: document.getElementById("saveSessionBtn"),
@@ -824,6 +827,7 @@ function renderSetupPanel() {
     syncSetupFromPlayers();
   }
   if (els.setupFields) els.setupFields.hidden = lockPlayerSetup;
+  moveTableControls(lockPlayerSetup);
   if (els.setupSummary) {
     els.setupSummary.hidden = !lockPlayerSetup;
     els.setupSummary.innerHTML = lockPlayerSetup ? setupSummaryMarkup() : "";
@@ -836,6 +840,14 @@ function renderSetupPanel() {
     els.botNameFields.querySelectorAll("input[data-bot-index], select[data-bot-difficulty-index]").forEach((field) => {
       field.disabled = lockPlayerSetup;
     });
+  }
+}
+
+function moveTableControls(toTablePanel) {
+  if (!els.tableControlBlock || !els.setupControlSlot || !els.tableControlSlot) return;
+  const target = toTablePanel ? els.tableControlSlot : els.setupControlSlot;
+  if (els.tableControlBlock.parentElement !== target) {
+    target.appendChild(els.tableControlBlock);
   }
 }
 
