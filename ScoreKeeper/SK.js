@@ -1869,11 +1869,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
     if (!json || typeof json !== "object") return null;
 
     const payload =
-      json.app === "scorekeeper" && json.payload
-        ? json.payload
-        : json.payload && typeof json.payload === "object"
+      json.app === "dashboard-game-export" &&
+      json.scorekeeperPayload &&
+      typeof json.scorekeeperPayload === "object"
+        ? json.scorekeeperPayload
+        : json.app === "scorekeeper" && json.payload
           ? json.payload
-          : json;
+          : json.payload && typeof json.payload === "object"
+            ? json.payload
+            : json;
     if (
       !payload ||
       !Array.isArray(payload.players) ||
@@ -1888,6 +1892,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const providedName =
       typeof json.session?.name === "string" && json.session.name.trim()
         ? json.session.name.trim()
+        : typeof json.sourceGame === "string" &&
+            (json.sourceGame === "skyjo-table" || json.sourceGame === "phase10-table")
+          ? defaultSessionName(payload)
         : typeof json.name === "string" && json.name.trim()
           ? json.name.trim()
           : fallbackName;

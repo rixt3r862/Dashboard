@@ -558,6 +558,7 @@ select {
 }
 
 .session-tools .btn {
+  width: 100%;
   padding: 0.56rem 0.72rem;
   border-radius: 0.85rem;
 }

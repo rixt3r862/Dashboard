@@ -67,6 +67,7 @@ const els = {
   saveSessionBtn: document.getElementById("saveSessionBtn"),
   downloadSessionBtn: document.getElementById("downloadSessionBtn"),
   importSessionBtn: document.getElementById("importSessionBtn"),
+  exportScoreKeeperBtn: document.getElementById("exportScoreKeeperBtn"),
   loadSessionBtn: document.getElementById("loadSessionBtn"),
   deleteSessionBtn: document.getElementById("deleteSessionBtn"),
   sessionToolsToggle: document.getElementById("sessionToolsToggle"),
@@ -134,6 +135,7 @@ function bindEvents() {
   bind(els.resetTableBtn, "click", resetTable);
   bind(els.saveSessionBtn, "click", saveNamedSession);
   bind(els.downloadSessionBtn, "click", exportSessionFile);
+  bind(els.exportScoreKeeperBtn, "click", exportScoreKeeperFile);
   bind(els.importSessionBtn, "click", () => {
     els.importSessionFile?.click();
   });
@@ -785,6 +787,14 @@ function hiddenSlotEstimate(player) {
   return Math.max(3, revealed.reduce((sum, value) => sum + value, 0) / revealed.length);
 }
 
+function tableHiddenCardCount() {
+  return state.players.reduce(
+    (count, player) =>
+      count + player.grid.filter((slot) => !slot.cleared && !slot.revealed).length,
+    0,
+  );
+}
+
 function render() {
   document.body.classList.toggle("game-active", state.gameStarted);
   renderSetupPanel();
@@ -840,6 +850,9 @@ function renderSessionControls() {
   if (els.deleteSessionBtn) els.deleteSessionBtn.disabled = !canLoadSelected;
   els.savedSessionSelect.disabled = sessions.length === 0;
   if (els.downloadSessionBtn) els.downloadSessionBtn.disabled = !canExport;
+  if (els.exportScoreKeeperBtn) {
+    els.exportScoreKeeperBtn.disabled = !resolveScoreKeeperExportSession();
+  }
   if (els.sessionToolsToggle) {
     els.sessionToolsToggle.hidden = !state.gameStarted;
     els.sessionToolsToggle.textContent = state.sessionToolsExpanded ? "Hide Sessions" : "Sessions";
@@ -878,9 +891,8 @@ function renderStatus() {
   if (els.targetScore) {
     els.targetScore.disabled = state.gameStarted && !state.winnerId;
   }
-  els.endValue.textContent = state.finalTurnTriggerId
-    ? `${state.finalTurnRemainingIds.length} left`
-    : "Open";
+  const hiddenCount = tableHiddenCardCount();
+  els.endValue.textContent = state.gameStarted ? String(hiddenCount) : "-";
   els.statusText.textContent = statusText();
   const leader = scoreLeader();
   els.leaderText.textContent = leader
@@ -1526,6 +1538,11 @@ function exportFileNameForSession(exportable, when = new Date()) {
   return `${exportDateStamp(when)}_skyjo_${exportPlayerNameSegment(payload)}_${exportTimeStamp(when)}.json`;
 }
 
+function exportFileNameForScoreKeeper(exportable, when = new Date()) {
+  const payload = exportable?.sourcePayload || exportable?.scorekeeperPayload || snapshotState();
+  return `${exportDateStamp(when)}_scorekeeper_skyjo_${exportPlayerNameSegment(payload)}_${exportTimeStamp(when)}.json`;
+}
+
 function showSessionMessage(message) {
   state.sessionStatusMessage = String(message || "");
   render();
@@ -1631,6 +1648,83 @@ function resolveExportSession() {
   };
 }
 
+function resolveScoreKeeperExportSession() {
+  const current = resolveExportSession();
+  if (!current || !current.payload?.roundHistory?.length) return null;
+  const scorekeeperPayload = scoreKeeperPayloadFromSkyJo(current.payload);
+  if (!scorekeeperPayload) return null;
+  return {
+    id: current.id,
+    name: current.name,
+    sourcePayload: cloneJson(current.payload),
+    scorekeeperPayload,
+  };
+}
+
+function scoreKeeperPayloadFromSkyJo(payload) {
+  if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.roundHistory)) {
+    return null;
+  }
+  const players = payload.players.map((player, index) => ({
+    id: String(player.id || `p-${index + 1}`),
+    name: cleanName(player.name, `Player ${index + 1}`),
+  }));
+  if (!players.length || !payload.roundHistory.length) return null;
+
+  const playerIds = new Set(players.map((player) => player.id));
+  const rounds = payload.roundHistory.map((round, index) => {
+    const scores = Object.fromEntries(
+      players.map((player) => {
+        const raw = Number(round.results?.[player.id]?.raw ?? 0);
+        return [player.id, Number.isFinite(raw) ? Math.trunc(raw) : 0];
+      }),
+    );
+    const wentOutId = playerIds.has(round.triggerId) ? round.triggerId : null;
+    return {
+      n: index + 1,
+      scores,
+      ts: Number(round.ts) || Date.now(),
+      skyjoWentOutPlayerId: wentOutId,
+      skyjoSourceRoundNumber: Number(round.roundNumber) || index + 1,
+      skyjoTargetHitId: playerIds.has(round.targetHitId) ? round.targetHitId : null,
+    };
+  });
+  const winnerId = playerIds.has(payload.winnerId) ? payload.winnerId : null;
+  const target = Number.isFinite(Number(payload.targetScore))
+    ? Math.trunc(Number(payload.targetScore))
+    : DEFAULT_TARGET_SCORE;
+  const winnerMilestones = winnerId
+    ? [{ winnerId, roundN: rounds.length, target, ts: Date.now() }]
+    : [];
+  return {
+    mode: winnerId ? "finished" : "playing",
+    presetKey: "skyjo",
+    customGameName: "",
+    heartsDeckCount: 1,
+    target,
+    winMode: "low",
+    players,
+    roundEntryOrder: players.map((player) => player.id),
+    playerInactiveRanges: {},
+    teams: null,
+    rounds,
+    winnerId,
+    quizTieIds: [],
+    gameState: winnerId ? "completed" : "in_progress",
+    firstWinnerAt: winnerMilestones[0] || null,
+    finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
+    winnerMilestones,
+    sortByTotal: false,
+    historySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
+    showHistoryTotals: true,
+    spadesPartnerIndex: 2,
+    presetNote: "Lowest score wins. Negative scores possible.",
+    skyjoCurrentRoundWentOutPlayerId: null,
+    rummikubCurrentRoundWinnerId: null,
+    currentSessionId: null,
+  };
+}
+
 function exportSessionFile() {
   const exportable = resolveExportSession();
   if (!exportable) {
@@ -1658,6 +1752,39 @@ function exportSessionFile() {
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
   showSessionMessage(`Downloaded session JSON: ${exportable.name}.`);
+  return exportable;
+}
+
+function exportScoreKeeperFile() {
+  const exportable = resolveScoreKeeperExportSession();
+  if (!exportable) {
+    showSessionMessage("Complete at least one round before exporting to ScoreKeeper.");
+    return null;
+  }
+
+  const bundle = {
+    app: "dashboard-game-export",
+    version: EXPORT_VERSION,
+    sourceGame: "skyjo-table",
+    scorekeeperPreset: "skyjo",
+    exportedAt: new Date().toISOString(),
+    session: {
+      id: exportable.id,
+      name: exportable.name,
+    },
+    scorekeeperPayload: exportable.scorekeeperPayload,
+    sourcePayload: exportable.sourcePayload,
+  };
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = exportFileNameForScoreKeeper(exportable);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  showSessionMessage(`Downloaded ScoreKeeper JSON: ${exportable.name}.`);
   return exportable;
 }
 

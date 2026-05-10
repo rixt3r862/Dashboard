@@ -146,6 +146,7 @@ const els = {
   saveSessionBtn: document.getElementById("saveSessionBtn"),
   downloadSessionBtn: document.getElementById("downloadSessionBtn"),
   importSessionBtn: document.getElementById("importSessionBtn"),
+  exportScoreKeeperBtn: document.getElementById("exportScoreKeeperBtn"),
   loadSessionBtn: document.getElementById("loadSessionBtn"),
   deleteSessionBtn: document.getElementById("deleteSessionBtn"),
   sessionToolsToggle: document.getElementById("sessionToolsToggle"),
@@ -239,6 +240,9 @@ function bindEvents() {
   els.saveSessionBtn.addEventListener("click", saveNamedSession);
   els.downloadSessionBtn.addEventListener("click", () => {
     exportSessionFile();
+  });
+  els.exportScoreKeeperBtn.addEventListener("click", () => {
+    exportScoreKeeperFile();
   });
   els.importSessionBtn.addEventListener("click", () => {
     els.importSessionFile.click();
@@ -877,6 +881,14 @@ function exportFileNameForSession(exportable, when = new Date()) {
   return `${date}_${game}_${players}_${time}.json`;
 }
 
+function exportFileNameForScoreKeeper(exportable, when = new Date()) {
+  const payload = exportable?.sourcePayload || exportable?.scorekeeperPayload || snapshotState();
+  const date = exportDateStamp(when);
+  const players = exportPlayerNameSegment(payload);
+  const time = exportTimeStamp(when);
+  return `${date}_scorekeeper_phase10_${players}_${time}.json`;
+}
+
 function setSessionStatusMessage(message) {
   state.sessionStatusMessage = String(message || "");
 }
@@ -1067,6 +1079,83 @@ function resolveExportSession() {
   };
 }
 
+function resolveScoreKeeperExportSession() {
+  const current = resolveExportSession();
+  if (!current || !current.payload?.roundHistory?.length) return null;
+  const scorekeeperPayload = scoreKeeperPayloadFromPhase10(current.payload);
+  if (!scorekeeperPayload) return null;
+  return {
+    id: current.id,
+    name: current.name,
+    sourcePayload: cloneJson(current.payload),
+    scorekeeperPayload,
+  };
+}
+
+function scoreKeeperPayloadFromPhase10(payload) {
+  if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.roundHistory)) {
+    return null;
+  }
+  const players = payload.players.map((player, index) => ({
+    id: String(player.id || `p-${index + 1}`),
+    name: normalizeName(player.name, `Player ${index + 1}`),
+  }));
+  if (!players.length || !payload.roundHistory.length) return null;
+
+  const playerIds = new Set(players.map((player) => player.id));
+  const rounds = payload.roundHistory.map((round, index) => {
+    const scores = {};
+    const phase10CompletedByPlayerId = {};
+    for (const player of players) {
+      const result = round.playerResults?.[player.id];
+      const points = Number(result?.points ?? 0);
+      scores[player.id] = Number.isFinite(points) ? Math.trunc(points) : 0;
+      phase10CompletedByPlayerId[player.id] = result?.completedPhaseNumber ? 1 : 0;
+    }
+    return {
+      n: index + 1,
+      scores,
+      ts: Number(round.ts) || Date.now(),
+      phase10CompletedByPlayerId,
+      phase10OutPlayerId: playerIds.has(round.outPlayerId) ? round.outPlayerId : null,
+      phase10SourceRoundNumber: clampNumber(round.roundNumber, 1, 999, index + 1),
+    };
+  });
+  const winnerId = playerIds.has(payload.winnerId) ? payload.winnerId : null;
+  const winnerMilestones = winnerId
+    ? [{ winnerId, roundN: rounds.length, target: PHASES.length, ts: Date.now() }]
+    : [];
+
+  return {
+    mode: winnerId ? "finished" : "playing",
+    presetKey: "phase10",
+    customGameName: "",
+    heartsDeckCount: 1,
+    target: PHASES.length,
+    winMode: "high",
+    players,
+    roundEntryOrder: players.map((player) => player.id),
+    playerInactiveRanges: {},
+    teams: null,
+    rounds,
+    winnerId,
+    quizTieIds: [],
+    gameState: winnerId ? "completed" : "in_progress",
+    firstWinnerAt: winnerMilestones[0] || null,
+    finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
+    winnerMilestones,
+    sortByTotal: false,
+    historySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
+    showHistoryTotals: true,
+    spadesPartnerIndex: 2,
+    presetNote:
+      "Track leftover hand points each round and mark who completed their phase. First to finish Phase 10 wins; ties at the final phase go to the lowest total points.",
+    skyjoCurrentRoundWentOutPlayerId: null,
+    rummikubCurrentRoundWinnerId: null,
+    currentSessionId: null,
+  };
+}
+
 function exportSessionFile() {
   const exportable = resolveExportSession();
   if (!exportable) {
@@ -1096,6 +1185,41 @@ function exportSessionFile() {
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
   showSessionMessage(`Downloaded session JSON: ${exportable.name}.`);
+  return exportable;
+}
+
+function exportScoreKeeperFile() {
+  const exportable = resolveScoreKeeperExportSession();
+  if (!exportable) {
+    showSessionMessage("Complete at least one round before exporting to ScoreKeeper.");
+    return null;
+  }
+
+  const bundle = {
+    app: "dashboard-game-export",
+    version: EXPORT_VERSION,
+    sourceGame: "phase10-table",
+    scorekeeperPreset: "phase10",
+    exportedAt: new Date().toISOString(),
+    session: {
+      id: exportable.id,
+      name: exportable.name,
+    },
+    scorekeeperPayload: exportable.scorekeeperPayload,
+    sourcePayload: exportable.sourcePayload,
+  };
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = exportFileNameForScoreKeeper(exportable);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  showSessionMessage(`Downloaded ScoreKeeper JSON: ${exportable.name}.`);
   return exportable;
 }
 
@@ -3065,6 +3189,7 @@ function renderSessionControls() {
   els.deleteSessionBtn.disabled = !canLoadSelected;
   els.savedSessionSelect.disabled = sessions.length === 0;
   els.downloadSessionBtn.disabled = !canExport;
+  els.exportScoreKeeperBtn.disabled = !resolveScoreKeeperExportSession();
   els.sessionToolsToggle.hidden = !state.gameStarted;
   els.sessionToolsBody.hidden = state.gameStarted && !state.sessionToolsExpanded;
   els.sessionToolsToggle.textContent = state.sessionToolsExpanded ? "Hide Sessions" : "Sessions";

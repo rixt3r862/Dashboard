@@ -454,7 +454,7 @@ button {
 
 .btn:disabled,
 .pile-button:disabled {
-  cursor: not-allowed;
+  cursor: default;
   opacity: 0.48;
 }
 
@@ -487,6 +487,7 @@ button {
 }
 
 .session-tools .btn {
+  width: 100%;
   padding: 0.56rem 0.72rem;
   border-radius: 0.85rem;
 }
