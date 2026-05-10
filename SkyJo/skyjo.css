@@ -753,6 +753,27 @@ button {
   min-height: 100%;
 }
 
+.players-board .current-card-panel.in-player-grid {
+  grid-template-columns: minmax(240px, 0.82fr) minmax(0, 1.55fr);
+}
+
+.players-board .current-card-panel.in-player-grid .panel-head {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.players-board .current-card-panel.in-player-grid .table-control-slot {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  margin-top: 4.7rem;
+}
+
+.players-board .current-card-panel.in-player-grid .table-card-row {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .player-card {
   padding: 0.75rem;
   border-radius: 1.1rem;

@@ -1093,6 +1093,7 @@ function renderPlayers() {
 function positionCurrentCardPanel() {
   if (!els.currentCardPanel || !els.playersBoard) return;
   if (state.players.length === 4) {
+    els.currentCardPanel.classList.add("in-player-grid");
     els.playersBoard.appendChild(els.currentCardPanel);
     return;
   }
@@ -1101,6 +1102,7 @@ function positionCurrentCardPanel() {
 
 function moveCurrentCardPanelToDefaultPosition() {
   if (!els.currentCardPanel || !els.tableArea || !els.roundHistoryPanel) return;
+  els.currentCardPanel.classList.remove("in-player-grid");
   if (els.currentCardPanel.parentElement !== els.tableArea) {
     els.tableArea.insertBefore(els.currentCardPanel, els.roundHistoryPanel);
   }
