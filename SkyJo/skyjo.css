@@ -49,7 +49,7 @@ button {
 }
 
 .page-shell {
-  width: min(1320px, calc(100% - 1.25rem));
+  width: min(1620px, calc(100% - 1.25rem));
   margin: 0 auto;
   padding: 1rem 0 1.35rem;
 }
@@ -1158,7 +1158,7 @@ body.game-active .session-status {
 
 @media (max-width: 720px) {
   .page-shell {
-    width: min(100% - 0.7rem, 1320px);
+    width: min(100% - 0.7rem, 1620px);
     padding-top: 0.6rem;
   }
 
