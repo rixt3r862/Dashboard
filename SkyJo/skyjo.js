@@ -140,7 +140,7 @@ function bindEvents() {
     state.setupBotDifficulties[Number(select.dataset.botDifficultyIndex)] = normalizeBotDifficulty(select.value);
   });
 
-  bind(els.resetTableBtn, "click", resetTable);
+  bind(els.resetTableBtn, "click", handleResetTable);
   bind(els.saveSessionBtn, "click", saveNamedSession);
   bind(els.downloadSessionBtn, "click", exportSessionFile);
   bind(els.exportScoreKeeperBtn, "click", exportScoreKeeperFile);
@@ -226,6 +226,10 @@ function setupLocked() {
 }
 
 function shouldConfirmRestart() {
+  return state.gameStarted && !state.winnerId;
+}
+
+function shouldConfirmReset() {
   return state.gameStarted && !state.winnerId;
 }
 
@@ -319,6 +323,13 @@ function resetTable() {
   syncTargetInput();
   saveGame();
   render();
+}
+
+function handleResetTable() {
+  if (shouldConfirmReset() && !window.confirm("Reset this SkyJo table? Current game, scores, and player setup will be cleared.")) {
+    return;
+  }
+  resetTable();
 }
 
 function dealNextRound() {
