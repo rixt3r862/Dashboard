@@ -842,8 +842,8 @@ button {
 }
 
 .grid-slot.dealt {
-  animation: skyjo-card-deal-in 0.38s cubic-bezier(0.2, 0.8, 0.24, 1) both;
-  animation-delay: calc(var(--deal-index, 0) * 34ms);
+  animation: skyjo-card-deal-in 0.46s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+  animation-delay: calc(var(--deal-index, 0) * 110ms);
 }
 
 .grid-slot.interactive {

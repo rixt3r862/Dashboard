@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v63";
+const VERSION = "dashboard-v67";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;

@@ -350,12 +350,25 @@ function dealRound() {
     }));
   }
 
-  triggerDealAnimation(
-    state.players.flatMap((player) => player.grid.map((slot) => slot.card?.id).filter(Boolean)),
-  );
+  triggerDealAnimation(dealAnimationCardOrder());
   appendNotice(`Round ${state.roundNumber} dealt. Choose two cards to set the lead.`);
   saveGame();
   render();
+}
+
+function dealAnimationCardOrder() {
+  const orderedCardIds = [];
+  const rows = Math.ceil(GRID_SIZE / COLS);
+  for (let row = 0; row < rows; row += 1) {
+    for (let playerColumn = 0; playerColumn < COLS; playerColumn += 1) {
+      for (const player of state.players) {
+        const slotIndex = row * COLS + playerColumn;
+        const cardId = player.grid[slotIndex]?.card?.id;
+        if (cardId) orderedCardIds.push(cardId);
+      }
+    }
+  }
+  return orderedCardIds;
 }
 
 function makePlayer(id, name, bot = true, difficulty = "medium") {
@@ -413,7 +426,7 @@ function triggerDealAnimation(cardIds) {
   clearDealAnimation();
   state.dealAnimationCardIds = Array.isArray(cardIds) ? cardIds.filter(Boolean) : [];
   if (!state.dealAnimationCardIds.length) return;
-  const duration = 260 + state.dealAnimationCardIds.length * 34;
+  const duration = 420 + state.dealAnimationCardIds.length * 110;
   dealAnimationTimer = window.setTimeout(() => {
     dealAnimationTimer = null;
     state.dealAnimationCardIds = [];
