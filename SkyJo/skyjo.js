@@ -118,6 +118,9 @@ function bindEvents() {
       return;
     }
     if (state.turnStage === "opening-reveal") return;
+    if (shouldConfirmRestart() && !window.confirm("Restart this SkyJo game? Current round and scores will be cleared.")) {
+      return;
+    }
     startNewGame();
   });
 
@@ -219,6 +222,10 @@ function syncBotNamesFromInputs() {
 }
 
 function setupLocked() {
+  return state.gameStarted && !state.winnerId;
+}
+
+function shouldConfirmRestart() {
   return state.gameStarted && !state.winnerId;
 }
 
