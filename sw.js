@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v68";
+const VERSION = "dashboard-v69";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -27,6 +27,9 @@ const CORE_ASSETS = [
   "./SkyJo/index.html",
   "./SkyJo/skyjo.css",
   "./SkyJo/skyjo.js",
+  "./Hearts/index.html",
+  "./Hearts/hearts.css",
+  "./Hearts/hearts.js",
   "./ScoreKeeper/index.html",
   "./ScoreKeeper/SK.css",
   "./ScoreKeeper/SK.js",
