@@ -552,6 +552,14 @@ button {
   animation: active-seat-glow 1.35s ease-in-out infinite;
 }
 
+.seat.tram-claim {
+  border-color: rgba(255, 214, 127, 0.78);
+  box-shadow:
+    0 0 0 3px rgba(255, 214, 127, 0.16),
+    0 0 1.45rem rgba(255, 214, 127, 0.22),
+    0 18px 32px rgba(0, 0, 0, 0.22);
+}
+
 .seat.moon-flash {
   border-color: rgba(230, 230, 255, 0.88);
   background:
@@ -605,6 +613,46 @@ button {
   overflow-wrap: anywhere;
 }
 
+.tram-chip {
+  position: absolute;
+  z-index: 8;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 214, 127, 0.58);
+  background: rgba(255, 214, 127, 0.16);
+  color: var(--accent-strong);
+  padding: 0.16rem 0.44rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0.75rem rgba(255, 214, 127, 0.18);
+  pointer-events: none;
+}
+
+.seat-top .tram-chip {
+  left: 50%;
+  top: calc(100% + 0.42rem);
+  transform: translateX(-50%);
+}
+
+.seat-bottom .tram-chip {
+  left: 50%;
+  bottom: calc(100% + 0.42rem);
+  transform: translateX(-50%);
+}
+
+.seat-left .tram-chip {
+  left: calc(100% + 0.42rem);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.seat-right .tram-chip {
+  right: calc(100% + 0.42rem);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 @keyframes active-seat-glow {
   0%,
   100% {
@@ -626,16 +674,44 @@ button {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  min-height: 4.35rem;
-  min-width: 7.3rem;
+  min-height: 3.9rem;
+  min-width: 16rem;
 }
 
 .mini-hand .playing-card {
-  margin-left: -2.2rem;
+  width: 3.35rem;
+  margin-left: -2.18rem;
 }
 
 .mini-hand .playing-card:first-child {
   margin-left: 0;
+}
+
+.seat-left .mini-hand,
+.seat-right .mini-hand {
+  flex-direction: column;
+  justify-content: center;
+  min-width: 5.25rem;
+  min-height: 17.4rem;
+}
+
+.seat-left .mini-hand .playing-card,
+.seat-right .mini-hand .playing-card {
+  margin-left: 0;
+  margin-top: -3.62rem;
+}
+
+.seat-left .mini-hand .playing-card:first-child,
+.seat-right .mini-hand .playing-card:first-child {
+  margin-top: 0;
+}
+
+.seat-left .mini-hand .playing-card {
+  transform: rotate(90deg);
+}
+
+.seat-right .mini-hand .playing-card {
+  transform: rotate(-90deg);
 }
 
 .trick-zone {
@@ -861,6 +937,14 @@ button {
   transform-origin: center;
 }
 
+.seat-left .playing-card.dealt {
+  animation-name: hearts-card-deal-left;
+}
+
+.seat-right .playing-card.dealt {
+  animation-name: hearts-card-deal-right;
+}
+
 .card-button.passing-out {
   pointer-events: none;
   z-index: 4;
@@ -1024,6 +1108,36 @@ button {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes hearts-card-deal-left {
+  0% {
+    opacity: 0;
+    transform: translateY(-1.8rem) scale(0.62) rotate(82deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0.18rem) scale(1.04) rotate(91.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(90deg);
+  }
+}
+
+@keyframes hearts-card-deal-right {
+  0% {
+    opacity: 0;
+    transform: translateY(-1.8rem) scale(0.62) rotate(-98deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0.18rem) scale(1.04) rotate(-88.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(-90deg);
   }
 }
 
@@ -1364,6 +1478,12 @@ button {
   text-align: left;
 }
 
+.history-marker {
+  color: var(--accent-strong);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: 1fr;
@@ -1409,6 +1529,26 @@ button {
 
   .playing-card {
     width: 3.7rem;
+  }
+
+  .mini-hand {
+    min-width: 11.5rem;
+  }
+
+  .mini-hand .playing-card {
+    width: 2.8rem;
+    margin-left: -1.9rem;
+  }
+
+  .seat-left .mini-hand,
+  .seat-right .mini-hand {
+    min-height: 13.6rem;
+  }
+
+  .seat-left .mini-hand .playing-card,
+  .seat-right .mini-hand .playing-card {
+    margin-left: 0;
+    margin-top: -3.1rem;
   }
 
   .status-grid,

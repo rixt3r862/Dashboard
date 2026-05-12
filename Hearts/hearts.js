@@ -61,6 +61,7 @@ const state = {
   historySortDir: "asc",
   setupBotDifficulties: ["normal", "normal", "normal"],
   sessionExpanded: true,
+  tramBadgePlayerId: "",
   tramPlayerId: "",
   winnerId: null,
   notice: "",
@@ -221,6 +222,7 @@ function resetState() {
   state.historySortDir = "asc";
   state.setupBotDifficulties = ["normal", "normal", "normal"];
   state.sessionExpanded = true;
+  state.tramBadgePlayerId = "";
   state.tramPlayerId = "";
   state.winnerId = null;
   state.notice = "";
@@ -294,6 +296,7 @@ function dealHand() {
   state.heartsBroken = false;
   state.selectedPassIds = [];
   state.passedToHumanIds = [];
+  state.tramBadgePlayerId = "";
   state.winnerId = null;
   const direction = currentPassDirection();
   state.stage = direction === "hold" ? "playing" : "passing";
@@ -853,7 +856,7 @@ function isTopRemainingCard(card, owner) {
 function findTramCandidate() {
   if (state.stage !== "playing" || state.trick.length || state.dealAnimationActive || state.tramClaimTimer) return null;
   const player = state.players[state.currentPlayerIndex];
-  if (!player?.hand.length) return null;
+  if (!player || player.hand.length < 2) return null;
   const ownsEveryLead = player.hand.every((card) => isTopRemainingCard(card, player));
   return ownsEveryLead ? player : null;
 }
@@ -870,6 +873,7 @@ function beginTramClaim(player) {
   clearPlayAnimationTimers();
   clearTramClaimTimer();
   state.busy = true;
+  state.tramBadgePlayerId = player.id;
   state.tramPlayerId = player.id;
   state.notice = `${player.name} claims the rest of the tricks.`;
   render();
@@ -890,6 +894,7 @@ function completeTramClaim(playerId) {
   });
   player.taken.push(...remainingCards);
   state.trick = [];
+  state.tramBadgePlayerId = player.id;
   state.tramPlayerId = player.id;
   state.notice = `${player.name} claimed the rest of the tricks.`;
   state.busy = false;
@@ -928,6 +933,7 @@ function sessionSnapshot() {
     historySortDir: state.historySortDir,
     setupBotDifficulties: state.setupBotDifficulties,
     sessionExpanded: state.sessionExpanded,
+    tramBadgePlayerId: state.tramBadgePlayerId,
     winnerId: state.winnerId,
     notice: state.notice,
   };
@@ -989,6 +995,7 @@ function restoreSessionSnapshot(snapshot) {
     historySortDir: snapshot.historySortDir === "desc" ? "desc" : "asc",
     setupBotDifficulties: snapshot.setupBotDifficulties || ["normal", "normal", "normal"],
     sessionExpanded: snapshot.sessionExpanded !== false,
+    tramBadgePlayerId: snapshot.tramBadgePlayerId || "",
     tramPlayerId: "",
     winnerId: snapshot.winnerId || null,
     notice: snapshot.notice || "Session loaded.",
@@ -1274,16 +1281,17 @@ function renderSeats() {
     element.hidden = false;
     element.classList.toggle("current", index === state.currentPlayerIndex && state.stage === "playing");
     element.classList.toggle("moon-flash", player.id === state.moonBurstPlayerId);
+    element.classList.toggle("tram-claim", player.id === state.tramBadgePlayerId);
     element.innerHTML = `
       <div class="seat-name">${escapeHtml(player.name)}</div>
+      ${player.id === state.tramBadgePlayerId ? `<div class="tram-chip">TRAM</div>` : ""}
       <div class="mini-hand">${renderMiniHand(player.hand.length)}</div>
     `;
   });
 }
 
 function renderMiniHand(count) {
-  const visible = Math.min(5, count);
-  return Array.from({ length: visible }, (_, index) => (
+  return Array.from({ length: count }, (_, index) => (
     renderCardBack(state.dealAnimationActive ? { className: "dealt", dealIndex: index } : {})
   )).join("");
 }
@@ -1394,8 +1402,12 @@ function renderHistory() {
   const history = orderedHistory();
   els.historyWrap.innerHTML = history.map((entry) => `
     <div class="history-row">
-      <strong>Hand ${entry.handNumber}${entry.moonPlayerId ? " · Moon" : ""}${entry.tramPlayerId ? " · TRAM" : ""}</strong>
-      ${entry.points.map((points, index) => `<span>${escapeHtml(state.players[index]?.name || `P${index + 1}`)}: ${points}</span>`).join("")}
+      <strong>Hand ${entry.handNumber}${entry.moonPlayerId ? " · Moon" : ""}</strong>
+      ${entry.points.map((points, index) => {
+        const player = state.players[index];
+        const isTramPlayer = player?.id === entry.tramPlayerId;
+        return `<span>${escapeHtml(player?.name || `P${index + 1}`)}: ${points}${isTramPlayer ? ` <b class="history-marker">- TRAM</b>` : ""}</span>`;
+      }).join("")}
     </div>
   `).join("");
 }
