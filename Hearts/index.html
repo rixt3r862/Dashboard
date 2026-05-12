@@ -6,7 +6,7 @@
     <title>Hearts Table</title>
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
-    <link rel="stylesheet" href="./hearts.css?v=20260511a" />
+    <link rel="stylesheet" href="./hearts.css?v=20260511b" />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23175545%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2256%22 fill=%22%23ffd67f%22>♥</text></svg>"
@@ -64,6 +64,31 @@
             </form>
           </section>
 
+          <section id="sessionPanel" class="panel session-panel">
+            <div class="panel-head session-head">
+              <div>
+                <h2>Sessions</h2>
+                <p id="sessionStatus">Save this table on this device or download a backup.</p>
+              </div>
+              <button id="sessionToggleBtn" class="btn session-toggle-btn" type="button" aria-expanded="true">Hide</button>
+            </div>
+            <div id="sessionTools" class="session-tools">
+              <label class="field">
+                <span>Saved sessions</span>
+                <select id="savedSessionSelect" aria-label="Saved Hearts sessions">
+                  <option value="">Saved sessions on this device</option>
+                </select>
+              </label>
+              <div class="session-tool-grid">
+                <button id="saveSessionBtn" class="btn session-tool-wide" type="button">Save Session</button>
+                <button id="loadSessionBtn" class="btn" type="button">Load Saved</button>
+                <button id="deleteSessionBtn" class="btn btn-danger" type="button">Delete Saved</button>
+                <button id="downloadSessionBtn" class="btn" type="button">Download JSON</button>
+                <button id="exportScoreKeeperBtn" class="btn session-tool-wide" type="button">Export to ScoreKeeper</button>
+              </div>
+            </div>
+          </section>
+
           <section class="panel status-panel">
             <div class="panel-head">
               <h2>Hand Status</h2>
@@ -94,15 +119,6 @@
               <h2>Actions</h2>
               <p id="actionHint">Your controls will appear once the game starts.</p>
             </div>
-            <div id="passControls" class="pass-controls" hidden>
-              <div id="passSelectionText" class="selection-text">Choose 3 cards to pass.</div>
-              <button id="confirmPassBtn" class="btn btn-primary" type="button" disabled>
-                Pass Selected
-              </button>
-            </div>
-            <button id="nextHandBtn" class="btn btn-primary next-hand-btn" type="button" hidden>
-              Deal Next Hand
-            </button>
             <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
           </section>
 
@@ -138,29 +154,43 @@
               <div id="opponentLeft" class="seat seat-left"></div>
               <div id="opponentRight" class="seat seat-right"></div>
               <div class="trick-zone">
-                <div class="trick-head">
-                  <span id="trickLabel">Current Trick</span>
-                  <strong id="trickPoints">0 pts</strong>
-                </div>
                 <div id="trickCards" class="trick-cards"></div>
                 <div id="breakBurst" class="break-burst" hidden aria-hidden="true"></div>
+                <div id="moonBurst" class="moon-burst" hidden aria-hidden="true"></div>
               </div>
               <div id="humanSeat" class="seat seat-bottom"></div>
             </div>
           </section>
 
           <section class="panel hand-panel">
-            <div class="panel-head">
-              <h2>Your Hand</h2>
-              <p id="handSummary">Start a game to see your cards.</p>
+            <div class="panel-head hand-head">
+              <div class="hand-title">
+                <h2>Your Hand</h2>
+                <p id="handSummary">Start a game to see your cards.</p>
+              </div>
+              <div id="passControls" class="pass-controls" hidden>
+                <div id="passSelectionText" class="selection-text">Choose 3 cards to pass.</div>
+                <button id="confirmPassBtn" class="btn btn-primary" type="button" disabled>
+                  Pass Selected
+                </button>
+              </div>
+            </div>
+            <div class="hand-controls">
+              <button id="tramBtn" class="btn" type="button" hidden>TRAM</button>
+              <button id="nextHandBtn" class="btn btn-primary next-hand-btn" type="button" hidden>
+                Deal Next Hand
+              </button>
             </div>
             <div id="humanHand" class="human-hand"></div>
           </section>
 
           <section class="panel history-panel">
-            <div class="panel-head">
-              <h2>Hand History</h2>
-              <p id="historySummary">Completed hands will appear here.</p>
+            <div class="panel-head history-head">
+              <div>
+                <h2>Hand History</h2>
+                <p id="historySummary">Completed hands will appear here.</p>
+              </div>
+              <button id="historyOrderBtn" class="btn history-order-btn" type="button">Oldest First</button>
             </div>
             <div id="historyWrap" class="history-wrap"></div>
           </section>
@@ -168,6 +198,6 @@
       </main>
     </div>
 
-    <script src="./hearts.js?v=20260511a"></script>
+    <script src="./hearts.js?v=20260511b"></script>
   </body>
 </html>

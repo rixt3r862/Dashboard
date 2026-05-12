@@ -1,13 +1,18 @@
 const BOT_NAMES = ["Nova", "Juno", "Kite"];
+const BOT_DIFFICULTIES = ["easy", "normal", "hard"];
 const DEFAULT_TARGET_SCORE = 100;
 const BOT_TURN_DELAY_MS = 1050;
 const DEAL_ANIMATION_MS = 1250;
 const PASS_ANIMATION_MS = 720;
 const PLAY_ANIMATION_MS = 620;
 const BREAK_BURST_MS = 980;
+const MOON_BURST_MS = 3600;
 const TRICK_PAUSE_MS = 1800;
 const TRICK_COLLECT_MS = 720;
+const TRAM_PAUSE_MS = 1250;
 const PASS_DIRECTIONS = ["left", "right", "across", "hold"];
+const STORAGE_SESSIONS_KEY = "dashboard.hearts.sessions";
+const SESSION_EXPORT_VERSION = 1;
 const SUITS = ["clubs", "diamonds", "spades", "hearts"];
 const SUIT_SYMBOLS = {
   clubs: "♣",
@@ -31,6 +36,7 @@ const state = {
   trick: [],
   trickPauseTimer: null,
   trickCollectTimer: null,
+  tramClaimTimer: null,
   dealAnimationTimer: null,
   dealAnimationActive: false,
   passAnimationTimer: null,
@@ -43,12 +49,19 @@ const state = {
   breakBurstTimer: null,
   breakBurstType: "",
   breakBurstSymbols: [],
+  moonBurstTimer: null,
+  moonBurstPlayerId: "",
+  moonBurstSymbols: [],
   pendingTrickWinnerIndex: null,
   pendingTrickPoints: 0,
   heartsBroken: false,
   selectedPassIds: [],
   passedToHumanIds: [],
   handHistory: [],
+  historySortDir: "asc",
+  setupBotDifficulties: ["normal", "normal", "normal"],
+  sessionExpanded: true,
+  tramPlayerId: "",
   winnerId: null,
   notice: "",
 };
@@ -70,7 +83,18 @@ const els = {
   passControls: document.getElementById("passControls"),
   passSelectionText: document.getElementById("passSelectionText"),
   confirmPassBtn: document.getElementById("confirmPassBtn"),
+  tramBtn: document.getElementById("tramBtn"),
   nextHandBtn: document.getElementById("nextHandBtn"),
+  savedSessionSelect: document.getElementById("savedSessionSelect"),
+  sessionPanel: document.getElementById("sessionPanel"),
+  sessionTools: document.getElementById("sessionTools"),
+  sessionToggleBtn: document.getElementById("sessionToggleBtn"),
+  saveSessionBtn: document.getElementById("saveSessionBtn"),
+  loadSessionBtn: document.getElementById("loadSessionBtn"),
+  deleteSessionBtn: document.getElementById("deleteSessionBtn"),
+  downloadSessionBtn: document.getElementById("downloadSessionBtn"),
+  exportScoreKeeperBtn: document.getElementById("exportScoreKeeperBtn"),
+  sessionStatus: document.getElementById("sessionStatus"),
   eventNotice: document.getElementById("eventNotice"),
   winnerBanner: document.getElementById("winnerBanner"),
   scoreBoard: document.getElementById("scoreBoard"),
@@ -79,13 +103,13 @@ const els = {
   opponentLeft: document.getElementById("opponentLeft"),
   opponentRight: document.getElementById("opponentRight"),
   humanSeat: document.getElementById("humanSeat"),
-  trickLabel: document.getElementById("trickLabel"),
-  trickPoints: document.getElementById("trickPoints"),
   trickCards: document.getElementById("trickCards"),
   breakBurst: document.getElementById("breakBurst"),
+  moonBurst: document.getElementById("moonBurst"),
   humanHand: document.getElementById("humanHand"),
   handSummary: document.getElementById("handSummary"),
   historySummary: document.getElementById("historySummary"),
+  historyOrderBtn: document.getElementById("historyOrderBtn"),
   historyWrap: document.getElementById("historyWrap"),
 };
 
@@ -101,28 +125,57 @@ function bindEvents() {
     render();
   });
   els.confirmPassBtn.addEventListener("click", confirmHumanPass);
+  els.tramBtn.addEventListener("click", handleTram);
   els.nextHandBtn.addEventListener("click", dealNextHand);
   els.humanHand.addEventListener("click", handleHandClick);
+  els.sessionToggleBtn.addEventListener("click", () => {
+    state.sessionExpanded = !state.sessionExpanded;
+    renderSessionControls();
+  });
+  els.historyOrderBtn.addEventListener("click", () => {
+    state.historySortDir = state.historySortDir === "asc" ? "desc" : "asc";
+    renderHistory();
+  });
+  els.saveSessionBtn.addEventListener("click", saveSession);
+  els.loadSessionBtn.addEventListener("click", loadSelectedSession);
+  els.deleteSessionBtn.addEventListener("click", deleteSelectedSession);
+  els.downloadSessionBtn.addEventListener("click", downloadSession);
+  els.exportScoreKeeperBtn.addEventListener("click", exportScoreKeeper);
 }
 
 function renderBotNameFields() {
   els.botNameFields.innerHTML = BOT_NAMES.map((name, index) => `
-    <label class="field">
-      <span>Bot ${index + 1} name</span>
-      <input data-bot-index="${index}" type="text" maxlength="18" autocomplete="off" value="${escapeHtml(name)}" />
-    </label>
+    <div class="bot-setup-row">
+      <label class="field">
+        <span>Bot ${index + 1} name</span>
+        <input data-bot-index="${index}" type="text" maxlength="18" autocomplete="off" value="${escapeHtml(name)}" />
+      </label>
+      <label class="field">
+        <span>Difficulty</span>
+        <select data-bot-difficulty-index="${index}">
+          ${BOT_DIFFICULTIES.map((difficulty) => `
+            <option value="${difficulty}" ${state.setupBotDifficulties[index] === difficulty ? "selected" : ""}>
+              ${difficultyLabel(difficulty)}
+            </option>
+          `).join("")}
+        </select>
+      </label>
+    </div>
   `).join("");
 }
 
 function startNewGame() {
   clearTrickPauseTimer();
   clearTrickCollectTimer();
+  clearTramClaimTimer();
   clearDealAnimationTimer();
   clearPassAnimationTimer();
   clearPlayAnimationTimers();
   clearBreakBurstTimer();
+  clearMoonBurstTimer();
   resetState();
   state.gameStarted = true;
+  state.sessionExpanded = false;
   state.targetScore = readTargetScore();
   state.players = createPlayers();
   dealHand();
@@ -131,10 +184,12 @@ function startNewGame() {
 function resetState() {
   clearTrickPauseTimer();
   clearTrickCollectTimer();
+  clearTramClaimTimer();
   clearDealAnimationTimer();
   clearPassAnimationTimer();
   clearPlayAnimationTimers();
   clearBreakBurstTimer();
+  clearMoonBurstTimer();
   state.gameStarted = false;
   state.busy = false;
   state.players = [];
@@ -145,6 +200,7 @@ function resetState() {
   state.currentPlayerIndex = 0;
   state.trickNumber = 1;
   state.trick = [];
+  state.tramClaimTimer = null;
   state.dealAnimationActive = false;
   state.passingOutIds = [];
   state.passingOutDirection = "";
@@ -154,12 +210,18 @@ function resetState() {
   state.playAnimationTimers = [];
   state.breakBurstType = "";
   state.breakBurstSymbols = [];
+  state.moonBurstPlayerId = "";
+  state.moonBurstSymbols = [];
   state.pendingTrickWinnerIndex = null;
   state.pendingTrickPoints = 0;
   state.heartsBroken = false;
   state.selectedPassIds = [];
   state.passedToHumanIds = [];
   state.handHistory = [];
+  state.historySortDir = "asc";
+  state.setupBotDifficulties = ["normal", "normal", "normal"];
+  state.sessionExpanded = true;
+  state.tramPlayerId = "";
   state.winnerId = null;
   state.notice = "";
 }
@@ -173,20 +235,24 @@ function readTargetScore() {
 function createPlayers() {
   const humanName = (els.humanName.value || "Rick").trim() || "Rick";
   const botInputs = [...els.botNameFields.querySelectorAll("[data-bot-index]")];
+  const botDifficultyInputs = [...els.botNameFields.querySelectorAll("[data-bot-difficulty-index]")];
   const botNames = botInputs.map((input, index) => input.value.trim() || BOT_NAMES[index]);
+  const botDifficulties = botDifficultyInputs.map((input) => normalizeDifficulty(input.value));
+  state.setupBotDifficulties = BOT_NAMES.map((_, index) => botDifficulties[index] || "normal");
   return [
     createPlayer("p0", humanName, false),
-    createPlayer("p1", botNames[0] || "Nova", true),
-    createPlayer("p2", botNames[1] || "Juno", true),
-    createPlayer("p3", botNames[2] || "Kite", true),
+    createPlayer("p1", botNames[0] || "Nova", true, state.setupBotDifficulties[0]),
+    createPlayer("p2", botNames[1] || "Juno", true, state.setupBotDifficulties[1]),
+    createPlayer("p3", botNames[2] || "Kite", true, state.setupBotDifficulties[2]),
   ];
 }
 
-function createPlayer(id, name, bot) {
+function createPlayer(id, name, bot, difficulty = "normal") {
   return {
     id,
     name,
     bot,
+    difficulty: bot ? normalizeDifficulty(difficulty) : "human",
     hand: [],
     taken: [],
     score: 0,
@@ -197,10 +263,12 @@ function createPlayer(id, name, bot) {
 function dealHand() {
   clearTrickPauseTimer();
   clearTrickCollectTimer();
+  clearTramClaimTimer();
   clearDealAnimationTimer();
   clearPassAnimationTimer();
   clearPlayAnimationTimers();
   clearBreakBurstTimer();
+  clearMoonBurstTimer();
   const deck = shuffle(createDeck());
   state.players.forEach((player) => {
     player.hand = [];
@@ -219,6 +287,8 @@ function dealHand() {
   state.playingToTableIds = [];
   state.breakBurstType = "";
   state.breakBurstSymbols = [];
+  state.moonBurstPlayerId = "";
+  state.moonBurstSymbols = [];
   state.pendingTrickWinnerIndex = null;
   state.pendingTrickPoints = 0;
   state.heartsBroken = false;
@@ -303,16 +373,16 @@ function handleBotPasses() {
 }
 
 function chooseBotPassCards(player) {
-  return player.hand
-    .slice()
-    .sort((a, b) => botPassRisk(b) - botPassRisk(a))
-    .slice(0, 3);
+  const sorted = player.hand.slice().sort((a, b) => botPassRisk(b, player.difficulty) - botPassRisk(a, player.difficulty));
+  if (player.difficulty === "easy") return shuffle(sorted.slice(0, 7)).slice(0, 3);
+  return sorted.slice(0, 3);
 }
 
-function botPassRisk(card) {
+function botPassRisk(card, difficulty = "normal") {
   if (isQueenOfSpades(card)) return 100;
-  if (card.suit === "hearts") return 30 + card.value;
-  if (card.suit === "spades" && card.value > 10) return 20 + card.value;
+  if (card.suit === "hearts") return (difficulty === "hard" ? 38 : 30) + card.value;
+  if (card.suit === "spades" && card.value > 10) return (difficulty === "hard" ? 34 : 20) + card.value;
+  if (difficulty === "hard" && card.value >= 12) return 10 + card.value;
   return card.value;
 }
 
@@ -411,6 +481,17 @@ function playHumanCard(cardId) {
 function runBotTurns() {
   if (state.busy || state.stage !== "playing") return;
   if (!state.players[state.currentPlayerIndex]?.bot) return;
+  const tramCandidate = findTramCandidate();
+  if (tramCandidate?.bot) {
+    state.busy = true;
+    state.notice = `${tramCandidate.name} can claim the rest.`;
+    render();
+    window.setTimeout(() => {
+      state.busy = false;
+      if (findTramCandidate()?.id === tramCandidate.id) beginTramClaim(tramCandidate);
+    }, Math.round(BOT_TURN_DELAY_MS * 0.72));
+    return;
+  }
   state.busy = true;
   window.setTimeout(() => {
     if (state.stage === "playing" && state.players[state.currentPlayerIndex]?.bot) {
@@ -425,6 +506,22 @@ function runBotTurns() {
 }
 
 function chooseBotPlay(player) {
+  if (player.difficulty === "easy") return chooseEasyBotPlay(player);
+  if (player.difficulty === "hard") return chooseHardBotPlay(player);
+  return chooseNormalBotPlay(player);
+}
+
+function chooseEasyBotPlay(player) {
+  const legal = legalCards(player);
+  const ledSuit = state.trick[0]?.card.suit;
+  if (ledSuit && !legal.some((card) => card.suit === ledSuit)) {
+    const points = legal.filter((card) => card.suit === "hearts" || isQueenOfSpades(card));
+    if (points.length && Math.random() > 0.35) return randomCard(points);
+  }
+  return randomCard(legal);
+}
+
+function chooseNormalBotPlay(player) {
   const legal = legalCards(player);
   const ledSuit = state.trick[0]?.card.suit;
   if (!ledSuit) {
@@ -444,6 +541,34 @@ function chooseBotPlay(player) {
   if (queen) return queen;
   const pointCards = legal.filter((card) => card.suit === "hearts");
   if (pointCards.length) return highestCard(pointCards);
+  return highestCard(legal);
+}
+
+function chooseHardBotPlay(player) {
+  const legal = legalCards(player);
+  const ledSuit = state.trick[0]?.card.suit;
+  if (!ledSuit) {
+    const safeLeads = legal.filter((card) => card.suit !== "hearts" && !isQueenOfSpades(card));
+    const lowRisk = safeLeads.filter((card) => !isTopRemainingCard(card, player));
+    return lowestCard(lowRisk.length ? lowRisk : safeLeads.length ? safeLeads : legal);
+  }
+  const following = legal.filter((card) => card.suit === ledSuit);
+  if (following.length) {
+    const currentWinner = currentTrickWinner();
+    const winningValue = currentWinner?.card.value ?? 0;
+    const under = following.filter((card) => card.value < winningValue);
+    if (under.length) return highestCard(under);
+    const dangerousTrick = trickPointValue(state.trick.map((play) => play.card)) > 0;
+    if (dangerousTrick) return lowestCard(following);
+    const over = following.filter((card) => card.value > winningValue);
+    return lowestCard(over.length ? over : following);
+  }
+  const queen = legal.find(isQueenOfSpades);
+  if (queen) return queen;
+  const hearts = legal.filter((card) => card.suit === "hearts");
+  if (hearts.length) return highestCard(hearts);
+  const spades = legal.filter((card) => card.suit === "spades" && card.value > 10);
+  if (spades.length) return highestCard(spades);
   return highestCard(legal);
 }
 
@@ -518,6 +643,12 @@ function clearTrickCollectTimer() {
   state.trickCollectTimer = null;
 }
 
+function clearTramClaimTimer() {
+  if (!state.tramClaimTimer) return;
+  window.clearTimeout(state.tramClaimTimer);
+  state.tramClaimTimer = null;
+}
+
 function markCardPlayingToTable(cardId) {
   state.playingToTableIds = [...new Set([...state.playingToTableIds, cardId])];
   const timer = window.setTimeout(() => {
@@ -556,6 +687,31 @@ function clearBreakBurstTimer() {
   state.breakBurstTimer = null;
 }
 
+function triggerMoonBurst(playerId) {
+  clearMoonBurstTimer();
+  state.moonBurstPlayerId = playerId;
+  const symbols = ["✦", "✶", "✷", "✹", "★", "☾", "●"];
+  state.moonBurstSymbols = Array.from({ length: 56 }, (_, index) => ({
+    symbol: symbols[index % symbols.length],
+    delay: index % 14,
+    distance: 4.7 + (index % 9) * 0.55,
+    cluster: index % 4,
+    size: 1 + (index % 5) * 0.16,
+  }));
+  state.moonBurstTimer = window.setTimeout(() => {
+    state.moonBurstTimer = null;
+    state.moonBurstPlayerId = "";
+    state.moonBurstSymbols = [];
+    render();
+  }, MOON_BURST_MS);
+}
+
+function clearMoonBurstTimer() {
+  if (!state.moonBurstTimer) return;
+  window.clearTimeout(state.moonBurstTimer);
+  state.moonBurstTimer = null;
+}
+
 function startDealAnimationTimer() {
   clearDealAnimationTimer();
   state.dealAnimationTimer = window.setTimeout(() => {
@@ -589,12 +745,14 @@ function currentTrickWinner() {
 function completeHand() {
   const handPoints = state.players.map((player) => trickPointValue(player.taken));
   const moonIndex = handPoints.findIndex((points) => points === 26);
+  const moonPlayerId = moonIndex >= 0 ? state.players[moonIndex].id : "";
   if (moonIndex >= 0) {
     state.players.forEach((player, index) => {
       player.handPoints = index === moonIndex ? 0 : 26;
       player.score += player.handPoints;
     });
     state.notice = `${state.players[moonIndex].name} shot the moon. Everyone else takes 26.`;
+    triggerMoonBurst(moonPlayerId);
   } else {
     state.players.forEach((player, index) => {
       player.handPoints = handPoints[index];
@@ -605,7 +763,11 @@ function completeHand() {
     handNumber: state.handNumber,
     pass: passLabel(),
     points: state.players.map((player) => player.handPoints),
+    scores: state.players.map((player) => player.score),
+    moonPlayerId,
+    tramPlayerId: state.tramPlayerId,
   });
+  state.tramPlayerId = "";
   const atLimit = state.players.some((player) => player.score >= state.targetScore);
   if (atLimit) {
     state.winnerId = state.players.slice().sort((a, b) => a.score - b.score)[0].id;
@@ -661,12 +823,366 @@ function highestCard(cards) {
   return cards.slice().sort((a, b) => b.value - a.value)[0];
 }
 
+function randomCard(cards) {
+  return cards[Math.floor(Math.random() * cards.length)];
+}
+
+function normalizeDifficulty(value) {
+  return BOT_DIFFICULTIES.includes(value) ? value : "normal";
+}
+
+function difficultyLabel(value) {
+  return {
+    easy: "Easy",
+    normal: "Normal",
+    hard: "Hard",
+  }[normalizeDifficulty(value)];
+}
+
+function orderedHistory() {
+  const history = state.handHistory.slice();
+  return state.historySortDir === "asc" ? history.reverse() : history;
+}
+
+function isTopRemainingCard(card, owner) {
+  return state.players.every((player) => (
+    player === owner || !player.hand.some((entry) => entry.suit === card.suit && entry.value > card.value)
+  ));
+}
+
+function findTramCandidate() {
+  if (state.stage !== "playing" || state.trick.length || state.dealAnimationActive || state.tramClaimTimer) return null;
+  const player = state.players[state.currentPlayerIndex];
+  if (!player?.hand.length) return null;
+  const ownsEveryLead = player.hand.every((card) => isTopRemainingCard(card, player));
+  return ownsEveryLead ? player : null;
+}
+
+function handleTram() {
+  const player = findTramCandidate();
+  if (!player || player.bot) return;
+  beginTramClaim(player);
+}
+
+function beginTramClaim(player) {
+  clearTrickPauseTimer();
+  clearTrickCollectTimer();
+  clearPlayAnimationTimers();
+  clearTramClaimTimer();
+  state.busy = true;
+  state.tramPlayerId = player.id;
+  state.notice = `${player.name} claims the rest of the tricks.`;
+  render();
+  state.tramClaimTimer = window.setTimeout(() => completeTramClaim(player.id), TRAM_PAUSE_MS);
+}
+
+function completeTramClaim(playerId) {
+  state.tramClaimTimer = null;
+  const player = state.players.find((entry) => entry.id === playerId);
+  if (!player || state.stage !== "playing") {
+    state.busy = false;
+    render();
+    return;
+  }
+  const remainingCards = state.players.flatMap((entry) => entry.hand);
+  state.players.forEach((entry) => {
+    entry.hand = [];
+  });
+  player.taken.push(...remainingCards);
+  state.trick = [];
+  state.tramPlayerId = player.id;
+  state.notice = `${player.name} claimed the rest of the tricks.`;
+  state.busy = false;
+  completeHand();
+  render();
+}
+
+function sessionSnapshot() {
+  return {
+    version: SESSION_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    game: "hearts",
+    gameStarted: state.gameStarted,
+    players: state.players.map((player) => ({
+      id: player.id,
+      name: player.name,
+      bot: player.bot,
+      difficulty: player.difficulty,
+      hand: player.hand,
+      taken: player.taken,
+      score: player.score,
+      handPoints: player.handPoints,
+      pendingPass: player.pendingPass || [],
+    })),
+    handNumber: state.handNumber,
+    targetScore: state.targetScore,
+    passDirectionIndex: state.passDirectionIndex,
+    stage: state.stage,
+    currentPlayerIndex: state.currentPlayerIndex,
+    trickNumber: state.trickNumber,
+    trick: state.trick,
+    heartsBroken: state.heartsBroken,
+    selectedPassIds: state.selectedPassIds,
+    passedToHumanIds: state.passedToHumanIds,
+    handHistory: state.handHistory,
+    historySortDir: state.historySortDir,
+    setupBotDifficulties: state.setupBotDifficulties,
+    sessionExpanded: state.sessionExpanded,
+    winnerId: state.winnerId,
+    notice: state.notice,
+  };
+}
+
+function restoreSessionSnapshot(snapshot) {
+  clearTrickPauseTimer();
+  clearTrickCollectTimer();
+  clearTramClaimTimer();
+  clearDealAnimationTimer();
+  clearPassAnimationTimer();
+  clearPlayAnimationTimers();
+  clearBreakBurstTimer();
+  clearMoonBurstTimer();
+  Object.assign(state, {
+    gameStarted: Boolean(snapshot.gameStarted),
+    players: (snapshot.players || []).map((player) => ({
+      id: player.id,
+      name: player.name,
+      bot: Boolean(player.bot),
+      difficulty: player.bot ? normalizeDifficulty(player.difficulty) : "human",
+      hand: player.hand || [],
+      taken: player.taken || [],
+      score: Number(player.score) || 0,
+      handPoints: Number(player.handPoints) || 0,
+      pendingPass: Array.isArray(player.pendingPass) ? player.pendingPass : [],
+    })),
+    handNumber: Number(snapshot.handNumber) || 1,
+    targetScore: Number(snapshot.targetScore) || DEFAULT_TARGET_SCORE,
+    passDirectionIndex: Number(snapshot.passDirectionIndex) || 0,
+    stage: normalizeStage(snapshot.stage),
+    currentPlayerIndex: Number(snapshot.currentPlayerIndex) || 0,
+    trickNumber: Number(snapshot.trickNumber) || 1,
+    trick: snapshot.trick || [],
+    trickPauseTimer: null,
+    trickCollectTimer: null,
+    dealAnimationTimer: null,
+    dealAnimationActive: false,
+    tramClaimTimer: null,
+    passAnimationTimer: null,
+    passingOutIds: [],
+    passingOutDirection: "",
+    passingInIds: [],
+    passingInDirection: "",
+    playingToTableIds: [],
+    playAnimationTimers: [],
+    breakBurstTimer: null,
+    breakBurstType: "",
+    breakBurstSymbols: [],
+    moonBurstTimer: null,
+    moonBurstPlayerId: "",
+    moonBurstSymbols: [],
+    pendingTrickWinnerIndex: null,
+    pendingTrickPoints: 0,
+    heartsBroken: Boolean(snapshot.heartsBroken),
+    selectedPassIds: snapshot.selectedPassIds || [],
+    passedToHumanIds: snapshot.passedToHumanIds || [],
+    handHistory: snapshot.handHistory || [],
+    historySortDir: snapshot.historySortDir === "desc" ? "desc" : "asc",
+    setupBotDifficulties: snapshot.setupBotDifficulties || ["normal", "normal", "normal"],
+    sessionExpanded: snapshot.sessionExpanded !== false,
+    tramPlayerId: "",
+    winnerId: snapshot.winnerId || null,
+    notice: snapshot.notice || "Session loaded.",
+    busy: false,
+  });
+  if (state.stage === "passing-out" || state.stage === "trick-complete" || state.stage === "trick-collecting") {
+    state.stage = "playing";
+  }
+  if (state.stage === "passing") {
+    state.players.forEach((player) => {
+      if (player.bot && (!Array.isArray(player.pendingPass) || player.pendingPass.length !== 3)) {
+        player.pendingPass = chooseBotPassCards(player).map((card) => card.id);
+      }
+    });
+  }
+  render();
+  if (state.stage === "playing") runBotTurns();
+}
+
+function normalizeStage(stage) {
+  return ["setup", "passing", "passing-out", "playing", "trick-complete", "trick-collecting", "hand-end", "game-end"].includes(stage)
+    ? stage
+    : "setup";
+}
+
+function readSavedSessions() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_SESSIONS_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedSessions(sessions) {
+  window.localStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(sessions));
+}
+
+function saveSession() {
+  if (!state.gameStarted) {
+    showSessionStatus("Start a game before saving.");
+    return;
+  }
+  const name = window.prompt("Save this Hearts session as:", defaultSessionName());
+  if (!name) return;
+  const sessions = readSavedSessions();
+  const id = `${Date.now()}`;
+  sessions.unshift({ id, name: name.trim(), savedAt: new Date().toISOString(), snapshot: sessionSnapshot() });
+  writeSavedSessions(sessions);
+  showSessionStatus(`Saved ${name.trim()}.`);
+  renderSessionControls(id);
+}
+
+function loadSelectedSession() {
+  const session = selectedSavedSession();
+  if (!session) return;
+  restoreSessionSnapshot(session.snapshot);
+  showSessionStatus(`Loaded ${session.name}.`);
+}
+
+function deleteSelectedSession() {
+  const session = selectedSavedSession();
+  if (!session) return;
+  if (!window.confirm(`Delete saved session "${session.name}"?`)) return;
+  writeSavedSessions(readSavedSessions().filter((entry) => entry.id !== session.id));
+  showSessionStatus(`Deleted ${session.name}.`);
+  renderSessionControls();
+}
+
+function downloadSession() {
+  if (!state.gameStarted) {
+    showSessionStatus("Start a game before downloading.");
+    return;
+  }
+  const snapshot = sessionSnapshot();
+  downloadJson(`${slugify(defaultSessionName())}.json`, snapshot);
+  showSessionStatus("Session downloaded.");
+}
+
+function exportScoreKeeper() {
+  if (!state.handHistory.length) {
+    showSessionStatus("Complete at least one hand before exporting to ScoreKeeper.");
+    return;
+  }
+  const snapshot = sessionSnapshot();
+  const payload = {
+    app: "dashboard-game-export",
+    version: 1,
+    sourceGame: "hearts-table",
+    scorekeeperPreset: "hearts",
+    exportedAt: new Date().toISOString(),
+    session: {
+      name: defaultSessionName(),
+    },
+    scorekeeperPayload: scoreKeeperPayload(snapshot),
+    sourcePayload: snapshot,
+  };
+  downloadJson(`${slugify(defaultSessionName())}-scorekeeper.json`, payload);
+  showSessionStatus("ScoreKeeper export downloaded.");
+}
+
+function scoreKeeperPayload(snapshot) {
+  const players = snapshot.players.map((player) => ({ id: player.id, name: player.name }));
+  const rounds = snapshot.handHistory.slice().reverse().map((entry) => ({
+    n: Number(entry.handNumber),
+    scores: Object.fromEntries(players.map((player, index) => [player.id, entry.points[index] || 0])),
+    ts: Date.now(),
+  }));
+  const winnerId = snapshot.winnerId || null;
+  const winnerMilestones = winnerId
+    ? [{ winnerId, roundN: rounds.length, target: snapshot.targetScore, ts: Date.now() }]
+    : [];
+  return {
+    mode: winnerId ? "finished" : "playing",
+    presetKey: "hearts",
+    customGameName: "",
+    heartsDeckCount: 1,
+    target: snapshot.targetScore,
+    winMode: "low",
+    players,
+    roundEntryOrder: players.map((player) => player.id),
+    playerInactiveRanges: {},
+    teams: null,
+    rounds,
+    winnerId,
+    quizTieIds: [],
+    gameState: winnerId ? "completed" : "in_progress",
+    firstWinnerAt: winnerMilestones[0] || null,
+    finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
+    winnerMilestones,
+    sortByTotal: false,
+    historySortDir: "asc",
+    showHistoryTotals: true,
+    spadesPartnerIndex: 2,
+    presetNote: "Lowest score wins. Hearts are 1 point and the queen of spades is 13.",
+    skyjoCurrentRoundWentOutPlayerId: null,
+    rummikubCurrentRoundWinnerId: null,
+    currentSessionId: null,
+  };
+}
+
+function selectedSavedSession() {
+  const id = els.savedSessionSelect.value;
+  return readSavedSessions().find((session) => session.id === id);
+}
+
+function renderSessionControls(selectedId = els.savedSessionSelect.value) {
+  const sessions = readSavedSessions();
+  els.sessionTools.hidden = !state.sessionExpanded;
+  els.sessionPanel.classList.toggle("collapsed", !state.sessionExpanded);
+  els.sessionToggleBtn.textContent = state.sessionExpanded ? "Hide" : "Show";
+  els.sessionToggleBtn.setAttribute("aria-expanded", String(state.sessionExpanded));
+  els.savedSessionSelect.innerHTML = sessions.length
+    ? sessions.map((session) => `<option value="${session.id}" ${session.id === selectedId ? "selected" : ""}>${escapeHtml(session.name)}</option>`).join("")
+    : `<option value="">No saved sessions</option>`;
+  const hasSaved = sessions.length > 0;
+  els.loadSessionBtn.disabled = !hasSaved;
+  els.deleteSessionBtn.disabled = !hasSaved;
+  els.saveSessionBtn.disabled = !state.gameStarted;
+  els.downloadSessionBtn.disabled = !state.gameStarted;
+  els.exportScoreKeeperBtn.disabled = !state.handHistory.length;
+}
+
+function showSessionStatus(message) {
+  els.sessionStatus.textContent = message;
+}
+
+function defaultSessionName() {
+  const human = state.players.find((player) => !player.bot)?.name || "Hearts";
+  return `${human} Hearts Hand ${state.handNumber}`;
+}
+
+function slugify(value) {
+  return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "hearts-session";
+}
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function render() {
   renderSetupPanel();
   renderStatus();
+  renderSessionControls();
   renderScoreBoard();
   renderSeats();
   renderTrick();
+  renderMoonBurst();
   renderHumanHand();
   renderActions();
   renderHistory();
@@ -681,7 +1197,10 @@ function renderSetupPanel() {
     return;
   }
   const human = state.players.find((player) => !player.bot);
-  const bots = state.players.filter((player) => player.bot).map((player) => player.name).join(", ");
+  const bots = state.players
+    .filter((player) => player.bot)
+    .map((player) => `${player.name} (${difficultyLabel(player.difficulty)})`)
+    .join(", ");
   els.setupSummary.innerHTML = `
     <strong>${escapeHtml(human?.name || "Player")} at the table</strong>
     <span>Target ${state.targetScore} · Bots: ${escapeHtml(bots)}</span>
@@ -725,9 +1244,9 @@ function renderScoreBoard() {
   const leader = state.players.find((player) => player.score === lowScore);
   els.leaderText.textContent = `Target ${state.targetScore}; low score ${leader.name} at ${lowScore}`;
   els.scoreBoard.innerHTML = state.players.map((player, index) => `
-    <div class="score-card ${index === state.currentPlayerIndex && state.stage === "playing" ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""}">
+    <div class="score-card ${index === state.currentPlayerIndex && state.stage === "playing" ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""} ${player.id === state.moonBurstPlayerId ? "moon-flash" : ""}">
       <strong>${escapeHtml(player.name)} · ${player.score}</strong>
-      <span class="score-meta">Hand ${player.handPoints} · Taken ${trickPointValue(player.taken)}</span>
+      <span class="score-meta">Hand ${player.handPoints} · Points taken this hand ${trickPointValue(player.taken)}</span>
     </div>
   `).join("");
   const winner = state.players.find((player) => player.id === state.winnerId);
@@ -754,10 +1273,9 @@ function renderSeats() {
     }
     element.hidden = false;
     element.classList.toggle("current", index === state.currentPlayerIndex && state.stage === "playing");
+    element.classList.toggle("moon-flash", player.id === state.moonBurstPlayerId);
     element.innerHTML = `
       <div class="seat-name">${escapeHtml(player.name)}</div>
-      <div class="turn-badge">${index === state.currentPlayerIndex && state.stage === "playing" ? "Playing" : "Waiting"}</div>
-      <div class="seat-detail">${player.hand.length} cards · ${trickPointValue(player.taken)} taken</div>
       <div class="mini-hand">${renderMiniHand(player.hand.length)}</div>
     `;
   });
@@ -783,10 +1301,6 @@ function renderTrick() {
       `<span style="--burst-index: ${index}; --burst-delay: ${entry.delay}; --burst-distance: ${entry.distance}rem;">${entry.symbol}</span>`
     )).join("")
     : "";
-  els.trickLabel.textContent = state.stage === "trick-complete" || state.stage === "trick-collecting"
-    ? "Trick Complete"
-    : state.trick.length ? "Current Trick" : "Center Table";
-  els.trickPoints.textContent = `${trickPointValue(state.trick.map((play) => play.card))} pts`;
   els.trickCards.innerHTML = state.trick.length
     ? state.trick.map((play) => `
       <div class="trick-play ${state.playingToTableIds.includes(play.card.id) ? `play-from-${seatDirection(play.playerIndex)}` : ""} ${state.stage === "trick-collecting" ? `collect-to-${seatDirection(state.pendingTrickWinnerIndex)}` : ""}">
@@ -794,7 +1308,18 @@ function renderTrick() {
         <span class="trick-player">${escapeHtml(state.players[play.playerIndex].name)}</span>
       </div>
     `).join("")
-    : `<div class="trick-player">Cards played to the trick appear here.</div>`;
+    : "";
+}
+
+function renderMoonBurst() {
+  if (!els.moonBurst) return;
+  const active = Boolean(state.moonBurstPlayerId);
+  els.moonBurst.hidden = !active;
+  els.moonBurst.innerHTML = active
+    ? state.moonBurstSymbols.map((entry, index) => (
+      `<span class="moon-spark moon-cluster-${entry.cluster}" style="--burst-index: ${index}; --burst-delay: ${entry.delay}; --burst-distance: ${entry.distance}rem; --spark-scale: ${entry.size};">${entry.symbol}</span>`
+    )).join("")
+    : "";
 }
 
 function renderHumanHand() {
@@ -831,6 +1356,9 @@ function renderActions() {
   els.passControls.hidden = state.stage !== "passing" && state.stage !== "passing-out";
   els.confirmPassBtn.disabled = state.stage !== "passing" || state.selectedPassIds.length !== 3;
   els.passSelectionText.textContent = `Selected ${state.selectedPassIds.length} of 3 cards.`;
+  const tramCandidate = findTramCandidate();
+  els.tramBtn.hidden = Boolean(state.tramClaimTimer) || !tramCandidate || tramCandidate.bot;
+  els.tramBtn.textContent = tramCandidate ? `TRAM: ${tramCandidate.name}` : "TRAM";
   els.nextHandBtn.hidden = state.stage !== "hand-end";
   if (!state.gameStarted) {
     els.actionHint.textContent = "Your controls will appear once the game starts.";
@@ -838,8 +1366,13 @@ function renderActions() {
     els.actionHint.textContent = "Choose three cards from your hand, then pass them.";
   } else if (state.stage === "passing-out") {
     els.actionHint.textContent = "Passing your selected cards.";
+  } else if (state.tramClaimTimer && state.tramPlayerId) {
+    const claimant = state.players.find((player) => player.id === state.tramPlayerId);
+    els.actionHint.textContent = `${claimant?.name || "A player"} is claiming the rest.`;
   } else if (state.stage === "playing" && state.currentPlayerIndex === 0) {
     els.actionHint.textContent = "Play one highlighted legal card.";
+  } else if (tramCandidate?.bot) {
+    els.actionHint.textContent = `${tramCandidate.name} is claiming the rest.`;
   } else if (state.stage === "trick-complete") {
     els.actionHint.textContent = "The completed trick is staying on the table for a moment.";
   } else if (state.stage === "trick-collecting") {
@@ -857,9 +1390,11 @@ function renderHistory() {
   els.historySummary.textContent = state.handHistory.length
     ? `${state.handHistory.length} completed hand${state.handHistory.length === 1 ? "" : "s"}.`
     : "Completed hands will appear here.";
-  els.historyWrap.innerHTML = state.handHistory.map((entry) => `
+  els.historyOrderBtn.textContent = state.historySortDir === "asc" ? "Oldest First" : "Newest First";
+  const history = orderedHistory();
+  els.historyWrap.innerHTML = history.map((entry) => `
     <div class="history-row">
-      <strong>Hand ${entry.handNumber}</strong>
+      <strong>Hand ${entry.handNumber}${entry.moonPlayerId ? " · Moon" : ""}${entry.tramPlayerId ? " · TRAM" : ""}</strong>
       ${entry.points.map((points, index) => `<span>${escapeHtml(state.players[index]?.name || `P${index + 1}`)}: ${points}</span>`).join("")}
     </div>
   `).join("");
