@@ -1257,9 +1257,15 @@ function renderScoreBoard() {
     </div>
   `).join("");
   const winner = state.players.find((player) => player.id === state.winnerId);
+  const targetHitPlayer = state.players.find((player) => player.score >= state.targetScore);
+  const scoreLabel = winner?.bot ? `${winner.name}'s Final Score` : "Your Final Score";
   els.winnerBanner.hidden = !winner;
   els.winnerBanner.innerHTML = winner
-    ? `<strong>${escapeHtml(winner.name)} wins Hearts</strong><span>Lowest score after someone reached ${state.targetScore}.</span>`
+    ? `
+      <span class="starter-kicker">Game winner</span>
+      <strong>Congratulations, ${escapeHtml(winner.name)}!</strong>
+      <span>${escapeHtml(targetHitPlayer?.name ?? winner.name)} hit ${escapeHtml(state.targetScore)}. ${escapeHtml(scoreLabel)}: ${escapeHtml(winner.score)} points.</span>
+    `
     : "";
 }
 
