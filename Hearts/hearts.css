@@ -901,6 +901,7 @@ button {
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: flex-start;
+  justify-content: center;
 }
 
 .card-button {
