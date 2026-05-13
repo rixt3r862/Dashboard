@@ -79,6 +79,7 @@ const els = {
   roundValue: document.getElementById("roundValue"),
   turnValue: document.getElementById("turnValue"),
   passValue: document.getElementById("passValue"),
+  leadSuitValue: document.getElementById("leadSuitValue"),
   heartsValue: document.getElementById("heartsValue"),
   actionHint: document.getElementById("actionHint"),
   passControls: document.getElementById("passControls"),
@@ -358,6 +359,21 @@ function passLabel(direction = currentPassDirection()) {
     across: "Pass across",
     hold: "Hold",
   }[direction];
+}
+
+function suitLabel(suit) {
+  return {
+    clubs: "Clubs",
+    diamonds: "Diamonds",
+    spades: "Spades",
+    hearts: "Hearts",
+  }[suit] || "-";
+}
+
+function renderSuitLabel(suit) {
+  if (!suit || !SUIT_SYMBOLS[suit]) return "-";
+  const colorClass = suit === "hearts" || suit === "diamonds" ? "red" : "black";
+  return `${suitLabel(suit)} <span class="status-suit-symbol ${colorClass}">${SUIT_SYMBOLS[suit]}</span>`;
 }
 
 function passTargetIndex(playerIndex) {
@@ -1219,6 +1235,9 @@ function renderStatus() {
   els.roundValue.textContent = state.gameStarted ? String(state.handNumber) : "-";
   els.turnValue.textContent = current && state.stage === "playing" ? current.name : "-";
   els.passValue.textContent = state.gameStarted ? passLabel() : "-";
+  els.leadSuitValue.innerHTML = state.gameStarted && state.trick[0]?.card
+    ? renderSuitLabel(state.trick[0].card.suit)
+    : "-";
   els.heartsValue.textContent = state.gameStarted ? (state.heartsBroken ? "Broken" : "Closed") : "-";
   if (!state.gameStarted) {
     els.statusText.textContent = "Deal a table to begin.";

@@ -391,6 +391,27 @@ button {
   font-size: 0.88rem;
 }
 
+.status-suit-symbol {
+  display: inline-block;
+  margin-left: 0.12rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.status-suit-symbol.red {
+  color: #d83b47;
+}
+
+.status-suit-symbol.black {
+  color: #050505;
+  text-shadow:
+    -1px -1px 0 rgba(255, 255, 255, 0.72),
+    1px -1px 0 rgba(255, 255, 255, 0.72),
+    -1px 1px 0 rgba(255, 255, 255, 0.72),
+    1px 1px 0 rgba(255, 255, 255, 0.72),
+    0 0 0.42rem rgba(255, 255, 255, 0.58);
+}
+
 .score-card.current {
   border-color: rgba(255, 214, 127, 0.72);
   background:
