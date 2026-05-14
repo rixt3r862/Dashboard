@@ -1,4 +1,9 @@
-const BOT_NAMES = ["Nova", "Juno", "Kite", "Piper", "Clover", "Atlas"];
+const BOT_NAMES = [
+  "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
+  "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
+  "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
+  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace",
+];
 const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
 const DEFAULT_TARGET_SCORE = 100;
 const ROWS = 3;
@@ -8,6 +13,8 @@ const STORAGE_KEY = "skyjo.table.v1";
 const SESSIONS_KEY = "skyjo.table.sessions.v1";
 const EXPORT_VERSION = 1;
 let dealAnimationTimer = null;
+let botTurnTimer = null;
+let botTurnToken = 0;
 
 const CARD_COUNTS = new Map([
   [-2, 5],
@@ -48,7 +55,7 @@ const state = {
   pendingRoundSummary: null,
   winnerId: null,
   targetScore: DEFAULT_TARGET_SCORE,
-  setupBotNames: BOT_NAMES.slice(0, 3),
+  setupBotNames: randomBotNames(3),
   setupBotDifficulties: ["medium", "medium", "medium"],
   currentSessionId: null,
   selectedSessionId: "",
@@ -260,16 +267,19 @@ function syncSetupFromPlayers() {
 }
 
 function startNewGame() {
+  cancelPendingBotTurn();
   syncBotConfigFromInputs();
   const humanName = cleanName(els.humanName.value, "Rick");
   const botCount = Number(els.botCount.value);
+  const botNames = randomBotNames(botCount, [humanName]);
+  state.setupBotNames = Array.from({ length: 3 }, (_, index) => botNames[index] || BOT_NAMES[index] || `Bot ${index + 1}`);
   state.targetScore = readTargetScore();
   state.players = [
     makePlayer("p-human", humanName, false),
     ...Array.from({ length: botCount }, (_, index) =>
       makePlayer(
         `p-bot-${index + 1}`,
-        cleanName(state.setupBotNames[index], BOT_NAMES[index]),
+        cleanName(state.setupBotNames[index], botNames[index] || BOT_NAMES[index]),
         true,
         normalizeBotDifficulty(state.setupBotDifficulties[index]),
       ),
@@ -291,6 +301,7 @@ function startNewGame() {
 }
 
 function resetTable() {
+  cancelPendingBotTurn();
   clearDealAnimation();
   state.gameStarted = false;
   state.busy = false;
@@ -315,7 +326,7 @@ function resetTable() {
   state.selectedSessionId = "";
   state.sessionStatusMessage = "";
   state.sessionToolsExpanded = true;
-  state.setupBotNames = BOT_NAMES.slice(0, 3);
+  state.setupBotNames = randomBotNames(3);
   state.setupBotDifficulties = ["medium", "medium", "medium"];
   if (els.humanName) els.humanName.value = "Rick";
   if (els.botCount) els.botCount.value = "2";
@@ -340,6 +351,7 @@ function dealNextRound() {
 }
 
 function dealRound() {
+  cancelPendingBotTurn();
   clearDealAnimation();
   state.busy = false;
   state.deck = shuffle(createDeck());
@@ -431,6 +443,15 @@ function clearDealAnimation() {
     dealAnimationTimer = null;
   }
   state.dealAnimationCardIds = [];
+}
+
+function cancelPendingBotTurn() {
+  botTurnToken += 1;
+  if (botTurnTimer) {
+    window.clearTimeout(botTurnTimer);
+    botTurnTimer = null;
+  }
+  state.busy = false;
 }
 
 function triggerDealAnimation(cardIds) {
@@ -672,9 +693,7 @@ function endRound() {
   }
 
   const eligible = state.players.filter((player) => player.score >= target);
-  const winner = eligible.length
-    ? [...state.players].sort((left, right) => left.score - right.score)[0]
-    : null;
+  const winner = lowScoreWinnerAfterTarget(state.players, target);
   const targetHitPlayer = crossedTargetIds.length
     ? [...state.players]
         .filter((player) => crossedTargetIds.includes(player.id))
@@ -708,10 +727,25 @@ function resumeBotTurn() {
   if (!state.gameStarted || state.busy || !player?.bot || !["choose-source"].includes(state.turnStage)) {
     return;
   }
+  const token = botTurnToken;
   state.busy = true;
   render();
-  window.setTimeout(() => {
-    playBotTurn(player);
+  botTurnTimer = window.setTimeout(() => {
+    botTurnTimer = null;
+    if (token !== botTurnToken) return;
+    const livePlayer = currentPlayer();
+    if (
+      !state.gameStarted ||
+      state.turnStage !== "choose-source" ||
+      !livePlayer?.bot ||
+      livePlayer.id !== player.id
+    ) {
+      state.busy = false;
+      render();
+      return;
+    }
+    playBotTurn(livePlayer);
+    if (token !== botTurnToken) return;
     state.busy = false;
     saveGame();
     render();
@@ -1157,9 +1191,9 @@ function playerMarkup(player) {
           <p>${player.bot ? `Bot · ${difficultyLabel(player.difficulty)}` : "You"}${trigger ? " · ended round" : ""}</p>
         </div>
         <div class="player-stats">
-          <span>${player.score} pts</span>
-          <span>${hiddenCount} cards hidden</span>
-          <span>${state.turnStage === "opening-reveal" ? `Lead Points: ${openingTotal}` : `Face-up Points: ${roundTotal}`}</span>
+          <span>${escapeHtml(player.score)} pts</span>
+          <span>${escapeHtml(hiddenCount)} cards hidden</span>
+          <span>${escapeHtml(state.turnStage === "opening-reveal" ? `Lead Points: ${openingTotal}` : `Face-up Points: ${roundTotal}`)}</span>
         </div>
       </div>
       <div class="skyjo-grid" style="--cols:${COLS}">
@@ -1275,7 +1309,7 @@ function cardMarkup(card, options = {}) {
   return `
     <span class="skyjo-card ${colorClass} ${options.small ? "small" : ""}">
       <span class="card-glow"></span>
-      <span class="card-value ${valueClass}">${card.value}</span>
+      <span class="card-value ${valueClass}">${escapeHtml(card.value)}</span>
     </span>
   `;
 }
@@ -1286,7 +1320,7 @@ function clearedCardMarkup(card) {
   return `
     <span class="cleared-slot-card">
       <span class="card-glow"></span>
-      <span class="card-value ${valueClass}">${card.value}</span>
+      <span class="card-value ${valueClass}">${escapeHtml(card.value)}</span>
     </span>
   `;
 }
@@ -1307,7 +1341,7 @@ function deckCardMarkup(count) {
   return `
     <span class="skyjo-card deck-back">
       <span class="back-pattern"></span>
-      <span class="deck-count">${count}</span>
+      <span class="deck-count">${escapeHtml(count)}</span>
     </span>
   `;
 }
@@ -1448,6 +1482,13 @@ function scoreLeader() {
     : null;
 }
 
+function lowScoreWinnerAfterTarget(players, target) {
+  if (!players.some((player) => player.score >= target)) return null;
+  const lowScore = Math.min(...players.map((player) => player.score));
+  const leaders = players.filter((player) => player.score === lowScore);
+  return leaders.length === 1 ? leaders[0] : null;
+}
+
 function winner() {
   return state.players.find((player) => player.id === state.winnerId) || null;
 }
@@ -1468,6 +1509,13 @@ function cardLabel(card) {
 function cleanName(value, fallback) {
   const text = String(value || "").trim();
   return text || fallback;
+}
+
+function randomBotNames(count, excludedNames = []) {
+  const used = new Set(excludedNames.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean));
+  const pool = BOT_NAMES.filter((name) => !used.has(name.toLowerCase()));
+  const shuffled = shuffle(pool);
+  return Array.from({ length: count }, (_, index) => shuffled[index] || `Bot ${index + 1}`);
 }
 
 function normalizeBotDifficulty(value) {
@@ -1554,17 +1602,11 @@ function snapshotState() {
 }
 
 function applySessionPayload(payload, options = {}) {
-  if (!payload || typeof payload !== "object" || !Array.isArray(payload.players)) return false;
-  Object.assign(state, cloneJson(payload), {
-    busy: false,
-    currentSessionId: options.currentSessionId ?? payload.currentSessionId ?? null,
-  });
-  normalizeLoadedPlayers();
+  const nextState = normalizeLoadedState(payload, options);
+  if (!nextState) return false;
+  cancelPendingBotTurn();
+  Object.assign(state, nextState);
   normalizeSetupBotDifficulties();
-  state.dealAnimationCardIds = [];
-  state.roundHistorySortDir = normalizeRoundHistorySortDir(state.roundHistorySortDir);
-  state.targetScore = activeTargetScore();
-  state.drawnSource = state.drawnCard ? (state.drawnSource ?? "deck") : null;
   syncSetupFromPlayers();
   syncTargetInput();
   saveGame();
@@ -1950,14 +1992,10 @@ function saveGame() {
 function hydrateSavedGame() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (!saved || !Array.isArray(saved.players)) return;
-    Object.assign(state, saved, { busy: false });
-    normalizeLoadedPlayers();
+    const nextState = normalizeLoadedState(saved);
+    if (!nextState) return;
+    Object.assign(state, nextState);
     normalizeSetupBotDifficulties();
-    state.dealAnimationCardIds = [];
-    state.roundHistorySortDir = normalizeRoundHistorySortDir(state.roundHistorySortDir);
-    state.targetScore = activeTargetScore();
-    state.drawnSource = state.drawnCard ? (state.drawnSource ?? "deck") : null;
     syncSetupFromPlayers();
     syncTargetInput();
   } catch {}
@@ -1967,14 +2005,230 @@ function normalizeRoundHistorySortDir(value) {
   return value === "desc" ? "desc" : "asc";
 }
 
-function normalizeLoadedPlayers() {
-  state.players = Array.isArray(state.players)
-    ? state.players.map((player) => ({
-        ...player,
-        bot: Boolean(player.bot),
-        difficulty: player.bot ? normalizeBotDifficulty(player.difficulty) : null,
-      }))
+function normalizeLoadedState(payload, options = {}) {
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.players)) return null;
+  const players = normalizeLoadedPlayers(payload.players);
+  if (!players.length) return null;
+  const targetScore = clampInteger(payload.targetScore, 1, 999, DEFAULT_TARGET_SCORE);
+  const drawnCard = normalizeLoadedCard(payload.drawnCard);
+  const finalTurnTriggerId = normalizePlayerId(payload.finalTurnTriggerId, players);
+  const turnStage = normalizeTurnStage(payload.turnStage);
+  let winnerId = normalizePlayerId(payload.winnerId, players);
+  if (turnStage === "game-over") {
+    winnerId = lowScoreWinnerAfterTarget(players, targetScore)?.id ?? null;
+  }
+
+  return {
+    gameStarted: Boolean(payload.gameStarted),
+    busy: false,
+    players,
+    roundNumber: clampInteger(payload.roundNumber, 1, 999, 1),
+    currentPlayerIndex: clampInteger(payload.currentPlayerIndex, 0, players.length - 1, 0),
+    roundStarterIndex: clampInteger(payload.roundStarterIndex, 0, players.length - 1, 0),
+    deck: normalizeLoadedCards(payload.deck),
+    discardPile: normalizeLoadedCards(payload.discardPile),
+    turnStage: turnStage === "game-over" && !winnerId ? "round-end" : turnStage,
+    drawnCard,
+    drawnSource: drawnCard ? normalizeDrawnSource(payload.drawnSource) : null,
+    openingStarter: normalizeOpeningStarter(payload.openingStarter, players),
+    finalTurnTriggerId,
+    finalTurnRemainingIds: finalTurnTriggerId
+      ? normalizePlayerIds(payload.finalTurnRemainingIds, players).filter((id) => id !== finalTurnTriggerId)
+      : [],
+    roundHistory: normalizeRoundHistory(payload.roundHistory, players),
+    roundHistorySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
+    dealAnimationCardIds: [],
+    pendingRoundSummary: normalizeRoundSummary(payload.pendingRoundSummary, players),
+    winnerId,
+    targetScore,
+    currentSessionId: normalizeOptionalId(options.currentSessionId ?? payload.currentSessionId),
+    selectedSessionId: normalizeOptionalId(payload.selectedSessionId) ?? "",
+    sessionStatusMessage: normalizeStatusMessage(payload.sessionStatusMessage),
+    sessionToolsExpanded: payload.sessionToolsExpanded !== false,
+    setupBotNames: normalizeSetupBotNames(payload.setupBotNames),
+    setupBotDifficulties: normalizeSetupDifficultyList(payload.setupBotDifficulties),
+  };
+}
+
+function normalizeLoadedPlayers(players) {
+  const usedIds = new Set();
+  return players
+    .slice(0, 8)
+    .map((player, index) => normalizeLoadedPlayer(player, index, usedIds))
+    .filter(Boolean);
+}
+
+function normalizeLoadedPlayer(player, index, usedIds) {
+  if (!player || typeof player !== "object") return null;
+  const bot = Boolean(player.bot);
+  const fallbackId = index === 0 ? "p-human" : `p-bot-${index}`;
+  const baseId = normalizeIdentifier(player.id, fallbackId);
+  let id = baseId;
+  let suffix = 2;
+  while (usedIds.has(id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+  usedIds.add(id);
+
+  const grid = normalizeLoadedGrid(player.grid);
+  if (!grid) return null;
+  return {
+    id,
+    name: normalizePlayerName(player.name, bot ? BOT_NAMES[index] || `Bot ${index + 1}` : "Player"),
+    bot,
+    difficulty: bot ? normalizeBotDifficulty(player.difficulty) : null,
+    score: clampInteger(player.score, -999999, 999999, 0),
+    grid,
+  };
+}
+
+function normalizeLoadedGrid(grid) {
+  if (!Array.isArray(grid) || grid.length < GRID_SIZE) return null;
+  const slots = grid.slice(0, GRID_SIZE).map(normalizeLoadedSlot);
+  return slots.every((slot) => slot.card) ? slots : null;
+}
+
+function normalizeLoadedSlot(slot) {
+  const card = normalizeLoadedCard(slot?.card);
+  return {
+    card,
+    revealed: Boolean(card && slot?.revealed),
+    cleared: Boolean(card && slot?.cleared),
+  };
+}
+
+function normalizeLoadedCards(cards) {
+  return Array.isArray(cards) ? cards.slice(0, 200).map(normalizeLoadedCard).filter(Boolean) : [];
+}
+
+function normalizeLoadedCard(card) {
+  if (!card || typeof card !== "object") return null;
+  const value = Number(card.value);
+  if (!Number.isFinite(value)) return null;
+  const normalizedValue = Math.trunc(value);
+  if (!CARD_COUNTS.has(normalizedValue)) return null;
+  return {
+    id: normalizeIdentifier(card.id, `restored-${normalizedValue}-${uid()}`),
+    value: normalizedValue,
+  };
+}
+
+function normalizeTurnStage(value) {
+  const stages = [
+    "setup",
+    "opening-reveal",
+    "opening-ready",
+    "choose-source",
+    "deck-card-drawn",
+    "discard-card-taken",
+    "reveal-after-discard",
+    "round-end",
+    "game-over",
+  ];
+  return stages.includes(value) ? value : "setup";
+}
+
+function normalizeDrawnSource(value) {
+  return value === "discard" ? "discard" : "deck";
+}
+
+function normalizeOpeningStarter(starter, players) {
+  if (!starter || typeof starter !== "object") return null;
+  const id = normalizePlayerId(starter.id, players);
+  if (!id) return null;
+  const player = players.find((entry) => entry.id === id);
+  return {
+    id,
+    name: player?.name ?? "Player",
+    total: clampInteger(starter.total, -999, 999, player ? openingRevealTotal(player) : 0),
+    seatIndex: clampInteger(starter.seatIndex, 0, players.length - 1, players.findIndex((entry) => entry.id === id)),
+  };
+}
+
+function normalizeRoundHistory(history, players) {
+  return Array.isArray(history)
+    ? history.slice(-100).map((summary) => normalizeRoundSummary(summary, players)).filter(Boolean)
     : [];
+}
+
+function normalizeRoundSummary(summary, players) {
+  if (!summary || typeof summary !== "object") return null;
+  const rawResults = summary.results && typeof summary.results === "object" ? summary.results : {};
+  const results = {};
+  for (const player of players) {
+    const result = rawResults[player.id];
+    if (!result || typeof result !== "object") continue;
+    results[player.id] = {
+      raw: clampInteger(result.raw, -9999, 9999, 0),
+      points: clampInteger(result.points, -9999, 9999, 0),
+    };
+  }
+  return {
+    roundNumber: clampInteger(summary.roundNumber, 1, 999, 1),
+    triggerId: normalizePlayerId(summary.triggerId, players),
+    targetHitId: normalizePlayerId(summary.targetHitId, players),
+    triggerDoubled: Boolean(summary.triggerDoubled),
+    results,
+  };
+}
+
+function normalizeSetupBotNames(names) {
+  return Array.from({ length: 3 }, (_, index) =>
+    normalizePlayerName(Array.isArray(names) ? names[index] : "", BOT_NAMES[index]),
+  );
+}
+
+function normalizeSetupDifficultyList(difficulties) {
+  return Array.from({ length: 3 }, (_, index) =>
+    normalizeBotDifficulty(Array.isArray(difficulties) ? difficulties[index] : "medium"),
+  );
+}
+
+function normalizePlayerId(value, players) {
+  const id = normalizeOptionalId(value);
+  return id && players.some((player) => player.id === id) ? id : null;
+}
+
+function normalizePlayerIds(value, players) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value
+    .map((id) => normalizePlayerId(id, players))
+    .filter((id) => {
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+}
+
+function normalizeOptionalId(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  return normalizeIdentifier(value, "") || null;
+}
+
+function normalizeIdentifier(value, fallback) {
+  const text = String(value ?? "")
+    .trim()
+    .replace(/[^a-z0-9_-]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  if (!text || ["__proto__", "constructor", "prototype"].includes(text)) return fallback;
+  return text;
+}
+
+function normalizePlayerName(value, fallback) {
+  return cleanName(value, fallback).slice(0, 24);
+}
+
+function normalizeStatusMessage(value) {
+  return String(value || "").slice(0, 160);
+}
+
+function clampInteger(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(number)));
 }
 
 function normalizeSetupBotDifficulties() {

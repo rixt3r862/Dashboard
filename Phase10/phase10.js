@@ -6,14 +6,10 @@ const COLORS = [
 ];
 
 const BOT_NAMES = [
-  "Nova",
-  "Juno",
-  "Kite",
-  "Piper",
-  "Clover",
-  "Atlas",
-  "Sunny",
-  "Blaze",
+  "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
+  "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
+  "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
+  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace",
 ];
 
 const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
@@ -26,6 +22,7 @@ let pilePulseTimer = null;
 let flashedCardTimer = null;
 let flashedGroupsTimer = null;
 let dealAnimationTimer = null;
+let botTurnToken = 0;
 
 const PHASES = [
   {
@@ -125,7 +122,7 @@ const state = {
   roundHistorySortDir: "asc",
   humanExtraPlayUndoStack: [],
   humanPhasePreviewRequested: false,
-  setupBotNames: BOT_NAMES.slice(0, 3),
+  setupBotNames: randomBotNames(3),
   setupBotDifficulties: ["medium", "medium", "medium"],
   friendlyShuffle: true,
   currentSessionId: null,
@@ -614,6 +611,7 @@ function buildHydratedState(payload, options = {}) {
 }
 
 function applyHydratedState(nextState) {
+  cancelPendingBotTurn();
   state.gameStarted = nextState.gameStarted;
   state.busy = nextState.busy;
   state.players = nextState.players;
@@ -899,13 +897,15 @@ function showSessionMessage(message) {
 }
 
 function startNewGame() {
+  cancelPendingBotTurn();
   clearTransientNotice();
   setSessionStatusMessage("");
   const humanName = normalizeName(els.humanName.value, "Player 1");
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
   state.friendlyShuffle = els.friendlyShuffleToggle.checked;
   const setupBotConfig = syncSetupBotConfigFromInputs();
-  const customBotNames = setupBotConfig.names.slice(0, botCount);
+  const customBotNames = randomBotNames(botCount, [humanName]);
+  state.setupBotNames = Array.from({ length: 3 }, (_, index) => customBotNames[index] || BOT_NAMES[index] || `Bot ${index + 1}`);
   const customBotDifficulties = setupBotConfig.difficulties.slice(0, botCount);
   const usedNames = new Set([humanName.toLowerCase()]);
 
@@ -944,6 +944,7 @@ function startNewGame() {
 }
 
 function resetTable() {
+  cancelPendingBotTurn();
   clearTransientNotice();
   setSessionStatusMessage("");
   state.gameStarted = false;
@@ -968,7 +969,10 @@ function resetTable() {
   state.currentSessionId = null;
   state.sessionToolsExpanded = true;
   state.mobileView = "play";
+  state.setupBotNames = randomBotNames(3);
+  state.setupBotDifficulties = ["medium", "medium", "medium"];
   els.friendlyShuffleToggle.checked = state.friendlyShuffle;
+  renderBotNameFields();
   clearSavedGame();
   render();
 }
@@ -1320,7 +1324,7 @@ function createPlayer(id, name, isHuman, difficulty = "medium") {
 }
 
 function nextBotName(usedNames, fallbackIndex) {
-  for (const name of BOT_NAMES) {
+  for (const name of shuffle(BOT_NAMES)) {
     if (!usedNames.has(name.toLowerCase())) {
       usedNames.add(name.toLowerCase());
       return name;
@@ -1329,6 +1333,18 @@ function nextBotName(usedNames, fallbackIndex) {
   const generated = `Bot ${fallbackIndex + 1}`;
   usedNames.add(generated.toLowerCase());
   return generated;
+}
+
+function randomBotNames(count, excludedNames = []) {
+  const used = new Set(excludedNames.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean));
+  const names = [];
+  for (const name of shuffle(BOT_NAMES)) {
+    if (used.has(name.toLowerCase())) continue;
+    used.add(name.toLowerCase());
+    names.push(name);
+    if (names.length === count) break;
+  }
+  return Array.from({ length: count }, (_, index) => names[index] || `Bot ${index + 1}`);
 }
 
 function resolveBotName(rawName, usedNames, fallbackIndex) {
@@ -1827,16 +1843,44 @@ function beginNextRound() {
   startRound();
 }
 
+function cancelPendingBotTurn() {
+  botTurnToken += 1;
+  state.busy = false;
+}
+
+function botTurnStillCurrent(player, token) {
+  const livePlayer = currentPlayer();
+  return (
+    token === botTurnToken &&
+    state.gameStarted &&
+    state.busy &&
+    livePlayer?.id === player.id &&
+    !livePlayer.isHuman &&
+    ["draw", "main"].includes(state.turnStage)
+  );
+}
+
+function finishInterruptedBotTurn(token) {
+  if (token !== botTurnToken || !state.busy) return;
+  state.busy = false;
+  render();
+}
+
 async function queueBotTurnIfNeeded() {
   if (!state.gameStarted || state.busy) return;
   const player = currentPlayer();
   if (!player || player.isHuman) return;
   if (!["draw", "main"].includes(state.turnStage)) return;
 
+  const token = botTurnToken;
   state.busy = true;
   render();
 
   await pause(650);
+  if (!botTurnStillCurrent(player, token)) {
+    finishInterruptedBotTurn(token);
+    return;
+  }
   if (state.turnStage === "draw") {
     const drawSource = chooseBotDrawSource(player);
     const drawn = drawSource === "discard" ? takeDiscardInternal(player) : takeDeckInternal(player);
@@ -1846,6 +1890,10 @@ async function queueBotTurnIfNeeded() {
       sortHands();
       render();
       await pause(550);
+      if (!botTurnStillCurrent(player, token)) {
+        finishInterruptedBotTurn(token);
+        return;
+      }
     }
   }
 
@@ -1854,11 +1902,19 @@ async function queueBotTurnIfNeeded() {
       layPhaseForPlayer(player);
       render();
       await pause(450);
+      if (!botTurnStillCurrent(player, token)) {
+        finishInterruptedBotTurn(token);
+        return;
+      }
     } else {
       const extrasPlayed = autoPlayExtras(player);
       if (extrasPlayed) {
         render();
         await pause(350);
+        if (!botTurnStillCurrent(player, token)) {
+          finishInterruptedBotTurn(token);
+          return;
+        }
       }
     }
 
@@ -1875,8 +1931,9 @@ async function queueBotTurnIfNeeded() {
     return;
   }
   if (!currentPlayer()?.isHuman) {
+    const scheduledToken = botTurnToken;
     window.setTimeout(() => {
-      queueBotTurnIfNeeded();
+      if (scheduledToken === botTurnToken) queueBotTurnIfNeeded();
     }, 120);
   }
 }

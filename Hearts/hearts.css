@@ -1644,6 +1644,32 @@ button {
   white-space: nowrap;
 }
 
+.history-marker-emoji {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35em;
+  height: 1.35em;
+  margin: 0 0.05em;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 214, 127, 0.42) 0 38%, rgba(255, 214, 127, 0.18) 58%, transparent 72%);
+  filter: drop-shadow(0 0 0.45rem rgba(255, 214, 127, 0.35));
+}
+
+.history-header-row {
+  border-color: rgba(255, 214, 127, 0.18);
+  background: rgba(255, 214, 127, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.history-header-row span {
+  color: var(--accent-strong);
+}
+
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: 1fr;

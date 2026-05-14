@@ -1,4 +1,10 @@
-const BOT_NAMES = ["Nova", "Juno", "Kite"];
+const BOT_NAMES = [
+  "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
+  "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
+  "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
+  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace",
+];
+const BOT_COUNT = 3;
 const BOT_DIFFICULTIES = ["easy", "normal", "hard"];
 const DEFAULT_TARGET_SCORE = 100;
 const BOT_TURN_DELAY_MS = 1050;
@@ -22,6 +28,9 @@ const SUIT_SYMBOLS = {
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const RANK_VALUES = Object.fromEntries(RANKS.map((rank, index) => [rank, index + 2]));
+
+let botTurnTimer = null;
+let botTurnToken = 0;
 
 const state = {
   gameStarted: false,
@@ -146,7 +155,8 @@ function bindEvents() {
 }
 
 function renderBotNameFields() {
-  els.botNameFields.innerHTML = BOT_NAMES.map((name, index) => `
+  const botNames = randomBotNames(BOT_COUNT);
+  els.botNameFields.innerHTML = botNames.map((name, index) => `
     <div class="bot-setup-row">
       <label class="field">
         <span>Bot ${index + 1} name</span>
@@ -179,11 +189,13 @@ function startNewGame() {
   state.gameStarted = true;
   state.sessionExpanded = false;
   state.targetScore = readTargetScore();
+  applyRandomBotNamesToInputs();
   state.players = createPlayers();
   dealHand();
 }
 
 function resetState() {
+  cancelPendingBotTurn();
   clearTrickPauseTimer();
   clearTrickCollectTimer();
   clearTramClaimTimer();
@@ -229,6 +241,15 @@ function resetState() {
   state.notice = "";
 }
 
+function cancelPendingBotTurn() {
+  botTurnToken += 1;
+  if (botTurnTimer) {
+    window.clearTimeout(botTurnTimer);
+    botTurnTimer = null;
+  }
+  state.busy = false;
+}
+
 function readTargetScore() {
   const value = Number(els.targetScore.value);
   if (!Number.isFinite(value)) return DEFAULT_TARGET_SCORE;
@@ -241,13 +262,28 @@ function createPlayers() {
   const botDifficultyInputs = [...els.botNameFields.querySelectorAll("[data-bot-difficulty-index]")];
   const botNames = botInputs.map((input, index) => input.value.trim() || BOT_NAMES[index]);
   const botDifficulties = botDifficultyInputs.map((input) => normalizeDifficulty(input.value));
-  state.setupBotDifficulties = BOT_NAMES.map((_, index) => botDifficulties[index] || "normal");
+  state.setupBotDifficulties = Array.from({ length: BOT_COUNT }, (_, index) => botDifficulties[index] || "normal");
   return [
     createPlayer("p0", humanName, false),
-    createPlayer("p1", botNames[0] || "Nova", true, state.setupBotDifficulties[0]),
-    createPlayer("p2", botNames[1] || "Juno", true, state.setupBotDifficulties[1]),
-    createPlayer("p3", botNames[2] || "Kite", true, state.setupBotDifficulties[2]),
+    createPlayer("p1", botNames[0] || BOT_NAMES[0], true, state.setupBotDifficulties[0]),
+    createPlayer("p2", botNames[1] || BOT_NAMES[1], true, state.setupBotDifficulties[1]),
+    createPlayer("p3", botNames[2] || BOT_NAMES[2], true, state.setupBotDifficulties[2]),
   ];
+}
+
+function applyRandomBotNamesToInputs() {
+  const humanName = (els.humanName.value || "Rick").trim();
+  const names = randomBotNames(BOT_COUNT, [humanName]);
+  els.botNameFields.querySelectorAll("[data-bot-index]").forEach((input, index) => {
+    input.value = names[index] || BOT_NAMES[index] || `Bot ${index + 1}`;
+  });
+}
+
+function randomBotNames(count, excludedNames = []) {
+  const used = new Set(excludedNames.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean));
+  const pool = BOT_NAMES.filter((name) => !used.has(name.toLowerCase()));
+  const shuffled = shuffle(pool);
+  return Array.from({ length: count }, (_, index) => shuffled[index] || `Bot ${index + 1}`);
 }
 
 function createPlayer(id, name, bot, difficulty = "normal") {
@@ -500,19 +536,25 @@ function playHumanCard(cardId) {
 function runBotTurns() {
   if (state.busy || state.stage !== "playing") return;
   if (!state.players[state.currentPlayerIndex]?.bot) return;
+  const token = botTurnToken;
   const tramCandidate = findTramCandidate();
   if (tramCandidate?.bot) {
     state.busy = true;
     state.notice = `${tramCandidate.name} can claim the rest.`;
     render();
-    window.setTimeout(() => {
+    botTurnTimer = window.setTimeout(() => {
+      botTurnTimer = null;
+      if (token !== botTurnToken) return;
       state.busy = false;
       if (findTramCandidate()?.id === tramCandidate.id) beginTramClaim(tramCandidate);
+      else render();
     }, Math.round(BOT_TURN_DELAY_MS * 0.72));
     return;
   }
   state.busy = true;
-  window.setTimeout(() => {
+  botTurnTimer = window.setTimeout(() => {
+    botTurnTimer = null;
+    if (token !== botTurnToken) return;
     if (state.stage === "playing" && state.players[state.currentPlayerIndex]?.bot) {
       const index = state.currentPlayerIndex;
       const card = chooseBotPlay(state.players[index]);
@@ -788,11 +830,17 @@ function completeHand() {
   });
   state.tramPlayerId = "";
   const atLimit = state.players.some((player) => player.score >= state.targetScore);
-  if (atLimit) {
-    state.winnerId = state.players.slice().sort((a, b) => a.score - b.score)[0].id;
+  const winner = lowScoreWinnerAfterTarget(state.players, state.targetScore);
+  if (winner) {
+    state.winnerId = winner.id;
     state.stage = "game-end";
   } else {
+    state.winnerId = null;
     state.stage = "hand-end";
+    if (atLimit) {
+      const tieNotice = "Target reached, but the low score is tied. Deal another hand to break the tie.";
+      state.notice = state.notice ? `${state.notice} ${tieNotice}` : tieNotice;
+    }
   }
 }
 
@@ -824,6 +872,13 @@ function isFirstTrick() {
 
 function trickPointValue(cards) {
   return cards.reduce((sum, card) => sum + (card.suit === "hearts" ? 1 : 0) + (isQueenOfSpades(card) ? 13 : 0), 0);
+}
+
+function lowScoreWinnerAfterTarget(players, target) {
+  if (!players.some((player) => player.score >= target)) return null;
+  const lowScore = Math.min(...players.map((player) => player.score));
+  const leaders = players.filter((player) => player.score === lowScore);
+  return leaders.length === 1 ? leaders[0] : null;
 }
 
 function isQueenOfSpades(card) {
@@ -956,6 +1011,7 @@ function sessionSnapshot() {
 }
 
 function restoreSessionSnapshot(snapshot) {
+  cancelPendingBotTurn();
   clearTrickPauseTimer();
   clearTrickCollectTimer();
   clearTramClaimTimer();
@@ -964,23 +1020,31 @@ function restoreSessionSnapshot(snapshot) {
   clearPlayAnimationTimers();
   clearBreakBurstTimer();
   clearMoonBurstTimer();
+  const restoredPlayers = (snapshot.players || []).map((player) => ({
+    id: player.id,
+    name: player.name,
+    bot: Boolean(player.bot),
+    difficulty: player.bot ? normalizeDifficulty(player.difficulty) : "human",
+    hand: player.hand || [],
+    taken: player.taken || [],
+    score: Number(player.score) || 0,
+    handPoints: Number(player.handPoints) || 0,
+    pendingPass: Array.isArray(player.pendingPass) ? player.pendingPass : [],
+  }));
+  const restoredTargetScore = Number(snapshot.targetScore) || DEFAULT_TARGET_SCORE;
+  let restoredStage = normalizeStage(snapshot.stage);
+  let restoredWinnerId = snapshot.winnerId || null;
+  if (restoredStage === "game-end") {
+    restoredWinnerId = lowScoreWinnerAfterTarget(restoredPlayers, restoredTargetScore)?.id ?? null;
+    if (!restoredWinnerId) restoredStage = "hand-end";
+  }
   Object.assign(state, {
     gameStarted: Boolean(snapshot.gameStarted),
-    players: (snapshot.players || []).map((player) => ({
-      id: player.id,
-      name: player.name,
-      bot: Boolean(player.bot),
-      difficulty: player.bot ? normalizeDifficulty(player.difficulty) : "human",
-      hand: player.hand || [],
-      taken: player.taken || [],
-      score: Number(player.score) || 0,
-      handPoints: Number(player.handPoints) || 0,
-      pendingPass: Array.isArray(player.pendingPass) ? player.pendingPass : [],
-    })),
+    players: restoredPlayers,
     handNumber: Number(snapshot.handNumber) || 1,
-    targetScore: Number(snapshot.targetScore) || DEFAULT_TARGET_SCORE,
+    targetScore: restoredTargetScore,
     passDirectionIndex: Number(snapshot.passDirectionIndex) || 0,
-    stage: normalizeStage(snapshot.stage),
+    stage: restoredStage,
     currentPlayerIndex: Number(snapshot.currentPlayerIndex) || 0,
     trickNumber: Number(snapshot.trickNumber) || 1,
     trick: snapshot.trick || [],
@@ -1013,7 +1077,7 @@ function restoreSessionSnapshot(snapshot) {
     sessionExpanded: snapshot.sessionExpanded !== false,
     tramBadgePlayerId: snapshot.tramBadgePlayerId || "",
     tramPlayerId: "",
-    winnerId: snapshot.winnerId || null,
+    winnerId: restoredWinnerId,
     notice: snapshot.notice || "Session loaded.",
     busy: false,
   });
@@ -1425,16 +1489,29 @@ function renderHistory() {
     : "Completed hands will appear here.";
   els.historyOrderBtn.textContent = state.historySortDir === "asc" ? "Oldest First" : "Newest First";
   const history = orderedHistory();
-  els.historyWrap.innerHTML = history.map((entry) => `
+  const header = state.players.length
+    ? `
+      <div class="history-row history-header-row">
+        <strong>Hand</strong>
+        ${state.players.map((player, index) => `<span>${escapeHtml(player?.name || `P${index + 1}`)}</span>`).join("")}
+      </div>
+    `
+    : "";
+  els.historyWrap.innerHTML = `${header}${history.map((entry) => `
     <div class="history-row">
-      <strong>Hand ${entry.handNumber}${entry.moonPlayerId ? " · Moon" : ""}</strong>
+      <strong>${entry.handNumber}</strong>
       ${entry.points.map((points, index) => {
         const player = state.players[index];
         const isTramPlayer = player?.id === entry.tramPlayerId;
-        return `<span>${escapeHtml(player?.name || `P${index + 1}`)}: ${points}${isTramPlayer ? ` <b class="history-marker">- TRAM</b>` : ""}</span>`;
+        const isMoonPlayer = player?.id === entry.moonPlayerId;
+        const markers = [
+          isTramPlayer ? `<b class="history-marker">- <span class="history-marker-emoji">🚡</span> TRAM</b>` : "",
+          isMoonPlayer ? `<b class="history-marker">- <span class="history-marker-emoji">🌙</span> Moon</b>` : "",
+        ].filter(Boolean).join(" ");
+        return `<span>${points}${markers ? ` ${markers}` : ""}</span>`;
       }).join("")}
     </div>
-  `).join("");
+  `).join("")}`;
 }
 
 function renderCard(card) {
