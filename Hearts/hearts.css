@@ -444,6 +444,13 @@ button {
   font-size: 0.7rem;
 }
 
+.score-taken-points {
+  color: var(--accent-strong);
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-shadow: 0 0 0.45rem rgba(255, 214, 127, 0.24);
+}
+
 .pass-controls {
   display: grid;
   gap: 0.55rem;

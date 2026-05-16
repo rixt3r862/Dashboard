@@ -422,6 +422,15 @@ function passLabel(direction = currentPassDirection()) {
   }[direction];
 }
 
+function passButtonLabel(direction = currentPassDirection()) {
+  return {
+    left: "Pass Selected Left",
+    right: "Pass Selected Right",
+    across: "Pass Selected Across",
+    hold: "Hold",
+  }[direction];
+}
+
 function suitLabel(suit) {
   return {
     clubs: "Clubs",
@@ -530,9 +539,18 @@ function handleHandClick(event) {
     togglePassSelection(cardId);
     return;
   }
-  if (state.stage === "playing" && state.currentPlayerIndex === 0 && !state.busy) {
+  if (canHumanPlayNow()) {
     playHumanCard(cardId);
   }
+}
+
+function canHumanPlayNow() {
+  return (
+    state.stage === "playing" &&
+    state.currentPlayerIndex === 0 &&
+    !state.busy &&
+    state.playingToTableIds.length === 0
+  );
 }
 
 function togglePassSelection(cardId) {
@@ -1363,7 +1381,11 @@ function renderScoreBoard() {
   els.scoreBoard.innerHTML = state.players.map((player, index) => `
     <div class="score-card ${index === state.currentPlayerIndex && state.stage === "playing" ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""} ${player.id === state.moonBurstPlayerId ? "moon-flash" : ""}">
       <strong>${escapeHtml(player.name)} · ${player.score}</strong>
-      <span class="score-meta">${escapeHtml(player.bot ? difficultyLabel(player.difficulty) : "Human")} · Hand ${player.handPoints} · Points taken this hand ${trickPointValue(player.taken)}</span>
+      <span class="score-meta">
+        ${escapeHtml(player.bot ? difficultyLabel(player.difficulty) : "Human")}
+        · Hand ${player.handPoints}
+        · Points taken this hand <b class="score-taken-points">${trickPointValue(player.taken)}</b>
+      </span>
     </div>
   `).join("");
   const winner = state.players.find((player) => player.id === state.winnerId);
@@ -1456,12 +1478,12 @@ function renderHumanHand() {
   const legal = new Set(legalCards(human).map((card) => card.id));
   els.handSummary.textContent = state.stage === "passing"
     ? "Select exactly three cards to pass."
-    : `${human.hand.length} cards in hand. ${state.stage === "playing" && state.currentPlayerIndex === 0 ? "Your turn." : ""}`;
+    : `${human.hand.length} cards in hand. ${canHumanPlayNow() ? "Your turn." : ""}`;
   els.humanHand.innerHTML = human.hand.map((card, index) => {
     const selected = state.selectedPassIds.includes(card.id);
     const passingOut = state.passingOutIds.includes(card.id);
     const passingIn = state.passingInIds.includes(card.id);
-    const isHumanTurn = state.stage === "playing" && state.currentPlayerIndex === 0;
+    const isHumanTurn = canHumanPlayNow();
     const playable = isHumanTurn && legal.has(card.id);
     const illegal = isHumanTurn && !legal.has(card.id);
     const passedIn = state.passedToHumanIds.includes(card.id);
@@ -1477,9 +1499,18 @@ function renderHumanHand() {
 }
 
 function renderActions() {
-  els.passControls.hidden = state.stage !== "passing" && state.stage !== "passing-out";
-  els.confirmPassBtn.disabled = state.stage !== "passing" || state.selectedPassIds.length !== 3;
-  els.passSelectionText.textContent = `Selected ${state.selectedPassIds.length} of 3 cards.`;
+  const passDirection = currentPassDirection();
+  const showHoldControl = (
+    state.gameStarted &&
+    passDirection === "hold" &&
+    !["setup", "hand-end", "game-end"].includes(state.stage)
+  );
+  els.passControls.hidden = !showHoldControl && state.stage !== "passing" && state.stage !== "passing-out";
+  els.confirmPassBtn.textContent = passButtonLabel(passDirection);
+  els.confirmPassBtn.disabled = passDirection === "hold" || state.stage !== "passing" || state.selectedPassIds.length !== 3;
+  els.passSelectionText.textContent = passDirection === "hold"
+    ? "No passing this hand."
+    : `Selected ${state.selectedPassIds.length} of 3 cards.`;
   const tramCandidate = findTramCandidate();
   els.tramBtn.hidden = Boolean(state.tramClaimTimer) || !tramCandidate || tramCandidate.bot;
   els.tramBtn.textContent = tramCandidate ? `TRAM: ${tramCandidate.name}` : "TRAM";
@@ -1493,7 +1524,7 @@ function renderActions() {
   } else if (state.tramClaimTimer && state.tramPlayerId) {
     const claimant = state.players.find((player) => player.id === state.tramPlayerId);
     els.actionHint.textContent = `${claimant?.name || "A player"} is claiming the rest.`;
-  } else if (state.stage === "playing" && state.currentPlayerIndex === 0) {
+  } else if (canHumanPlayNow()) {
     els.actionHint.textContent = "Play one highlighted legal card.";
   } else if (tramCandidate?.bot) {
     els.actionHint.textContent = `${tramCandidate.name} is claiming the rest.`;
