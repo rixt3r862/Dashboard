@@ -2,7 +2,8 @@ const BOT_NAMES = [
   "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
   "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
   "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
-  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace",
+  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace", "Finn",
+  "Sebastian", "Ethan", "Ash", "Hunter", "Jax", "West", "Seth",
 ];
 const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
 const DEFAULT_TARGET_SCORE = 100;
@@ -50,7 +51,7 @@ const state = {
   finalTurnTriggerId: null,
   finalTurnRemainingIds: [],
   roundHistory: [],
-  roundHistorySortDir: "asc",
+  roundHistorySortDir: "desc",
   dealAnimationCardIds: [],
   pendingRoundSummary: null,
   winnerId: null,
@@ -289,7 +290,7 @@ function startNewGame() {
   state.roundNumber = 1;
   state.roundStarterIndex = 0;
   state.roundHistory = [];
-  state.roundHistorySortDir = "asc";
+  state.roundHistorySortDir = "desc";
   state.pendingRoundSummary = null;
   state.winnerId = null;
   state.currentSessionId = null;
@@ -318,7 +319,7 @@ function resetTable() {
   state.finalTurnTriggerId = null;
   state.finalTurnRemainingIds = [];
   state.roundHistory = [];
-  state.roundHistorySortDir = "asc";
+  state.roundHistorySortDir = "desc";
   state.dealAnimationCardIds = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
@@ -2002,7 +2003,7 @@ function hydrateSavedGame() {
 }
 
 function normalizeRoundHistorySortDir(value) {
-  return value === "desc" ? "desc" : "asc";
+  return value === "asc" ? "asc" : "desc";
 }
 
 function normalizeLoadedState(payload, options = {}) {

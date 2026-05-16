@@ -9,7 +9,8 @@ const BOT_NAMES = [
   "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
   "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
   "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
-  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace",
+  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace", "Finn",
+  "Sebastian", "Ethan", "Ash", "Hunter", "Jax", "West", "Seth",
 ];
 
 const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
@@ -119,7 +120,7 @@ const state = {
   flashedGroupIds: [],
   dealAnimationCardIds: [],
   handSortMode: "color",
-  roundHistorySortDir: "asc",
+  roundHistorySortDir: "desc",
   humanExtraPlayUndoStack: [],
   humanPhasePreviewRequested: false,
   setupBotNames: randomBotNames(3),
@@ -176,6 +177,7 @@ const els = {
   eventNotice: document.getElementById("eventNotice"),
   selectedDiscard: document.getElementById("selectedDiscard"),
   suggestedDiscard: document.getElementById("suggestedDiscard"),
+  winnerBanner: document.getElementById("winnerBanner"),
   playersBoard: document.getElementById("playersBoard"),
   leaderText: document.getElementById("leaderText"),
   humanSeatSummary: document.getElementById("humanSeatSummary"),
@@ -757,7 +759,7 @@ function normalizeTurnStage(value) {
 }
 
 function normalizeRoundHistorySortDir(value) {
-  return value === "desc" ? "desc" : "asc";
+  return value === "asc" ? "asc" : "desc";
 }
 
 function normalizeSelectedCardId(value) {
@@ -932,6 +934,7 @@ function startNewGame() {
   state.pendingSkipPlayerIds = [];
   state.logs = [];
   state.roundHistory = [];
+  state.roundHistorySortDir = "desc";
   state.pendingRoundSummary = null;
   state.winnerId = null;
   state.humanExtraPlayUndoStack = [];
@@ -962,6 +965,7 @@ function resetTable() {
   state.pendingSkipPlayerIds = [];
   state.logs = [];
   state.roundHistory = [];
+  state.roundHistorySortDir = "desc";
   state.pendingRoundSummary = null;
   state.winnerId = null;
   state.humanExtraPlayUndoStack = [];
@@ -3213,6 +3217,7 @@ function render() {
   renderSessionControls();
   renderStatus();
   renderBoard();
+  renderWinnerBanner();
   renderHand();
   renderRoundHistory();
   persistGame();
@@ -3559,6 +3564,23 @@ function renderBoard() {
   if (!botPlayers.length) {
     els.playersBoard.innerHTML = `<div class="empty-board">Bot players will appear here once the game starts.</div>`;
   }
+}
+
+function renderWinnerBanner() {
+  if (!els.winnerBanner) return;
+  const winner = state.players.find((player) => player.id === state.winnerId);
+  const show = state.gameStarted && state.turnStage === "game-over" && winner;
+  els.winnerBanner.hidden = !show;
+  if (!show) {
+    els.winnerBanner.innerHTML = "";
+    return;
+  }
+  const scoreLabel = winner.isHuman ? "Your Final Score" : `${winner.name}'s Final Score`;
+  els.winnerBanner.innerHTML = `
+    <span class="starter-kicker">Game winner</span>
+    <strong>Congratulations, ${escapeHtml(winner.name)}!</strong>
+    <span>${escapeHtml(winner.name)} completed Phase 10. ${escapeHtml(scoreLabel)}: ${escapeHtml(winner.score)} points.</span>
+  `;
 }
 
 function phasePreviewGroupLabel(group) {

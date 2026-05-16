@@ -2,7 +2,8 @@ const BOT_NAMES = [
   "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
   "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
   "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
-  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace",
+  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace", "Finn",
+  "Sebastian", "Ethan", "Ash", "Hunter", "Jax", "West", "Seth",
 ];
 const BOT_COUNT = 3;
 const BOT_DIFFICULTIES = ["easy", "normal", "hard"];
@@ -67,7 +68,7 @@ const state = {
   selectedPassIds: [],
   passedToHumanIds: [],
   handHistory: [],
-  historySortDir: "asc",
+  historySortDir: "desc",
   setupBotDifficulties: ["normal", "normal", "normal"],
   sessionExpanded: true,
   tramBadgePlayerId: "",
@@ -83,6 +84,7 @@ const els = {
   setupFields: document.getElementById("setupFields"),
   setupSummary: document.getElementById("setupSummary"),
   botNameFields: document.getElementById("botNameFields"),
+  samePlayersBtn: document.getElementById("samePlayersBtn"),
   resetTableBtn: document.getElementById("resetTableBtn"),
   statusText: document.getElementById("statusText"),
   roundValue: document.getElementById("roundValue"),
@@ -130,6 +132,10 @@ function bindEvents() {
     if (state.gameStarted && !state.winnerId && !window.confirm("Restart this Hearts table?")) return;
     startNewGame();
   });
+  els.samePlayersBtn.addEventListener("click", () => {
+    if (!state.gameStarted || !state.winnerId || !state.players.length) return;
+    startNewGame({ samePlayers: true });
+  });
   els.resetTableBtn.addEventListener("click", () => {
     if (state.gameStarted && !state.winnerId && !window.confirm("Reset this Hearts table?")) return;
     resetState();
@@ -176,7 +182,17 @@ function renderBotNameFields() {
   `).join("");
 }
 
-function startNewGame() {
+function startNewGame(options = {}) {
+  const samePlayers = Boolean(options.samePlayers);
+  const previousPlayers = samePlayers
+    ? state.players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        bot: player.bot,
+        difficulty: player.difficulty,
+      }))
+    : [];
+  const targetScore = samePlayers ? state.targetScore : readTargetScore();
   clearTrickPauseTimer();
   clearTrickCollectTimer();
   clearTramClaimTimer();
@@ -188,9 +204,18 @@ function startNewGame() {
   resetState();
   state.gameStarted = true;
   state.sessionExpanded = false;
-  state.targetScore = readTargetScore();
-  applyRandomBotNamesToInputs();
-  state.players = createPlayers();
+  state.targetScore = targetScore;
+  if (samePlayers && previousPlayers.length === 4) {
+    state.players = previousPlayers.map((player) =>
+      createPlayer(player.id, player.name, player.bot, player.difficulty),
+    );
+    state.setupBotDifficulties = state.players
+      .filter((player) => player.bot)
+      .map((player) => normalizeDifficulty(player.difficulty));
+  } else {
+    applyRandomBotNamesToInputs();
+    state.players = createPlayers();
+  }
   dealHand();
 }
 
@@ -232,7 +257,7 @@ function resetState() {
   state.selectedPassIds = [];
   state.passedToHumanIds = [];
   state.handHistory = [];
-  state.historySortDir = "asc";
+  state.historySortDir = "desc";
   state.setupBotDifficulties = ["normal", "normal", "normal"];
   state.sessionExpanded = true;
   state.tramBadgePlayerId = "";
@@ -1072,7 +1097,7 @@ function restoreSessionSnapshot(snapshot) {
     selectedPassIds: snapshot.selectedPassIds || [],
     passedToHumanIds: snapshot.passedToHumanIds || [],
     handHistory: snapshot.handHistory || [],
-    historySortDir: snapshot.historySortDir === "desc" ? "desc" : "asc",
+    historySortDir: snapshot.historySortDir === "asc" ? "asc" : "desc",
     setupBotDifficulties: snapshot.setupBotDifficulties || ["normal", "normal", "normal"],
     sessionExpanded: snapshot.sessionExpanded !== false,
     tramBadgePlayerId: snapshot.tramBadgePlayerId || "",
@@ -1207,7 +1232,7 @@ function scoreKeeperPayload(snapshot) {
     finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
     winnerMilestones,
     sortByTotal: false,
-    historySortDir: "asc",
+    historySortDir: "desc",
     showHistoryTotals: true,
     spadesPartnerIndex: 2,
     presetNote: "Lowest score wins. Hearts are 1 point and the queen of spades is 13.",
@@ -1277,8 +1302,10 @@ function render() {
 
 function renderSetupPanel() {
   const isActiveGame = state.gameStarted && !state.winnerId;
+  const canReusePlayers = state.gameStarted && Boolean(state.winnerId) && state.players.length === 4;
   els.setupFields.hidden = isActiveGame;
   els.setupSummary.hidden = !isActiveGame;
+  els.samePlayersBtn.hidden = !canReusePlayers;
   if (!isActiveGame) {
     els.setupSummary.innerHTML = "";
     return;
@@ -1336,7 +1363,7 @@ function renderScoreBoard() {
   els.scoreBoard.innerHTML = state.players.map((player, index) => `
     <div class="score-card ${index === state.currentPlayerIndex && state.stage === "playing" ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""} ${player.id === state.moonBurstPlayerId ? "moon-flash" : ""}">
       <strong>${escapeHtml(player.name)} · ${player.score}</strong>
-      <span class="score-meta">Hand ${player.handPoints} · Points taken this hand ${trickPointValue(player.taken)}</span>
+      <span class="score-meta">${escapeHtml(player.bot ? difficultyLabel(player.difficulty) : "Human")} · Hand ${player.handPoints} · Points taken this hand ${trickPointValue(player.taken)}</span>
     </div>
   `).join("");
   const winner = state.players.find((player) => player.id === state.winnerId);
@@ -1493,7 +1520,12 @@ function renderHistory() {
     ? `
       <div class="history-row history-header-row">
         <strong>Hand</strong>
-        ${state.players.map((player, index) => `<span>${escapeHtml(player?.name || `P${index + 1}`)}</span>`).join("")}
+        ${state.players.map((player, index) => `
+          <span>
+            ${escapeHtml(player?.name || `P${index + 1}`)}
+            <b>${Number(player?.score) || 0}</b>
+          </span>
+        `).join("")}
       </div>
     `
     : "";
