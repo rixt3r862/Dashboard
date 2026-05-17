@@ -1664,10 +1664,40 @@ function humanPlaySelectedCardToGroup(groupId) {
     targetGroupId: target.id,
   });
   sortHands();
+  autoSelectHumanDiscardAfterExtraPlay(player);
 
   const owner = state.players.find((entry) => entry.id === target.ownerId);
   appendLog(`${player.name} played ${cardLabel(card)} onto ${owner?.name ?? "another player"}'s ${target.label}.`);
   render();
+}
+
+function autoSelectHumanDiscardAfterExtraPlay(player) {
+  if (!player?.isHuman || !player.laidGroups.length || state.turnStage !== "main") return;
+  if (state.selectedCardId || !player.hand.length) return;
+
+  const discard = chooseHumanAutoDiscard(player);
+  if (!discard) return;
+  state.selectedCardId = discard.id;
+  syncSelectedSkipTarget();
+}
+
+function chooseHumanAutoDiscard(player) {
+  if (!player?.hand.length) return null;
+  if (player.hand.length === 1) return player.hand[0];
+
+  const nonSkipCards = player.hand.filter((card) => card.type !== "skip");
+  if (!nonSkipCards.length) return null;
+
+  const nonPlayableCards = nonSkipCards.filter((card) => !canCardBeHitAnywhere(card, player.id));
+  const candidates = nonPlayableCards.length ? nonPlayableCards : nonSkipCards;
+  return candidates
+    .slice()
+    .sort((left, right) => {
+      const leftRank = discardRankForHuman(left, player, player.hand);
+      const rightRank = discardRankForHuman(right, player, player.hand);
+      if (leftRank !== rightRank) return leftRank - rightRank;
+      return cardPoints(right) - cardPoints(left);
+    })[0] ?? null;
 }
 
 function undoHumanExtraPlay(cardId = null) {
@@ -2774,6 +2804,14 @@ function discardRankForBot(card, player, hand) {
   }
 
   return keepScore - cardPoints(card) * 1.15;
+}
+
+function discardRankForHuman(card, player, hand) {
+  let rank = scoreCardKeepValue(card, player, hand) - cardPoints(card) * 1.15;
+  if (card.type === "wild") rank += 24;
+  if (card.type === "skip" && hand.length > 1) rank += 1000;
+  if (canCardBeHitAnywhere(card, player.id)) rank += 80;
+  return rank;
 }
 
 function scoreCardKeepValue(card, player, hand) {
