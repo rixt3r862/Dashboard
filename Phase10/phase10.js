@@ -2053,10 +2053,16 @@ function shouldBotUseSkipNow(player) {
     return left.hand.length - right.hand.length;
   })[0];
 
-  const urgent =
-    target.hand.length <= 3 ||
-    target.completedPhaseThisRound ||
-    leader?.id === target.id;
+  const targetCompleted = completedPhaseNumberFor(target);
+  const playerCompleted = completedPhaseNumberFor(player);
+  const leaderThreat =
+    leader?.id === target.id &&
+    (
+      targetCompleted > playerCompleted ||
+      (targetCompleted === playerCompleted && target.score <= player.score - 20)
+    );
+  const targetIsClose = target.hand.length <= 3;
+  const targetHasMomentum = target.completedPhaseThisRound && target.hand.length <= 5;
   const difficulty = botDifficulty(player);
 
   if (difficulty === "easy") {
@@ -2064,11 +2070,18 @@ function shouldBotUseSkipNow(player) {
   }
   if (difficulty === "hard") {
     return Boolean(
-      urgent ||
-      (player.laidGroups.length && (target.hand.length <= 5 || target.isHuman)),
+      targetIsClose ||
+      targetHasMomentum ||
+      (leaderThreat && target.hand.length <= 6) ||
+      (player.laidGroups.length && target.hand.length <= 4),
     );
   }
-  return Boolean(urgent || (player.laidGroups.length && target.hand.length <= 4));
+  return Boolean(
+    targetIsClose ||
+    targetHasMomentum ||
+    (leaderThreat && target.hand.length <= 4) ||
+    (player.laidGroups.length && target.hand.length <= 3),
+  );
 }
 
 function layPhaseForPlayer(player, options = {}) {
