@@ -653,7 +653,7 @@ export function createRoundEntryController(deps) {
             <span class="round-preview-score-controls">
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
-              <input type="number" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Points left for ${playerNameEsc}" />
+              <input type="number" name="roundPoints-${escapeHtml(p.id)}" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" aria-label="Points left for ${playerNameEsc}" />
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
               <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
             </span>
@@ -684,7 +684,7 @@ export function createRoundEntryController(deps) {
           : `
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-5" aria-label="Decrease ${playerNameEsc} score by 5">-5</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="-1" aria-label="Decrease ${playerNameEsc} score by 1">-1</button>
-            <input type="number" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" min="${isRummikub() ? "0" : ""}" aria-label="${isRummikub() ? `Rack total for ${playerNameEsc}` : `Score for ${playerNameEsc}`}" />
+            <input type="number" name="roundScore-${escapeHtml(p.id)}" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="round-preview-input" data-preview-action="input" data-player-id="${p.id}" value="${val}" min="${isRummikub() ? "0" : ""}" aria-label="${isRummikub() ? `Rack total for ${playerNameEsc}` : `Score for ${playerNameEsc}`}" />
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="1" aria-label="Increase ${playerNameEsc} score by 1">+1</button>
             <button type="button" class="round-preview-btn" data-preview-action="add" data-player-id="${p.id}" data-delta="5" aria-label="Increase ${playerNameEsc} score by 5">+5</button>
             ${isSkyjo ? "" : skyjoWentOutUi}

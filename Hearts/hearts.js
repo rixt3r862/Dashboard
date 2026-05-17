@@ -176,11 +176,11 @@ function renderBotNameFields() {
     <div class="bot-setup-row">
       <label class="field">
         <span>Bot ${index + 1} name</span>
-        <input data-bot-index="${index}" type="text" maxlength="18" autocomplete="off" value="${escapeHtml(name)}" />
+        <input name="botName${index + 1}" data-bot-index="${index}" type="text" maxlength="18" autocomplete="off" value="${escapeHtml(name)}" />
       </label>
       <label class="field">
         <span>Difficulty</span>
-        <select data-bot-difficulty-index="${index}">
+        <select name="botDifficulty${index + 1}" data-bot-difficulty-index="${index}">
           ${BOT_DIFFICULTIES.map((difficulty) => `
             <option value="${difficulty}" ${state.setupBotDifficulties[index] === difficulty ? "selected" : ""}>
               ${difficultyLabel(difficulty)}

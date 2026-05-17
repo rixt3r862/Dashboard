@@ -2307,6 +2307,7 @@ export function createHistoryController(deps) {
 
       const pointsInput = document.createElement("input");
       pointsInput.type = "number";
+      pointsInput.name = `historyRound${roundN}Points-${cell.pid}`;
       pointsInput.inputMode = "numeric";
       pointsInput.className = "history-edit-input";
       pointsInput.value = String(Number.isFinite(cell.rawV) ? cell.rawV : 0);
@@ -2319,6 +2320,7 @@ export function createHistoryController(deps) {
       input.appendChild(pointsInput);
 
       const completionSelect = document.createElement("select");
+      completionSelect.name = `historyRound${roundN}Phase-${cell.pid}`;
       completionSelect.className = "history-edit-input history-edit-phase10-select";
       completionSelect.innerHTML = `
         <option value="0">No Phase</option>
@@ -2339,6 +2341,7 @@ export function createHistoryController(deps) {
 
       const scoreInput = document.createElement("input");
       scoreInput.type = "number";
+      scoreInput.name = `historyRound${roundN}Score-${cell.pid}`;
       scoreInput.inputMode = "numeric";
       scoreInput.className = "history-edit-input";
       scoreInput.value = String(Number.isFinite(cell.rawV) ? cell.rawV : 0);
@@ -2374,6 +2377,7 @@ export function createHistoryController(deps) {
 
       const scoreInput = document.createElement("input");
       scoreInput.type = "number";
+      scoreInput.name = `historyRound${roundN}Rack-${cell.pid}`;
       scoreInput.inputMode = "numeric";
       scoreInput.min = "0";
       scoreInput.className = "history-edit-input";
@@ -2410,6 +2414,7 @@ export function createHistoryController(deps) {
     } else {
       input = document.createElement("input");
       input.type = "number";
+      input.name = `historyRound${roundN}Score-${cell.pid}`;
       input.inputMode = "numeric";
       input.className = "history-edit-input";
       input.value = String(Number.isFinite(cell.rawV) ? cell.rawV : 0);

@@ -200,11 +200,11 @@ function renderBotNameFields(syncInputs = true) {
       <div class="bot-config-row">
         <label class="field compact-field">
           <span>Bot ${index + 1} name</span>
-          <input data-bot-index="${index}" type="text" maxlength="18" autocomplete="off" value="${escapeHtml(value)}" />
+          <input name="botName${index + 1}" data-bot-index="${index}" type="text" maxlength="18" autocomplete="off" value="${escapeHtml(value)}" />
         </label>
         <label class="field bot-difficulty-field">
           <span>Level</span>
-          <select data-bot-difficulty-index="${index}">
+          <select name="botDifficulty${index + 1}" data-bot-difficulty-index="${index}">
             ${BOT_DIFFICULTIES.map((entry) => `
               <option value="${entry}" ${difficulty === entry ? "selected" : ""}>${difficultyLabel(entry)}</option>
             `).join("")}

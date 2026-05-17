@@ -382,6 +382,7 @@ function renderBotNameFields(preferredNames = null, preferredDifficulties = null
           <span>Bot ${index + 1} name</span>
           <input
             id="botName${index + 1}"
+            name="botName${index + 1}"
             type="text"
             maxlength="24"
             autocomplete="off"
@@ -391,7 +392,7 @@ function renderBotNameFields(preferredNames = null, preferredDifficulties = null
         </label>
         <label class="field bot-difficulty-field">
           <span>Level</span>
-          <select id="botDifficulty${index + 1}">
+          <select id="botDifficulty${index + 1}" name="botDifficulty${index + 1}">
             ${BOT_DIFFICULTIES.map((entry) => `
               <option value="${entry}" ${difficulty === entry ? "selected" : ""}>${difficultyLabel(entry)}</option>
             `).join("")}

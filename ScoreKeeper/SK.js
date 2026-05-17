@@ -2413,6 +2413,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       const input = document.createElement("input");
       input.type = "text";
       input.id = `pname_${i}`;
+      input.name = `playerName${i + 1}`;
       input.setAttribute("data-player-name", "1");
       input.autocomplete = "off";
       input.spellcheck = false;
