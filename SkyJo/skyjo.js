@@ -1,11 +1,5 @@
-const BOT_NAMES = [
-  "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
-  "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
-  "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
-  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace", "Finn",
-  "Sebastian", "Ethan", "Ash", "Hunter", "Jax", "West", "Seth",
-];
-const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
+const BOT_NAMES = window.GameRoom?.BOT_NAMES || ["Nick", "Sam", "Nate", "Garth", "Kyle", "Kip"];
+const BOT_DIFFICULTIES = window.GameRoom?.botDifficultyLevels?.("standard") || ["easy", "medium", "hard"];
 const DEFAULT_TARGET_SCORE = 100;
 const ROWS = 3;
 const COLS = 4;
@@ -76,6 +70,7 @@ const els = {
   tableControlSlot: document.getElementById("tableControlSlot"),
   tableControlBlock: document.getElementById("tableControlBlock"),
   botNameFields: document.getElementById("botNameFields"),
+  shuffleBotNamesBtn: document.getElementById("shuffleBotNamesBtn"),
   resetTableBtn: document.getElementById("resetTableBtn"),
   saveSessionBtn: document.getElementById("saveSessionBtn"),
   downloadSessionBtn: document.getElementById("downloadSessionBtn"),
@@ -137,6 +132,11 @@ function bindEvents() {
     renderBotNameFields();
   });
 
+  bind(els.shuffleBotNamesBtn, "click", () => {
+    shuffleSetupBotNames();
+    renderBotNameFields(false);
+  });
+
   bind(els.botNameFields, "input", (event) => {
     const input = event.target.closest("input[data-bot-index]");
     if (input) {
@@ -179,7 +179,7 @@ function bindEvents() {
   });
   bind(els.playersBoard, "click", handleBoardClick);
   bind(els.roundHistoryOrderBtn, "click", () => {
-    state.roundHistorySortDir = state.roundHistorySortDir === "desc" ? "asc" : "desc";
+    state.roundHistorySortDir = toggleRoundHistorySortDir(state.roundHistorySortDir);
     saveGame();
     renderHistory();
   });
@@ -272,15 +272,13 @@ function startNewGame() {
   syncBotConfigFromInputs();
   const humanName = cleanName(els.humanName.value, "Rick");
   const botCount = Number(els.botCount.value);
-  const botNames = randomBotNames(botCount, [humanName]);
-  state.setupBotNames = Array.from({ length: 3 }, (_, index) => botNames[index] || BOT_NAMES[index] || `Bot ${index + 1}`);
   state.targetScore = readTargetScore();
   state.players = [
     makePlayer("p-human", humanName, false),
     ...Array.from({ length: botCount }, (_, index) =>
       makePlayer(
         `p-bot-${index + 1}`,
-        cleanName(state.setupBotNames[index], botNames[index] || BOT_NAMES[index]),
+        cleanName(state.setupBotNames[index], BOT_NAMES[index] || `Bot ${index + 1}`),
         true,
         normalizeBotDifficulty(state.setupBotDifficulties[index]),
       ),
@@ -327,7 +325,7 @@ function resetTable() {
   state.selectedSessionId = "";
   state.sessionStatusMessage = "";
   state.sessionToolsExpanded = true;
-  state.setupBotNames = randomBotNames(3);
+  state.setupBotNames = setupBotNames(3, els.humanName?.value, "Rick");
   state.setupBotDifficulties = ["medium", "medium", "medium"];
   if (els.humanName) els.humanName.value = "Rick";
   if (els.botCount) els.botCount.value = "2";
@@ -952,7 +950,7 @@ function renderSessionControls() {
         : "";
   state.selectedSessionId = selectedId;
 
-  els.savedSessionSelect.innerHTML = `<option value="">Saved sessions on this device</option>`;
+  els.savedSessionSelect.innerHTML = `<option value="">${escapeHtml(sessionSelectPlaceholder())}</option>`;
   sessions.forEach((session) => {
     const option = document.createElement("option");
     option.value = session.id;
@@ -965,7 +963,7 @@ function renderSessionControls() {
   const canLoadSelected = Boolean(selectedId);
   const canExport = Boolean(resolveExportSession());
 
-  if (els.saveSessionBtn) els.saveSessionBtn.textContent = currentSession ? "Update Session" : "Save Session";
+  if (els.saveSessionBtn) els.saveSessionBtn.textContent = sessionSaveButtonLabel(currentSession);
   if (els.loadSessionBtn) els.loadSessionBtn.disabled = !canLoadSelected;
   if (els.deleteSessionBtn) els.deleteSessionBtn.disabled = !canLoadSelected;
   els.savedSessionSelect.disabled = sessions.length === 0;
@@ -975,7 +973,7 @@ function renderSessionControls() {
   }
   if (els.sessionToolsToggle) {
     els.sessionToolsToggle.hidden = !state.gameStarted;
-    els.sessionToolsToggle.textContent = state.sessionToolsExpanded ? "Hide Sessions" : "Sessions";
+    els.sessionToolsToggle.textContent = sessionToggleLabel(state.sessionToolsExpanded);
     els.sessionToolsToggle.setAttribute(
       "aria-expanded",
       String(!(state.gameStarted && !state.sessionToolsExpanded)),
@@ -990,17 +988,7 @@ function renderSessionControls() {
     els.sessionStatus.textContent = state.sessionStatusMessage;
     return;
   }
-  if (!sessions.length) {
-    els.sessionStatus.textContent =
-      "No saved sessions yet. Save on this device or download a JSON backup copy.";
-    return;
-  }
-  const sessionNoun = sessions.length === 1 ? "session" : "sessions";
-  if (currentSession) {
-    els.sessionStatus.textContent = `${sessions.length} saved ${sessionNoun}. Current session: ${currentSession.name}.`;
-    return;
-  }
-  els.sessionStatus.textContent = `${sessions.length} saved ${sessionNoun} on this device.`;
+  els.sessionStatus.textContent = sessionStatusText({ sessions, currentSession });
 }
 
 function renderStatus() {
@@ -1108,11 +1096,10 @@ function renderWinnerBanner() {
     ? `${winnerPlayer.name}'s Final Score`
     : "Your Final Score";
   const targetHitPlayer = targetHitter();
-  els.winnerBanner.innerHTML = `
-    <span class="starter-kicker">Game winner</span>
-    <strong>Congratulations, ${escapeHtml(winnerPlayer.name)}!</strong>
-    <span>${escapeHtml(targetHitPlayer?.name ?? winnerPlayer.name)} hit ${escapeHtml(activeTargetScore())}. ${escapeHtml(scoreLabel)}: ${escapeHtml(winnerPlayer.score)} points.</span>
-  `;
+  els.winnerBanner.innerHTML = winnerBannerMarkup({
+    winnerName: winnerPlayer.name,
+    message: `${targetHitPlayer?.name ?? winnerPlayer.name} hit ${activeTargetScore()}. ${scoreLabel}: ${winnerPlayer.score} points.`,
+  });
 }
 
 function renderPiles() {
@@ -1239,11 +1226,7 @@ function dealAnimationIndex(cardId) {
 }
 
 function renderHistory() {
-  if (els.roundHistoryOrderBtn) {
-    els.roundHistoryOrderBtn.textContent =
-      state.roundHistorySortDir === "desc" ? "Newest First" : "Oldest First";
-    els.roundHistoryOrderBtn.disabled = state.roundHistory.length <= 1;
-  }
+  renderHistorySortControl(els.roundHistoryOrderBtn, state.roundHistorySortDir, state.roundHistory.length);
 
   if (!state.roundHistory.length) {
     els.roundHistorySummary.textContent = state.gameStarted
@@ -1263,10 +1246,7 @@ function renderHistory() {
       </th>
     `)
     .join("");
-  const orderedHistory =
-    state.roundHistorySortDir === "desc"
-      ? [...state.roundHistory].reverse()
-      : state.roundHistory;
+  const orderedHistory = orderedRoundHistory();
   els.roundHistoryWrap.innerHTML = `
     <table class="history-table">
       <thead>
@@ -1512,18 +1492,43 @@ function cleanName(value, fallback) {
   return text || fallback;
 }
 
+function shuffleSetupBotNames() {
+  const humanName = cleanName(els.humanName?.value, "Rick");
+  state.setupBotNames = setupBotNames(3, humanName, "Rick");
+}
+
 function randomBotNames(count, excludedNames = []) {
+  if (window.GameRoom?.randomBotNames) return window.GameRoom.randomBotNames(count, excludedNames);
   const used = new Set(excludedNames.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean));
   const pool = BOT_NAMES.filter((name) => !used.has(name.toLowerCase()));
   const shuffled = shuffle(pool);
   return Array.from({ length: count }, (_, index) => shuffled[index] || `Bot ${index + 1}`);
 }
 
+function setupBotNames(count, humanName, fallbackHumanName) {
+  if (window.GameRoom?.setupBotNames) return window.GameRoom.setupBotNames(count, humanName, fallbackHumanName);
+  const excludedHumanName = String(humanName || fallbackHumanName).trim() || fallbackHumanName;
+  return randomBotNames(count, [excludedHumanName]);
+}
+
+function setupBotDifficulties(count, difficulties = []) {
+  if (window.GameRoom?.setupBotDifficulties) {
+    return window.GameRoom.setupBotDifficulties(count, difficulties, { levels: BOT_DIFFICULTIES, fallback: "medium" });
+  }
+  return Array.from({ length: count }, (_, index) => normalizeBotDifficulty(Array.isArray(difficulties) ? difficulties[index] : undefined));
+}
+
 function normalizeBotDifficulty(value) {
+  if (window.GameRoom?.normalizeBotDifficulty) {
+    return window.GameRoom.normalizeBotDifficulty(value, { levels: BOT_DIFFICULTIES, fallback: "medium" });
+  }
   return BOT_DIFFICULTIES.includes(value) ? value : "medium";
 }
 
 function difficultyLabel(value) {
+  if (window.GameRoom?.difficultyLabel) {
+    return window.GameRoom.difficultyLabel(value, { levels: BOT_DIFFICULTIES, fallback: "medium" });
+  }
   const normalized = normalizeBotDifficulty(value);
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
@@ -1542,11 +1547,161 @@ function randomBetween(min, max) {
 }
 
 function uid() {
+  if (window.GameRoom?.uid) return window.GameRoom.uid();
   return Math.random().toString(36).slice(2, 10);
 }
 
 function cloneJson(value) {
+  if (window.GameRoom?.cloneJson) return window.GameRoom.cloneJson(value);
   return JSON.parse(JSON.stringify(value));
+}
+
+function readStoredJson(key, fallback = null) {
+  if (window.GameRoom?.readStoredJson) return window.GameRoom.readStoredJson(key, fallback);
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredJson(key, value) {
+  if (window.GameRoom?.writeStoredJson) return window.GameRoom.writeStoredJson(key, value);
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function downloadJson(filename, payload) {
+  if (window.GameRoom?.downloadJson) {
+    window.GameRoom.downloadJson(filename, payload);
+    return;
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function winnerBannerMarkup(options) {
+  if (window.GameRoom?.winnerBannerMarkup) return window.GameRoom.winnerBannerMarkup(options);
+  const winnerName = options?.winnerName || "Player";
+  return `
+    <span class="starter-kicker">${escapeHtml(options?.kicker || "Game winner")}</span>
+    <strong>Congratulations, ${escapeHtml(winnerName)}!</strong>
+    <span>${escapeHtml(options?.message || "")}</span>
+  `;
+}
+
+function sessionExportBundle(options) {
+  if (window.GameRoom?.sessionExportBundle) return window.GameRoom.sessionExportBundle(options);
+  return {
+    app: options.app,
+    version: options.version ?? 1,
+    exportedAt: options.exportedAt || new Date().toISOString(),
+    session: {
+      id: options.sessionId ?? null,
+      name: options.sessionName || "Session",
+    },
+    payload: options.payload,
+  };
+}
+
+function scoreKeeperExportBundle(options) {
+  if (window.GameRoom?.scoreKeeperExportBundle) return window.GameRoom.scoreKeeperExportBundle(options);
+  return {
+    app: "dashboard-game-export",
+    version: options.version ?? 1,
+    sourceGame: options.sourceGame,
+    scorekeeperPreset: options.scorekeeperPreset,
+    exportedAt: options.exportedAt || new Date().toISOString(),
+    session: {
+      id: options.sessionId ?? null,
+      name: options.sessionName || "Session",
+    },
+    scorekeeperPayload: options.scorekeeperPayload,
+    sourcePayload: options.sourcePayload,
+  };
+}
+
+function scoreKeeperPayloadBase(options) {
+  if (window.GameRoom?.scoreKeeperPayloadBase) return window.GameRoom.scoreKeeperPayloadBase(options);
+  const players = Array.isArray(options.players) ? options.players : [];
+  const rounds = Array.isArray(options.rounds) ? options.rounds : [];
+  const winnerId = options.winnerId || null;
+  const winnerMilestones = winnerId
+    ? [{ winnerId, roundN: rounds.length, target: options.target, ts: Date.now() }]
+    : [];
+  return {
+    mode: winnerId ? "finished" : "playing",
+    presetKey: options.presetKey,
+    customGameName: "",
+    heartsDeckCount: 1,
+    target: options.target,
+    winMode: options.winMode,
+    players,
+    roundEntryOrder: players.map((player) => player.id),
+    playerInactiveRanges: {},
+    teams: null,
+    rounds,
+    winnerId,
+    quizTieIds: [],
+    gameState: winnerId ? "completed" : "in_progress",
+    firstWinnerAt: winnerMilestones[0] || null,
+    finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
+    winnerMilestones,
+    sortByTotal: false,
+    historySortDir: options.historySortDir || "desc",
+    showHistoryTotals: true,
+    spadesPartnerIndex: 2,
+    presetNote: options.presetNote || "",
+    skyjoCurrentRoundWentOutPlayerId: null,
+    rummikubCurrentRoundWinnerId: null,
+    currentSessionId: null,
+  };
+}
+
+function scoreKeeperPlayers(players, normalizeName = cleanName) {
+  if (window.GameRoom?.scoreKeeperPlayers) return window.GameRoom.scoreKeeperPlayers(players, normalizeName);
+  return Array.isArray(players)
+    ? players.map((player, index) => ({
+      id: String(player?.id || `p-${index + 1}`),
+      name: normalizeName(player?.name, `Player ${index + 1}`),
+    }))
+    : [];
+}
+
+function scoreKeeperScores(players, scoreForPlayer) {
+  if (window.GameRoom?.scoreKeeperScores) return window.GameRoom.scoreKeeperScores(players, scoreForPlayer);
+  return Object.fromEntries(players.map((player, index) => {
+    const score = Number(scoreForPlayer(player, index));
+    return [player.id, Number.isFinite(score) ? Math.trunc(score) : 0];
+  }));
+}
+
+function scoreKeeperWinnerId(winnerId, players) {
+  if (window.GameRoom?.scoreKeeperWinnerId) return window.GameRoom.scoreKeeperWinnerId(winnerId, players);
+  return new Set(players.map((player) => player.id)).has(winnerId) ? winnerId : null;
+}
+
+function scoreKeeperRound(index, scores, options = {}) {
+  if (window.GameRoom?.scoreKeeperRound) return window.GameRoom.scoreKeeperRound(index, scores, options);
+  return {
+    n: Number.isFinite(Number(options.n)) ? Math.trunc(Number(options.n)) : index + 1,
+    scores,
+    ts: Number(options.ts) || Date.now(),
+    ...(options.extra || {}),
+  };
 }
 
 function appendNotice(message) {
@@ -1555,27 +1710,22 @@ function appendNotice(message) {
 }
 
 function readStoredSessions() {
-  try {
-    const raw = localStorage.getItem(SESSIONS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeSessionRecord).filter(Boolean);
-  } catch {
-    return [];
-  }
+  const parsed = readStoredJson(SESSIONS_KEY, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map(normalizeSessionRecord).filter(Boolean);
 }
 
 function writeStoredSessions(sessions) {
-  try {
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
-    return true;
-  } catch {
-    return false;
-  }
+  return writeStoredJson(SESSIONS_KEY, sessions);
 }
 
 function normalizeSessionRecord(session) {
+  if (window.GameRoom?.normalizeSessionRecord) {
+    return window.GameRoom.normalizeSessionRecord(session, {
+      fallbackName: "SkyJo Session",
+      normalizeName: cleanName,
+    });
+  }
   if (!session || typeof session !== "object") return null;
   if (typeof session.id !== "string" || !session.id) return null;
   if (!session.payload || typeof session.payload !== "object") return null;
@@ -1615,12 +1765,47 @@ function applySessionPayload(payload, options = {}) {
 }
 
 function sessionOptionLabel(session) {
+  if (window.GameRoom?.sessionOptionLabel) return window.GameRoom.sessionOptionLabel(session);
   const players = Array.isArray(session.payload?.players) ? session.payload.players.length : 0;
   const round = Math.max(1, Math.min(999, Math.trunc(Number(session.payload?.roundNumber) || 1)));
   return `${session.name} • ${players}P • Round ${round}`;
 }
 
+function sessionSelectPlaceholder() {
+  return window.GameRoom?.sessionSelectPlaceholder
+    ? window.GameRoom.sessionSelectPlaceholder()
+    : "Saved sessions on this device";
+}
+
+function sessionSaveButtonLabel(currentSession = null) {
+  return window.GameRoom?.sessionSaveButtonLabel
+    ? window.GameRoom.sessionSaveButtonLabel(currentSession)
+    : (currentSession ? "Update Session" : "Save Session");
+}
+
+function sessionToggleLabel(expanded) {
+  return window.GameRoom?.sessionToggleLabel
+    ? window.GameRoom.sessionToggleLabel(expanded)
+    : (expanded ? "Hide Sessions" : "Sessions");
+}
+
+function sessionStatusText(options = {}) {
+  if (window.GameRoom?.sessionStatusText) return window.GameRoom.sessionStatusText(options);
+  if (options.message) return String(options.message);
+  const sessions = Array.isArray(options.sessions) ? options.sessions : [];
+  if (!sessions.length) return "No saved sessions yet. Save on this device or download a JSON backup copy.";
+  const sessionNoun = sessions.length === 1 ? "session" : "sessions";
+  if (options.currentSession?.name) return `${sessions.length} saved ${sessionNoun}. Current session: ${options.currentSession.name}.`;
+  return `${sessions.length} saved ${sessionNoun} on this device.`;
+}
+
 function defaultSessionName(payload = snapshotState()) {
+  if (window.GameRoom?.defaultSessionName) {
+    return window.GameRoom.defaultSessionName(payload, {
+      gameName: "SkyJo",
+      normalizeName: cleanName,
+    });
+  }
   const names = Array.isArray(payload.players)
     ? payload.players.map((player) => cleanName(player?.name, "")).filter(Boolean)
     : [];
@@ -1630,6 +1815,7 @@ function defaultSessionName(payload = snapshotState()) {
 }
 
 function sanitizeFileName(name) {
+  if (window.GameRoom?.sanitizeFileName) return window.GameRoom.sanitizeFileName(name, "skyjo-session");
   const base = String(name || "skyjo-session")
     .trim()
     .replace(/[^a-z0-9._-]+/gi, "-")
@@ -1638,12 +1824,14 @@ function sanitizeFileName(name) {
 }
 
 function exportDateStamp(date = new Date()) {
+  if (window.GameRoom?.exportDateStamp) return window.GameRoom.exportDateStamp(date);
   const month = date.toLocaleString("en-US", { month: "short" });
   const day = String(date.getDate()).padStart(2, "0");
   return `${month}-${day}-${date.getFullYear()}`;
 }
 
 function exportTimeStamp(date = new Date()) {
+  if (window.GameRoom?.exportTimeStamp) return window.GameRoom.exportTimeStamp(date);
   const rawHours = Number(date.getHours()) || 0;
   const suffix = rawHours >= 12 ? "PM" : "AM";
   const hours = String(rawHours % 12 || 12).padStart(2, "0");
@@ -1652,6 +1840,7 @@ function exportTimeStamp(date = new Date()) {
 }
 
 function exportPlayerNameSegment(payload = snapshotState()) {
+  if (window.GameRoom?.exportPlayerNameSegment) return window.GameRoom.exportPlayerNameSegment(payload, cleanName);
   const names = Array.isArray(payload.players)
     ? payload.players
         .map((player) => sanitizeFileName(cleanName(player?.name, "")).slice(0, 8))
@@ -1662,11 +1851,17 @@ function exportPlayerNameSegment(payload = snapshotState()) {
 
 function exportFileNameForSession(exportable, when = new Date()) {
   const payload = exportable?.payload || snapshotState();
+  if (window.GameRoom?.exportFileName) {
+    return window.GameRoom.exportFileName("skyjo", payload, { normalizeName: cleanName, when });
+  }
   return `${exportDateStamp(when)}_skyjo_${exportPlayerNameSegment(payload)}_${exportTimeStamp(when)}.json`;
 }
 
 function exportFileNameForScoreKeeper(exportable, when = new Date()) {
   const payload = exportable?.sourcePayload || exportable?.scorekeeperPayload || snapshotState();
+  if (window.GameRoom?.exportFileName) {
+    return window.GameRoom.exportFileName("skyjo", payload, { normalizeName: cleanName, scoreKeeper: true, when });
+  }
   return `${exportDateStamp(when)}_scorekeeper_skyjo_${exportPlayerNameSegment(payload)}_${exportTimeStamp(when)}.json`;
 }
 
@@ -1792,64 +1987,34 @@ function scoreKeeperPayloadFromSkyJo(payload) {
   if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.roundHistory)) {
     return null;
   }
-  const players = payload.players.map((player, index) => ({
-    id: String(player.id || `p-${index + 1}`),
-    name: cleanName(player.name, `Player ${index + 1}`),
-  }));
+  const players = scoreKeeperPlayers(payload.players, cleanName);
   if (!players.length || !payload.roundHistory.length) return null;
 
-  const playerIds = new Set(players.map((player) => player.id));
   const rounds = payload.roundHistory.map((round, index) => {
-    const scores = Object.fromEntries(
-      players.map((player) => {
-        const raw = Number(round.results?.[player.id]?.raw ?? 0);
-        return [player.id, Number.isFinite(raw) ? Math.trunc(raw) : 0];
-      }),
-    );
-    const wentOutId = playerIds.has(round.triggerId) ? round.triggerId : null;
-    return {
-      n: index + 1,
-      scores,
-      ts: Number(round.ts) || Date.now(),
-      skyjoWentOutPlayerId: wentOutId,
-      skyjoSourceRoundNumber: Number(round.roundNumber) || index + 1,
-      skyjoTargetHitId: playerIds.has(round.targetHitId) ? round.targetHitId : null,
-    };
+    const scores = scoreKeeperScores(players, (player) => round.results?.[player.id]?.raw ?? 0);
+    return scoreKeeperRound(index, scores, {
+      ts: round.ts,
+      extra: {
+        skyjoWentOutPlayerId: scoreKeeperWinnerId(round.triggerId, players),
+        skyjoSourceRoundNumber: Number(round.roundNumber) || index + 1,
+        skyjoTargetHitId: scoreKeeperWinnerId(round.targetHitId, players),
+      },
+    });
   });
-  const winnerId = playerIds.has(payload.winnerId) ? payload.winnerId : null;
+  const winnerId = scoreKeeperWinnerId(payload.winnerId, players);
   const target = Number.isFinite(Number(payload.targetScore))
     ? Math.trunc(Number(payload.targetScore))
     : DEFAULT_TARGET_SCORE;
-  const winnerMilestones = winnerId
-    ? [{ winnerId, roundN: rounds.length, target, ts: Date.now() }]
-    : [];
-  return {
-    mode: winnerId ? "finished" : "playing",
+  return scoreKeeperPayloadBase({
     presetKey: "skyjo",
-    customGameName: "",
-    heartsDeckCount: 1,
     target,
     winMode: "low",
     players,
-    roundEntryOrder: players.map((player) => player.id),
-    playerInactiveRanges: {},
-    teams: null,
     rounds,
     winnerId,
-    quizTieIds: [],
-    gameState: winnerId ? "completed" : "in_progress",
-    firstWinnerAt: winnerMilestones[0] || null,
-    finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
-    winnerMilestones,
-    sortByTotal: false,
     historySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
-    showHistoryTotals: true,
-    spadesPartnerIndex: 2,
     presetNote: "Lowest score wins. Negative scores possible.",
-    skyjoCurrentRoundWentOutPlayerId: null,
-    rummikubCurrentRoundWinnerId: null,
-    currentSessionId: null,
-  };
+  });
 }
 
 function exportSessionFile() {
@@ -1859,25 +2024,14 @@ function exportSessionFile() {
     return null;
   }
 
-  const bundle = {
+  const bundle = sessionExportBundle({
     app: "skyjo-table",
     version: EXPORT_VERSION,
-    exportedAt: new Date().toISOString(),
-    session: {
-      id: exportable.id,
-      name: exportable.name,
-    },
+    sessionId: exportable.id,
+    sessionName: exportable.name,
     payload: exportable.payload,
-  };
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = exportFileNameForSession(exportable);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  downloadJson(exportFileNameForSession(exportable), bundle);
   showSessionMessage(`Downloaded session JSON: ${exportable.name}.`);
   return exportable;
 }
@@ -1889,28 +2043,16 @@ function exportScoreKeeperFile() {
     return null;
   }
 
-  const bundle = {
-    app: "dashboard-game-export",
+  const bundle = scoreKeeperExportBundle({
     version: EXPORT_VERSION,
     sourceGame: "skyjo-table",
     scorekeeperPreset: "skyjo",
-    exportedAt: new Date().toISOString(),
-    session: {
-      id: exportable.id,
-      name: exportable.name,
-    },
+    sessionId: exportable.id,
+    sessionName: exportable.name,
     scorekeeperPayload: exportable.scorekeeperPayload,
     sourcePayload: exportable.sourcePayload,
-  };
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = exportFileNameForScoreKeeper(exportable);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  downloadJson(exportFileNameForScoreKeeper(exportable), bundle);
   showSessionMessage(`Downloaded ScoreKeeper JSON: ${exportable.name}.`);
   return exportable;
 }
@@ -1985,14 +2127,12 @@ async function importSessionFile(file) {
 }
 
 function saveGame() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotState()));
-  } catch {}
+  writeStoredJson(STORAGE_KEY, snapshotState());
 }
 
 function hydrateSavedGame() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    const saved = readStoredJson(STORAGE_KEY, null);
     const nextState = normalizeLoadedState(saved);
     if (!nextState) return;
     Object.assign(state, nextState);
@@ -2003,7 +2143,33 @@ function hydrateSavedGame() {
 }
 
 function normalizeRoundHistorySortDir(value) {
-  return value === "asc" ? "asc" : "desc";
+  return window.GameRoom?.normalizeHistorySortDir
+    ? window.GameRoom.normalizeHistorySortDir(value)
+    : (value === "asc" ? "asc" : "desc");
+}
+
+function toggleRoundHistorySortDir(value) {
+  return window.GameRoom?.toggleHistorySortDir
+    ? window.GameRoom.toggleHistorySortDir(value)
+    : (normalizeRoundHistorySortDir(value) === "desc" ? "asc" : "desc");
+}
+
+function orderedRoundHistory() {
+  return window.GameRoom?.orderedHistory
+    ? window.GameRoom.orderedHistory(state.roundHistory, state.roundHistorySortDir, { newestAt: "end" })
+    : (normalizeRoundHistorySortDir(state.roundHistorySortDir) === "desc"
+      ? state.roundHistory.slice().reverse()
+      : state.roundHistory.slice());
+}
+
+function renderHistorySortControl(button, sortDir, historyLength) {
+  if (window.GameRoom?.renderHistorySortControl) {
+    window.GameRoom.renderHistorySortControl(button, sortDir, historyLength);
+    return;
+  }
+  if (!button) return;
+  button.textContent = normalizeRoundHistorySortDir(sortDir) === "desc" ? "Newest First" : "Oldest First";
+  button.disabled = Number(historyLength) <= 1;
 }
 
 function normalizeLoadedState(payload, options = {}) {
@@ -2181,9 +2347,7 @@ function normalizeSetupBotNames(names) {
 }
 
 function normalizeSetupDifficultyList(difficulties) {
-  return Array.from({ length: 3 }, (_, index) =>
-    normalizeBotDifficulty(Array.isArray(difficulties) ? difficulties[index] : "medium"),
-  );
+  return setupBotDifficulties(3, difficulties);
 }
 
 function normalizePlayerId(value, players) {
@@ -2239,6 +2403,7 @@ function normalizeSetupBotDifficulties() {
 }
 
 function escapeHtml(value) {
+  if (window.GameRoom?.escapeHtml) return window.GameRoom.escapeHtml(value);
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

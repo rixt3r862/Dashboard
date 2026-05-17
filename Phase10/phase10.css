@@ -14,6 +14,18 @@
   --blue: #3e86d1;
   --green: #36a56c;
   --yellow: #d8a329;
+  --game-btn-padding: 0.75rem 0.9rem;
+  --game-btn-radius: 1rem;
+  --game-btn-bg: rgba(250, 246, 232, 0.08);
+  --game-btn-hover-transform: translateY(-1px);
+  --game-btn-disabled-opacity: 0.45;
+  --game-btn-primary-border: rgba(255, 214, 127, 0.5);
+  --game-btn-primary-bg: linear-gradient(135deg, #f0b64f, #e28c31);
+  --game-btn-primary-color: #2c1804;
+  --game-btn-danger-border: rgba(217, 75, 75, 0.35);
+  --game-btn-danger-bg: rgba(217, 75, 75, 0.12);
+  --game-btn-danger-hover-bg: rgba(217, 75, 75, 0.18);
+  --game-btn-danger-hover-border: rgba(217, 75, 75, 0.5);
 }
 
 *,
@@ -563,35 +575,32 @@ select {
 
 .btn,
 .pile-button {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(250, 246, 232, 0.08);
-  color: var(--text);
-  padding: 0.75rem 0.9rem;
-  border-radius: 1rem;
+  border: 1px solid var(--game-btn-border);
+  background: var(--game-btn-bg);
+  color: var(--game-btn-color);
+  padding: var(--game-btn-padding);
+  border-radius: var(--game-btn-radius);
   cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    background-color 0.18s ease,
-    border-color 0.18s ease;
+  transition: var(--game-btn-transition);
 }
 
 .btn:hover,
 .pile-button:hover {
-  transform: translateY(-1px);
-  background: rgba(250, 246, 232, 0.14);
+  transform: var(--game-btn-hover-transform);
+  background: var(--game-btn-hover-bg);
 }
 
 .btn:disabled,
 .pile-button:disabled {
   cursor: default;
-  opacity: 0.45;
+  opacity: var(--game-btn-disabled-opacity);
   transform: none;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #f0b64f, #e28c31);
-  border-color: rgba(255, 214, 127, 0.5);
-  color: #2c1804;
+  background: var(--game-btn-primary-bg);
+  border-color: var(--game-btn-primary-border);
+  color: var(--game-btn-primary-color);
   font-weight: 700;
 }
 
@@ -638,7 +647,7 @@ select {
 
 .session-tools {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--game-session-tool-gap);
   padding-top: 0.15rem;
 }
 
@@ -648,7 +657,7 @@ select {
 
 .session-tools-body {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--game-session-tool-gap);
 }
 
 .session-tools-body[hidden] {
@@ -658,7 +667,7 @@ select {
 .session-tool-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: var(--game-session-tool-gap);
 }
 
 .session-tool-wide {
@@ -667,24 +676,24 @@ select {
 
 .session-tools .btn,
 .session-tools .field select {
-  font-size: 0.84rem;
+  font-size: var(--game-session-tool-font-size);
 }
 
 .session-tools .btn {
   width: 100%;
-  padding: 0.56rem 0.72rem;
-  border-radius: 0.85rem;
+  padding: var(--game-session-tool-padding);
+  border-radius: var(--game-btn-radius);
 }
 
 .btn-danger {
-  border-color: rgba(217, 75, 75, 0.35);
-  background: rgba(217, 75, 75, 0.12);
-  color: #ffd7d7;
+  border-color: var(--game-btn-danger-border);
+  background: var(--game-btn-danger-bg);
+  color: var(--game-btn-danger-color);
 }
 
 .btn-danger:hover {
-  background: rgba(217, 75, 75, 0.18);
-  border-color: rgba(217, 75, 75, 0.5);
+  background: var(--game-btn-danger-hover-bg);
+  border-color: var(--game-btn-danger-hover-border);
 }
 
 .session-status {

@@ -6,6 +6,7 @@
     <title>SkyJo Table</title>
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <link rel="stylesheet" href="../shared/game-room.css?v=20260517a" />
     <link rel="stylesheet" href="./skyjo.css?v=20260511b" />
     <link
       rel="icon"
@@ -73,6 +74,7 @@
                   />
                 </label>
                 <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+                <button id="shuffleBotNamesBtn" class="btn" type="button">Shuffle Names</button>
               </div>
               <div id="setupControlSlot" class="setup-control-slot">
                 <div id="tableControlBlock" class="table-control-block">
@@ -219,6 +221,7 @@
         </section>
       </main>
     </div>
+    <script src="../shared/game-room.js?v=20260517a"></script>
     <script src="./skyjo.js?v=20260511e"></script>
   </body>
 </html>

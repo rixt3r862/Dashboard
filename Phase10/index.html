@@ -6,9 +6,14 @@
     <title>Phase 10 Table</title>
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <link rel="stylesheet" href="../shared/game-room.css?v=20260517a" />
     <link rel="stylesheet" href="./phase10.css?v=20260510b" />
     <link
       rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23184e3a%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>10</text></svg>"
+    />
+    <link
+      rel="apple-touch-icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23184e3a%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>10</text></svg>"
     />
   </head>
@@ -90,6 +95,7 @@
                 </span>
               </label>
               <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+              <button id="shuffleBotNamesBtn" class="btn" type="button">Shuffle Names</button>
               <div class="button-row">
                 <button id="startGameBtn" class="btn btn-primary" type="submit">
                   Start Game
@@ -262,6 +268,7 @@
       </main>
     </div>
 
+    <script src="../shared/game-room.js?v=20260517a"></script>
     <script type="module" src="./phase10.js?v=20260510b"></script>
   </body>
 </html>

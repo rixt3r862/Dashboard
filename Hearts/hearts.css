@@ -322,40 +322,36 @@ button {
 }
 
 .btn {
-  border: 1px solid rgba(250, 246, 232, 0.14);
-  border-radius: 0.85rem;
-  background: rgba(250, 246, 232, 0.07);
-  color: var(--text);
-  padding: 0.62rem 0.68rem;
+  border: 1px solid var(--game-btn-border);
+  border-radius: var(--game-btn-radius);
+  background: var(--game-btn-bg);
+  color: var(--game-btn-color);
+  padding: var(--game-btn-padding);
   cursor: pointer;
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    background 0.16s ease,
-    opacity 0.16s ease;
+  transition: var(--game-btn-transition);
 }
 
 .btn:hover:not(:disabled),
 .card-button:hover:not(:disabled) {
-  transform: translateY(-2px);
+  transform: var(--game-btn-hover-transform);
 }
 
 .btn-primary {
-  border-color: rgba(255, 214, 127, 0.46);
-  background: rgba(240, 182, 79, 0.2);
-  color: var(--accent-strong);
+  border-color: var(--game-btn-primary-border);
+  background: var(--game-btn-primary-bg);
+  color: var(--game-btn-primary-color);
 }
 
 .btn-danger {
-  border-color: rgba(216, 59, 71, 0.42);
-  background: rgba(216, 59, 71, 0.14);
-  color: #ffc8cd;
+  border-color: var(--game-btn-danger-border);
+  background: var(--game-btn-danger-bg);
+  color: var(--game-btn-danger-color);
 }
 
 .btn:disabled,
 .card-button:disabled {
   cursor: default;
-  opacity: 0.48;
+  opacity: var(--game-btn-disabled-opacity);
 }
 
 .status-grid,
@@ -543,7 +539,7 @@ button {
 
 .session-tools {
   display: grid;
-  gap: 0.52rem;
+  gap: var(--game-session-tool-gap);
 }
 
 .session-tools[hidden] {
@@ -553,7 +549,7 @@ button {
 .session-tool-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: var(--game-session-tool-gap);
 }
 
 .session-tool-wide {
@@ -1681,18 +1677,30 @@ button {
   text-transform: uppercase;
 }
 
-.history-header-row span {
+.history-header-row .history-player-head {
   color: var(--accent-strong);
-  display: inline-flex;
-  gap: 0.35rem;
-  align-items: center;
+  display: grid;
+  gap: 0.18rem;
+  align-items: start;
   white-space: nowrap;
 }
 
-.history-header-row span b {
-  color: var(--text);
-  font-size: 0.78rem;
-  letter-spacing: 0;
+.history-header-row .history-player-name {
+  color: var(--accent-strong);
+}
+
+.history-header-row .history-player-points {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  border-radius: 999px;
+  padding: 0.18rem 0.46rem;
+  border: 1px solid rgba(255, 214, 127, 0.18);
+  background: rgba(255, 214, 127, 0.07);
+  color: var(--accent-strong);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 @media (max-width: 980px) {

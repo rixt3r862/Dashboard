@@ -1,12 +1,6 @@
-const BOT_NAMES = [
-  "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
-  "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
-  "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
-  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace", "Finn",
-  "Sebastian", "Ethan", "Ash", "Hunter", "Jax", "West", "Seth",
-];
+const BOT_NAMES = window.GameRoom?.BOT_NAMES || ["Nick", "Sam", "Nate", "Garth", "Kyle", "Kip"];
 const BOT_COUNT = 3;
-const BOT_DIFFICULTIES = ["easy", "normal", "hard"];
+const BOT_DIFFICULTIES = window.GameRoom?.botDifficultyLevels?.("hearts") || ["easy", "medium", "hard"];
 const DEFAULT_TARGET_SCORE = 100;
 const BOT_TURN_DELAY_MS = 1050;
 const DEAL_ANIMATION_MS = 1250;
@@ -69,7 +63,7 @@ const state = {
   passedToHumanIds: [],
   handHistory: [],
   historySortDir: "desc",
-  setupBotDifficulties: ["normal", "normal", "normal"],
+  setupBotDifficulties: ["medium", "medium", "medium"],
   sessionExpanded: true,
   tramBadgePlayerId: "",
   tramPlayerId: "",
@@ -84,6 +78,7 @@ const els = {
   setupFields: document.getElementById("setupFields"),
   setupSummary: document.getElementById("setupSummary"),
   botNameFields: document.getElementById("botNameFields"),
+  shuffleBotNamesBtn: document.getElementById("shuffleBotNamesBtn"),
   samePlayersBtn: document.getElementById("samePlayersBtn"),
   resetTableBtn: document.getElementById("resetTableBtn"),
   statusText: document.getElementById("statusText"),
@@ -136,9 +131,15 @@ function bindEvents() {
     if (!state.gameStarted || !state.winnerId || !state.players.length) return;
     startNewGame({ samePlayers: true });
   });
+  els.shuffleBotNamesBtn.addEventListener("click", () => {
+    shuffleSetupBotNames();
+    renderBotNameFields();
+  });
   els.resetTableBtn.addEventListener("click", () => {
     if (state.gameStarted && !state.winnerId && !window.confirm("Reset this Hearts table?")) return;
     resetState();
+    shuffleSetupBotNames();
+    renderBotNameFields();
     render();
   });
   els.confirmPassBtn.addEventListener("click", confirmHumanPass);
@@ -150,7 +151,7 @@ function bindEvents() {
     renderSessionControls();
   });
   els.historyOrderBtn.addEventListener("click", () => {
-    state.historySortDir = state.historySortDir === "asc" ? "desc" : "asc";
+    state.historySortDir = toggleHistorySortDir(state.historySortDir);
     renderHistory();
   });
   els.saveSessionBtn.addEventListener("click", saveSession);
@@ -161,8 +162,9 @@ function bindEvents() {
 }
 
 function renderBotNameFields() {
-  const botNames = randomBotNames(BOT_COUNT);
-  els.botNameFields.innerHTML = botNames.map((name, index) => `
+  syncSetupBotDifficultiesFromInputs();
+  ensureSetupBotNames();
+  els.botNameFields.innerHTML = state.setupBotNames.map((name, index) => `
     <div class="bot-setup-row">
       <label class="field">
         <span>Bot ${index + 1} name</span>
@@ -209,11 +211,11 @@ function startNewGame(options = {}) {
     state.players = previousPlayers.map((player) =>
       createPlayer(player.id, player.name, player.bot, player.difficulty),
     );
+    state.setupBotNames = state.players.filter((player) => player.bot).map((player) => player.name);
     state.setupBotDifficulties = state.players
       .filter((player) => player.bot)
       .map((player) => normalizeDifficulty(player.difficulty));
   } else {
-    applyRandomBotNamesToInputs();
     state.players = createPlayers();
   }
   dealHand();
@@ -258,12 +260,17 @@ function resetState() {
   state.passedToHumanIds = [];
   state.handHistory = [];
   state.historySortDir = "desc";
-  state.setupBotDifficulties = ["normal", "normal", "normal"];
+  state.setupBotNames = [];
+  state.setupBotDifficulties = ["medium", "medium", "medium"];
   state.sessionExpanded = true;
   state.tramBadgePlayerId = "";
   state.tramPlayerId = "";
   state.winnerId = null;
   state.notice = "";
+  if (els.sessionStatus) {
+    els.sessionStatus.textContent = "";
+    delete els.sessionStatus.dataset.sessionManual;
+  }
 }
 
 function cancelPendingBotTurn() {
@@ -287,7 +294,7 @@ function createPlayers() {
   const botDifficultyInputs = [...els.botNameFields.querySelectorAll("[data-bot-difficulty-index]")];
   const botNames = botInputs.map((input, index) => input.value.trim() || BOT_NAMES[index]);
   const botDifficulties = botDifficultyInputs.map((input) => normalizeDifficulty(input.value));
-  state.setupBotDifficulties = Array.from({ length: BOT_COUNT }, (_, index) => botDifficulties[index] || "normal");
+  state.setupBotDifficulties = Array.from({ length: BOT_COUNT }, (_, index) => botDifficulties[index] || "medium");
   return [
     createPlayer("p0", humanName, false),
     createPlayer("p1", botNames[0] || BOT_NAMES[0], true, state.setupBotDifficulties[0]),
@@ -296,22 +303,57 @@ function createPlayers() {
   ];
 }
 
-function applyRandomBotNamesToInputs() {
+function ensureSetupBotNames() {
+  if (!Array.isArray(state.setupBotNames) || state.setupBotNames.length !== BOT_COUNT) {
+    shuffleSetupBotNames();
+  }
+}
+
+function prepareNextGameSetupNames() {
+  shuffleSetupBotNames();
+  renderBotNameFields();
+}
+
+function shuffleSetupBotNames() {
   const humanName = (els.humanName.value || "Rick").trim();
-  const names = randomBotNames(BOT_COUNT, [humanName]);
-  els.botNameFields.querySelectorAll("[data-bot-index]").forEach((input, index) => {
-    input.value = names[index] || BOT_NAMES[index] || `Bot ${index + 1}`;
-  });
+  state.setupBotNames = setupBotNames(BOT_COUNT, humanName, "Rick");
+}
+
+function syncSetupBotDifficultiesFromInputs() {
+  const difficultyInputs = [...els.botNameFields.querySelectorAll("[data-bot-difficulty-index]")];
+  if (!difficultyInputs.length) return;
+  state.setupBotDifficulties = setupBotDifficulties(
+    BOT_COUNT,
+    Array.from({ length: BOT_COUNT }, (_, index) => difficultyInputs[index]?.value || state.setupBotDifficulties[index]),
+  );
 }
 
 function randomBotNames(count, excludedNames = []) {
+  if (window.GameRoom?.randomBotNames) return window.GameRoom.randomBotNames(count, excludedNames);
   const used = new Set(excludedNames.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean));
   const pool = BOT_NAMES.filter((name) => !used.has(name.toLowerCase()));
   const shuffled = shuffle(pool);
   return Array.from({ length: count }, (_, index) => shuffled[index] || `Bot ${index + 1}`);
 }
 
-function createPlayer(id, name, bot, difficulty = "normal") {
+function setupBotNames(count, humanName, fallbackHumanName) {
+  if (window.GameRoom?.setupBotNames) return window.GameRoom.setupBotNames(count, humanName, fallbackHumanName);
+  const excludedHumanName = String(humanName || fallbackHumanName).trim() || fallbackHumanName;
+  return randomBotNames(count, [excludedHumanName]);
+}
+
+function setupBotDifficulties(count, difficulties = []) {
+  if (window.GameRoom?.setupBotDifficulties) {
+    return window.GameRoom.setupBotDifficulties(count, difficulties, {
+      aliases: { normal: "medium" },
+      levels: BOT_DIFFICULTIES,
+      fallback: "medium",
+    });
+  }
+  return Array.from({ length: count }, (_, index) => normalizeDifficulty(Array.isArray(difficulties) ? difficulties[index] : undefined));
+}
+
+function createPlayer(id, name, bot, difficulty = "medium") {
   return {
     id,
     name,
@@ -467,7 +509,7 @@ function chooseBotPassCards(player) {
   return sorted.slice(0, 3);
 }
 
-function botPassRisk(card, difficulty = "normal") {
+function botPassRisk(card, difficulty = "medium") {
   if (isQueenOfSpades(card)) return 100;
   if (card.suit === "hearts") return (difficulty === "hard" ? 38 : 30) + card.value;
   if (card.suit === "spades" && card.value > 10) return (difficulty === "hard" ? 34 : 20) + card.value;
@@ -612,7 +654,7 @@ function runBotTurns() {
 function chooseBotPlay(player) {
   if (player.difficulty === "easy") return chooseEasyBotPlay(player);
   if (player.difficulty === "hard") return chooseHardBotPlay(player);
-  return chooseNormalBotPlay(player);
+  return chooseMediumBotPlay(player);
 }
 
 function chooseEasyBotPlay(player) {
@@ -625,7 +667,7 @@ function chooseEasyBotPlay(player) {
   return randomCard(legal);
 }
 
-function chooseNormalBotPlay(player) {
+function chooseMediumBotPlay(player) {
   const legal = legalCards(player);
   const ledSuit = state.trick[0]?.card.suit;
   if (!ledSuit) {
@@ -877,6 +919,7 @@ function completeHand() {
   if (winner) {
     state.winnerId = winner.id;
     state.stage = "game-end";
+    prepareNextGameSetupNames();
   } else {
     state.winnerId = null;
     state.stage = "hand-end";
@@ -945,20 +988,58 @@ function randomCard(cards) {
 }
 
 function normalizeDifficulty(value) {
-  return BOT_DIFFICULTIES.includes(value) ? value : "normal";
+  if (window.GameRoom?.normalizeBotDifficulty) {
+    return window.GameRoom.normalizeBotDifficulty(value, {
+      aliases: { normal: "medium" },
+      levels: BOT_DIFFICULTIES,
+      fallback: "medium",
+    });
+  }
+  if (value === "normal") return "medium";
+  return BOT_DIFFICULTIES.includes(value) ? value : "medium";
 }
 
 function difficultyLabel(value) {
+  if (window.GameRoom?.difficultyLabel) {
+    return window.GameRoom.difficultyLabel(value, {
+      aliases: { normal: "medium" },
+      levels: BOT_DIFFICULTIES,
+      fallback: "medium",
+    });
+  }
   return {
     easy: "Easy",
-    normal: "Normal",
+    medium: "Medium",
     hard: "Hard",
   }[normalizeDifficulty(value)];
 }
 
 function orderedHistory() {
-  const history = state.handHistory.slice();
-  return state.historySortDir === "asc" ? history.reverse() : history;
+  return window.GameRoom?.orderedHistory
+    ? window.GameRoom.orderedHistory(state.handHistory, state.historySortDir, { newestAt: "start" })
+    : (state.historySortDir === "asc" ? state.handHistory.slice().reverse() : state.handHistory.slice());
+}
+
+function normalizeHistorySortDir(value) {
+  return window.GameRoom?.normalizeHistorySortDir
+    ? window.GameRoom.normalizeHistorySortDir(value)
+    : (value === "asc" ? "asc" : "desc");
+}
+
+function toggleHistorySortDir(value) {
+  return window.GameRoom?.toggleHistorySortDir
+    ? window.GameRoom.toggleHistorySortDir(value)
+    : (normalizeHistorySortDir(value) === "desc" ? "asc" : "desc");
+}
+
+function renderHistorySortControl(button, sortDir, historyLength) {
+  if (window.GameRoom?.renderHistorySortControl) {
+    window.GameRoom.renderHistorySortControl(button, sortDir, historyLength);
+    return;
+  }
+  if (!button) return;
+  button.textContent = normalizeHistorySortDir(sortDir) === "desc" ? "Newest First" : "Oldest First";
+  button.disabled = Number(historyLength) <= 1;
 }
 
 function isTopRemainingCard(card, owner) {
@@ -1115,8 +1196,8 @@ function restoreSessionSnapshot(snapshot) {
     selectedPassIds: snapshot.selectedPassIds || [],
     passedToHumanIds: snapshot.passedToHumanIds || [],
     handHistory: snapshot.handHistory || [],
-    historySortDir: snapshot.historySortDir === "asc" ? "asc" : "desc",
-    setupBotDifficulties: snapshot.setupBotDifficulties || ["normal", "normal", "normal"],
+    historySortDir: normalizeHistorySortDir(snapshot.historySortDir),
+    setupBotDifficulties: setupBotDifficulties(BOT_COUNT, snapshot.setupBotDifficulties || ["medium", "medium", "medium"]),
     sessionExpanded: snapshot.sessionExpanded !== false,
     tramBadgePlayerId: snapshot.tramBadgePlayerId || "",
     tramPlayerId: "",
@@ -1145,16 +1226,14 @@ function normalizeStage(stage) {
 }
 
 function readSavedSessions() {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_SESSIONS_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  const parsed = readStoredJson(STORAGE_SESSIONS_KEY, []);
+  return Array.isArray(parsed)
+    ? parsed.map(normalizeHeartsSessionRecord).filter(Boolean).sort((left, right) => right.updatedAt - left.updatedAt)
+    : [];
 }
 
 function writeSavedSessions(sessions) {
-  window.localStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(sessions));
+  writeStoredJson(STORAGE_SESSIONS_KEY, sessions.map(normalizeHeartsSessionRecord).filter(Boolean));
 }
 
 function saveSession() {
@@ -1164,18 +1243,26 @@ function saveSession() {
   }
   const name = window.prompt("Save this Hearts session as:", defaultSessionName());
   if (!name) return;
+  const sessionName = name.trim() || defaultSessionName();
   const sessions = readSavedSessions();
-  const id = `${Date.now()}`;
-  sessions.unshift({ id, name: name.trim(), savedAt: new Date().toISOString(), snapshot: sessionSnapshot() });
-  writeSavedSessions(sessions);
-  showSessionStatus(`Saved ${name.trim()}.`);
+  const id = uid();
+  const now = Date.now();
+  const record = normalizeHeartsSessionRecord({
+    id,
+    name: sessionName,
+    payload: sessionSnapshot(),
+    createdAt: now,
+    updatedAt: now,
+  });
+  writeSavedSessions([record, ...sessions]);
+  showSessionStatus(`Saved ${sessionName}.`);
   renderSessionControls(id);
 }
 
 function loadSelectedSession() {
   const session = selectedSavedSession();
   if (!session) return;
-  restoreSessionSnapshot(session.snapshot);
+  restoreSessionSnapshot(session.payload);
   showSessionStatus(`Loaded ${session.name}.`);
 }
 
@@ -1204,40 +1291,280 @@ function exportScoreKeeper() {
     return;
   }
   const snapshot = sessionSnapshot();
-  const payload = {
-    app: "dashboard-game-export",
+  const payload = scoreKeeperExportBundle({
     version: 1,
     sourceGame: "hearts-table",
     scorekeeperPreset: "hearts",
-    exportedAt: new Date().toISOString(),
-    session: {
-      name: defaultSessionName(),
-    },
+    sessionName: defaultSessionName(),
     scorekeeperPayload: scoreKeeperPayload(snapshot),
     sourcePayload: snapshot,
-  };
+  });
   downloadJson(`${slugify(defaultSessionName())}-scorekeeper.json`, payload);
   showSessionStatus("ScoreKeeper export downloaded.");
 }
 
 function scoreKeeperPayload(snapshot) {
-  const players = snapshot.players.map((player) => ({ id: player.id, name: player.name }));
-  const rounds = snapshot.handHistory.slice().reverse().map((entry) => ({
-    n: Number(entry.handNumber),
-    scores: Object.fromEntries(players.map((player, index) => [player.id, entry.points[index] || 0])),
-    ts: Date.now(),
+  const players = scoreKeeperPlayers(snapshot.players);
+  const rounds = snapshot.handHistory.slice().reverse().map((entry, index) =>
+    scoreKeeperRound(index, scoreKeeperScores(players, (_player, playerIndex) => entry.points[playerIndex] || 0), {
+      n: Number(entry.handNumber),
+    }),
+  );
+  const winnerId = scoreKeeperWinnerId(snapshot.winnerId, players);
+  return scoreKeeperPayloadBase({
+    presetKey: "hearts",
+    target: snapshot.targetScore,
+    winMode: "low",
+    players,
+    rounds,
+    winnerId,
+    historySortDir: "desc",
+    presetNote: "Lowest score wins. Hearts are 1 point and the queen of spades is 13.",
+  });
+}
+
+function selectedSavedSession() {
+  const id = els.savedSessionSelect.value;
+  return readSavedSessions().find((session) => session.id === id);
+}
+
+function normalizeHeartsSessionRecord(session) {
+  if (!session || typeof session !== "object") return null;
+  const payload = session.payload || session.snapshot;
+  if (!payload || typeof payload !== "object") return null;
+  const rawRecord = {
+    ...session,
+    payload,
+    createdAt: session.createdAt ?? session.savedAt,
+    updatedAt: session.updatedAt ?? session.savedAt,
+  };
+  if (window.GameRoom?.normalizeSessionRecord) {
+    return window.GameRoom.normalizeSessionRecord(rawRecord, {
+      fallbackName: "Hearts Session",
+    });
+  }
+  if (typeof rawRecord.id !== "string" || !rawRecord.id) return null;
+  const createdAt = sessionTimestamp(rawRecord.createdAt);
+  return {
+    id: rawRecord.id,
+    name: String(rawRecord.name || "Hearts Session").trim() || "Hearts Session",
+    payload: cloneJson(payload),
+    createdAt,
+    updatedAt: sessionTimestamp(rawRecord.updatedAt, createdAt),
+  };
+}
+
+function sessionTimestamp(value, fallback = Date.now()) {
+  if (Number.isFinite(Number(value))) return Number(value);
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function renderSessionControls(selectedId = els.savedSessionSelect.value) {
+  const sessions = readSavedSessions();
+  const selectedSession = sessions.find((session) => session.id === selectedId);
+  const selectedValue = selectedSession ? selectedSession.id : "";
+  els.sessionTools.hidden = !state.sessionExpanded;
+  els.sessionPanel.classList.toggle("collapsed", !state.sessionExpanded);
+  els.sessionToggleBtn.textContent = sessionToggleLabel(state.sessionExpanded);
+  els.sessionToggleBtn.setAttribute("aria-expanded", String(state.sessionExpanded));
+  els.savedSessionSelect.innerHTML = sessions.length
+    ? [
+      `<option value="">${escapeHtml(sessionSelectPlaceholder())}</option>`,
+      ...sessions.map((session) => `<option value="${session.id}" ${session.id === selectedValue ? "selected" : ""}>${escapeHtml(sessionOptionLabel(session))}</option>`),
+    ].join("")
+    : `<option value="">${escapeHtml(sessionSelectPlaceholder())}</option>`;
+  els.savedSessionSelect.value = selectedValue;
+  els.savedSessionSelect.disabled = sessions.length === 0;
+  els.saveSessionBtn.textContent = sessionSaveButtonLabel(null);
+  const canLoadSelected = Boolean(selectedValue);
+  els.loadSessionBtn.disabled = !canLoadSelected;
+  els.deleteSessionBtn.disabled = !canLoadSelected;
+  els.saveSessionBtn.disabled = !state.gameStarted;
+  els.downloadSessionBtn.disabled = !state.gameStarted;
+  els.exportScoreKeeperBtn.disabled = !state.handHistory.length;
+  if (els.sessionStatus.dataset.sessionManual !== "true") {
+    els.sessionStatus.textContent = sessionStatusText({ sessions });
+  }
+}
+
+function showSessionStatus(message) {
+  els.sessionStatus.dataset.sessionManual = "true";
+  els.sessionStatus.textContent = message;
+}
+
+function defaultSessionName() {
+  const human = state.players.find((player) => !player.bot)?.name || "Hearts";
+  return `${human} Hearts Hand ${state.handNumber}`;
+}
+
+function sessionOptionLabel(session) {
+  if (window.GameRoom?.sessionOptionLabel) {
+    return window.GameRoom.sessionOptionLabel(session, {
+      roundKey: "handNumber",
+      roundLabel: "Hand",
+    });
+  }
+  const players = Array.isArray(session.payload?.players) ? session.payload.players.length : 0;
+  const hand = Math.max(1, Math.min(999, Math.trunc(Number(session.payload?.handNumber) || 1)));
+  return `${session.name} • ${players}P • Hand ${hand}`;
+}
+
+function sessionSelectPlaceholder() {
+  return window.GameRoom?.sessionSelectPlaceholder
+    ? window.GameRoom.sessionSelectPlaceholder()
+    : "Saved sessions on this device";
+}
+
+function sessionSaveButtonLabel(currentSession = null) {
+  return window.GameRoom?.sessionSaveButtonLabel
+    ? window.GameRoom.sessionSaveButtonLabel(currentSession)
+    : (currentSession ? "Update Session" : "Save Session");
+}
+
+function sessionToggleLabel(expanded) {
+  return window.GameRoom?.sessionToggleLabel
+    ? window.GameRoom.sessionToggleLabel(expanded)
+    : (expanded ? "Hide Sessions" : "Sessions");
+}
+
+function sessionStatusText(options = {}) {
+  if (window.GameRoom?.sessionStatusText) return window.GameRoom.sessionStatusText(options);
+  if (options.message) return String(options.message);
+  const sessions = Array.isArray(options.sessions) ? options.sessions : [];
+  if (!sessions.length) return "No saved sessions yet. Save on this device or download a JSON backup copy.";
+  const sessionNoun = sessions.length === 1 ? "session" : "sessions";
+  if (options.currentSession?.name) return `${sessions.length} saved ${sessionNoun}. Current session: ${options.currentSession.name}.`;
+  return `${sessions.length} saved ${sessionNoun} on this device.`;
+}
+
+function slugify(value) {
+  return window.GameRoom?.slugify
+    ? window.GameRoom.slugify(value, "hearts-session")
+    : String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "hearts-session";
+}
+
+function uid() {
+  return window.GameRoom?.uid ? window.GameRoom.uid() : Math.random().toString(36).slice(2, 10);
+}
+
+function cloneJson(value) {
+  return window.GameRoom?.cloneJson ? window.GameRoom.cloneJson(value) : JSON.parse(JSON.stringify(value));
+}
+
+function downloadJson(filename, payload) {
+  if (window.GameRoom?.downloadJson) {
+    window.GameRoom.downloadJson(filename, payload);
+    return;
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function winnerBannerMarkup(options) {
+  if (window.GameRoom?.winnerBannerMarkup) return window.GameRoom.winnerBannerMarkup(options);
+  const winnerName = options?.winnerName || "Player";
+  return `
+    <span class="starter-kicker">${escapeHtml(options?.kicker || "Game winner")}</span>
+    <strong>Congratulations, ${escapeHtml(winnerName)}!</strong>
+    <span>${escapeHtml(options?.message || "")}</span>
+  `;
+}
+
+function readStoredJson(key, fallback = null) {
+  if (window.GameRoom?.readStoredJson) return window.GameRoom.readStoredJson(key, fallback);
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredJson(key, value) {
+  if (window.GameRoom?.writeStoredJson) return window.GameRoom.writeStoredJson(key, value);
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function scoreKeeperExportBundle(options) {
+  if (window.GameRoom?.scoreKeeperExportBundle) return window.GameRoom.scoreKeeperExportBundle(options);
+  return {
+    app: "dashboard-game-export",
+    version: options.version ?? 1,
+    sourceGame: options.sourceGame,
+    scorekeeperPreset: options.scorekeeperPreset,
+    exportedAt: options.exportedAt || new Date().toISOString(),
+    session: {
+      id: options.sessionId ?? null,
+      name: options.sessionName || "Session",
+    },
+    scorekeeperPayload: options.scorekeeperPayload,
+    sourcePayload: options.sourcePayload,
+  };
+}
+
+function scoreKeeperPlayers(players) {
+  if (window.GameRoom?.scoreKeeperPlayers) return window.GameRoom.scoreKeeperPlayers(players);
+  return Array.isArray(players)
+    ? players.map((player, index) => ({
+      id: String(player?.id || `p-${index + 1}`),
+      name: String(player?.name || `Player ${index + 1}`).trim() || `Player ${index + 1}`,
+    }))
+    : [];
+}
+
+function scoreKeeperScores(players, scoreForPlayer) {
+  if (window.GameRoom?.scoreKeeperScores) return window.GameRoom.scoreKeeperScores(players, scoreForPlayer);
+  return Object.fromEntries(players.map((player, index) => {
+    const score = Number(scoreForPlayer(player, index));
+    return [player.id, Number.isFinite(score) ? Math.trunc(score) : 0];
   }));
-  const winnerId = snapshot.winnerId || null;
+}
+
+function scoreKeeperWinnerId(winnerId, players) {
+  if (window.GameRoom?.scoreKeeperWinnerId) return window.GameRoom.scoreKeeperWinnerId(winnerId, players);
+  return new Set(players.map((player) => player.id)).has(winnerId) ? winnerId : null;
+}
+
+function scoreKeeperRound(index, scores, options = {}) {
+  if (window.GameRoom?.scoreKeeperRound) return window.GameRoom.scoreKeeperRound(index, scores, options);
+  return {
+    n: Number.isFinite(Number(options.n)) ? Math.trunc(Number(options.n)) : index + 1,
+    scores,
+    ts: Number(options.ts) || Date.now(),
+    ...(options.extra || {}),
+  };
+}
+
+function scoreKeeperPayloadBase(options) {
+  if (window.GameRoom?.scoreKeeperPayloadBase) return window.GameRoom.scoreKeeperPayloadBase(options);
+  const players = Array.isArray(options.players) ? options.players : [];
+  const rounds = Array.isArray(options.rounds) ? options.rounds : [];
+  const winnerId = options.winnerId || null;
   const winnerMilestones = winnerId
-    ? [{ winnerId, roundN: rounds.length, target: snapshot.targetScore, ts: Date.now() }]
+    ? [{ winnerId, roundN: rounds.length, target: options.target, ts: Date.now() }]
     : [];
   return {
     mode: winnerId ? "finished" : "playing",
-    presetKey: "hearts",
+    presetKey: options.presetKey,
     customGameName: "",
     heartsDeckCount: 1,
-    target: snapshot.targetScore,
-    winMode: "low",
+    target: options.target,
+    winMode: options.winMode,
     players,
     roundEntryOrder: players.map((player) => player.id),
     playerInactiveRanges: {},
@@ -1250,59 +1577,14 @@ function scoreKeeperPayload(snapshot) {
     finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
     winnerMilestones,
     sortByTotal: false,
-    historySortDir: "desc",
+    historySortDir: options.historySortDir || "desc",
     showHistoryTotals: true,
     spadesPartnerIndex: 2,
-    presetNote: "Lowest score wins. Hearts are 1 point and the queen of spades is 13.",
+    presetNote: options.presetNote || "",
     skyjoCurrentRoundWentOutPlayerId: null,
     rummikubCurrentRoundWinnerId: null,
     currentSessionId: null,
   };
-}
-
-function selectedSavedSession() {
-  const id = els.savedSessionSelect.value;
-  return readSavedSessions().find((session) => session.id === id);
-}
-
-function renderSessionControls(selectedId = els.savedSessionSelect.value) {
-  const sessions = readSavedSessions();
-  els.sessionTools.hidden = !state.sessionExpanded;
-  els.sessionPanel.classList.toggle("collapsed", !state.sessionExpanded);
-  els.sessionToggleBtn.textContent = state.sessionExpanded ? "Hide" : "Show";
-  els.sessionToggleBtn.setAttribute("aria-expanded", String(state.sessionExpanded));
-  els.savedSessionSelect.innerHTML = sessions.length
-    ? sessions.map((session) => `<option value="${session.id}" ${session.id === selectedId ? "selected" : ""}>${escapeHtml(session.name)}</option>`).join("")
-    : `<option value="">No saved sessions</option>`;
-  const hasSaved = sessions.length > 0;
-  els.loadSessionBtn.disabled = !hasSaved;
-  els.deleteSessionBtn.disabled = !hasSaved;
-  els.saveSessionBtn.disabled = !state.gameStarted;
-  els.downloadSessionBtn.disabled = !state.gameStarted;
-  els.exportScoreKeeperBtn.disabled = !state.handHistory.length;
-}
-
-function showSessionStatus(message) {
-  els.sessionStatus.textContent = message;
-}
-
-function defaultSessionName() {
-  const human = state.players.find((player) => !player.bot)?.name || "Hearts";
-  return `${human} Hearts Hand ${state.handNumber}`;
-}
-
-function slugify(value) {
-  return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "hearts-session";
-}
-
-function downloadJson(filename, payload) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function render() {
@@ -1393,11 +1675,10 @@ function renderScoreBoard() {
   const scoreLabel = winner?.bot ? `${winner.name}'s Final Score` : "Your Final Score";
   els.winnerBanner.hidden = !winner;
   els.winnerBanner.innerHTML = winner
-    ? `
-      <span class="starter-kicker">Game winner</span>
-      <strong>Congratulations, ${escapeHtml(winner.name)}!</strong>
-      <span>${escapeHtml(targetHitPlayer?.name ?? winner.name)} hit ${escapeHtml(state.targetScore)}. ${escapeHtml(scoreLabel)}: ${escapeHtml(winner.score)} points.</span>
-    `
+    ? winnerBannerMarkup({
+      winnerName: winner.name,
+      message: `${targetHitPlayer?.name ?? winner.name} hit ${state.targetScore}. ${scoreLabel}: ${winner.score} points.`,
+    })
     : "";
 }
 
@@ -1545,16 +1826,16 @@ function renderHistory() {
   els.historySummary.textContent = state.handHistory.length
     ? `${state.handHistory.length} completed hand${state.handHistory.length === 1 ? "" : "s"}.`
     : "Completed hands will appear here.";
-  els.historyOrderBtn.textContent = state.historySortDir === "asc" ? "Oldest First" : "Newest First";
+  renderHistorySortControl(els.historyOrderBtn, state.historySortDir, state.handHistory.length);
   const history = orderedHistory();
   const header = state.players.length
     ? `
       <div class="history-row history-header-row">
         <strong>Hand</strong>
         ${state.players.map((player, index) => `
-          <span>
-            ${escapeHtml(player?.name || `P${index + 1}`)}
-            <b>${Number(player?.score) || 0}</b>
+          <span class="history-player-head">
+            <span class="history-player-name">${escapeHtml(player?.name || `P${index + 1}`)}</span>
+            <span class="history-player-points">${Number(player?.score) || 0} pts</span>
           </span>
         `).join("")}
       </div>
@@ -1599,6 +1880,7 @@ function cardLabel(card) {
 }
 
 function escapeHtml(value) {
+  if (window.GameRoom?.escapeHtml) return window.GameRoom.escapeHtml(value);
   return String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
     "<": "&lt;",

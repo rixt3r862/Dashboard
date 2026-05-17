@@ -486,40 +486,36 @@ button {
 }
 
 .btn {
-  border: 1px solid rgba(250, 246, 232, 0.14);
-  border-radius: 0.85rem;
-  background: rgba(250, 246, 232, 0.07);
-  color: var(--text);
-  padding: 0.62rem 0.68rem;
+  border: 1px solid var(--game-btn-border);
+  border-radius: var(--game-btn-radius);
+  background: var(--game-btn-bg);
+  color: var(--game-btn-color);
+  padding: var(--game-btn-padding);
   cursor: pointer;
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    background 0.16s ease,
-    opacity 0.16s ease;
+  transition: var(--game-btn-transition);
 }
 
 .btn:hover:not(:disabled),
 .pile-button:hover:not(:disabled),
 .grid-slot.interactive:hover {
-  transform: translateY(-2px);
+  transform: var(--game-btn-hover-transform);
 }
 
 .btn-primary {
-  border-color: rgba(255, 214, 127, 0.46);
-  background: rgba(240, 182, 79, 0.2);
-  color: var(--accent-strong);
+  border-color: var(--game-btn-primary-border);
+  background: var(--game-btn-primary-bg);
+  color: var(--game-btn-primary-color);
 }
 
 .btn:disabled,
 .pile-button:disabled {
   cursor: default;
-  opacity: 0.48;
+  opacity: var(--game-btn-disabled-opacity);
 }
 
 .session-tools {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--game-session-tool-gap);
   padding-top: 0.15rem;
 }
 
@@ -529,7 +525,7 @@ button {
 
 .session-tools-body {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--game-session-tool-gap);
 }
 
 .session-tools-body[hidden] {
@@ -539,7 +535,7 @@ button {
 .session-tool-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: var(--game-session-tool-gap);
 }
 
 .session-tool-wide {
@@ -548,24 +544,24 @@ button {
 
 .session-tools .btn,
 .session-tools .field select {
-  font-size: 0.84rem;
+  font-size: var(--game-session-tool-font-size);
 }
 
 .session-tools .btn {
   width: 100%;
-  padding: 0.56rem 0.72rem;
-  border-radius: 0.85rem;
+  padding: var(--game-session-tool-padding);
+  border-radius: var(--game-btn-radius);
 }
 
 .btn-danger {
-  border-color: rgba(236, 70, 70, 0.35);
-  background: rgba(236, 70, 70, 0.12);
-  color: #ffd7d7;
+  border-color: var(--game-btn-danger-border);
+  background: var(--game-btn-danger-bg);
+  color: var(--game-btn-danger-color);
 }
 
 .btn-danger:hover {
-  background: rgba(236, 70, 70, 0.18);
-  border-color: rgba(236, 70, 70, 0.5);
+  background: var(--game-btn-danger-hover-bg);
+  border-color: var(--game-btn-danger-hover-border);
 }
 
 .session-status {

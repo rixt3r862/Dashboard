@@ -5,15 +5,9 @@ const COLORS = [
   { id: "yellow", label: "Yellow", short: "Y", css: "#d8a329" },
 ];
 
-const BOT_NAMES = [
-  "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
-  "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
-  "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
-  "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace", "Finn",
-  "Sebastian", "Ethan", "Ash", "Hunter", "Jax", "West", "Seth",
-];
+const BOT_NAMES = window.GameRoom?.BOT_NAMES || ["Nick", "Sam", "Nate", "Garth", "Kyle", "Kip"];
 
-const BOT_DIFFICULTIES = ["easy", "medium", "hard"];
+const BOT_DIFFICULTIES = window.GameRoom?.botDifficultyLevels?.("standard") || ["easy", "medium", "hard"];
 
 const STORAGE_KEY = "phase10.table.v1";
 const SESSIONS_KEY = "phase10.table.sessions.v1";
@@ -139,6 +133,7 @@ const els = {
   botCount: document.getElementById("botCount"),
   friendlyShuffleToggle: document.getElementById("friendlyShuffleToggle"),
   botNameFields: document.getElementById("botNameFields"),
+  shuffleBotNamesBtn: document.getElementById("shuffleBotNamesBtn"),
   startGameBtn: document.getElementById("startGameBtn"),
   resetTableBtn: document.getElementById("resetTableBtn"),
   saveSessionBtn: document.getElementById("saveSessionBtn"),
@@ -208,6 +203,10 @@ function bindEvents() {
   els.friendlyShuffleToggle.addEventListener("change", () => {
     state.friendlyShuffle = els.friendlyShuffleToggle.checked;
   });
+  els.shuffleBotNamesBtn.addEventListener("click", () => {
+    shuffleSetupBotNames();
+    renderBotNameFields(state.setupBotNames);
+  });
   els.botNameFields.addEventListener("input", (event) => {
     const input = event.target.closest("input[id^='botName']");
     if (input) {
@@ -271,7 +270,7 @@ function bindEvents() {
   els.discardBtn.addEventListener("click", humanDiscardSelected);
   els.nextRoundBtn.addEventListener("click", beginNextRound);
   els.roundHistoryOrderBtn.addEventListener("click", () => {
-    state.roundHistorySortDir = state.roundHistorySortDir === "desc" ? "asc" : "desc";
+    state.roundHistorySortDir = toggleRoundHistorySortDir(state.roundHistorySortDir);
     persistGame();
     renderRoundHistory();
   });
@@ -456,55 +455,39 @@ function resumeRestoredBotTurn() {
 }
 
 function readSavedGame() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    clearSavedGame();
-    return null;
-  }
+  const parsed = readStoredJson(STORAGE_KEY, null, clearSavedGame);
+  return parsed && typeof parsed === "object" ? parsed : null;
 }
 
 function persistGame() {
-  try {
-    if (!state.gameStarted) {
-      clearSavedGame();
-      return;
-    }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotState()));
-  } catch {}
+  if (!state.gameStarted) {
+    clearSavedGame();
+    return;
+  }
+  writeStoredJson(STORAGE_KEY, snapshotState());
 }
 
 function clearSavedGame() {
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch {}
+  removeStoredItem(STORAGE_KEY);
 }
 
 function readStoredSessions() {
-  try {
-    const raw = window.localStorage.getItem(SESSIONS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeSessionRecord).filter(Boolean);
-  } catch {
-    return [];
-  }
+  const parsed = readStoredJson(SESSIONS_KEY, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map(normalizeSessionRecord).filter(Boolean);
 }
 
 function writeStoredSessions(sessions) {
-  try {
-    window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
-    return true;
-  } catch {
-    return false;
-  }
+  return writeStoredJson(SESSIONS_KEY, sessions);
 }
 
 function normalizeSessionRecord(session) {
+  if (window.GameRoom?.normalizeSessionRecord) {
+    return window.GameRoom.normalizeSessionRecord(session, {
+      fallbackName: "Phase 10 Session",
+      normalizeName,
+    });
+  }
   if (!session || typeof session !== "object") return null;
   if (typeof session.id !== "string" || !session.id) return null;
   if (!session.payload || typeof session.payload !== "object") return null;
@@ -759,7 +742,33 @@ function normalizeTurnStage(value) {
 }
 
 function normalizeRoundHistorySortDir(value) {
-  return value === "asc" ? "asc" : "desc";
+  return window.GameRoom?.normalizeHistorySortDir
+    ? window.GameRoom.normalizeHistorySortDir(value)
+    : (value === "asc" ? "asc" : "desc");
+}
+
+function toggleRoundHistorySortDir(value) {
+  return window.GameRoom?.toggleHistorySortDir
+    ? window.GameRoom.toggleHistorySortDir(value)
+    : (normalizeRoundHistorySortDir(value) === "desc" ? "asc" : "desc");
+}
+
+function orderedRoundHistory() {
+  return window.GameRoom?.orderedHistory
+    ? window.GameRoom.orderedHistory(state.roundHistory, state.roundHistorySortDir, { newestAt: "end" })
+    : (normalizeRoundHistorySortDir(state.roundHistorySortDir) === "desc"
+      ? state.roundHistory.slice().reverse()
+      : state.roundHistory.slice());
+}
+
+function renderHistorySortControl(button, sortDir, historyLength) {
+  if (window.GameRoom?.renderHistorySortControl) {
+    window.GameRoom.renderHistorySortControl(button, sortDir, historyLength);
+    return;
+  }
+  if (!button) return;
+  button.textContent = normalizeRoundHistorySortDir(sortDir) === "desc" ? "Newest First" : "Oldest First";
+  button.disabled = Number(historyLength) <= 1;
 }
 
 function normalizeSelectedCardId(value) {
@@ -795,6 +804,9 @@ function normalizeMobileView(value) {
 }
 
 function normalizeBotDifficulty(value) {
+  if (window.GameRoom?.normalizeBotDifficulty) {
+    return window.GameRoom.normalizeBotDifficulty(value, { levels: BOT_DIFFICULTIES, fallback: "medium" });
+  }
   return BOT_DIFFICULTIES.includes(value) ? value : "medium";
 }
 
@@ -820,17 +832,55 @@ function syncSetupControlsFromState() {
 }
 
 function difficultyLabel(value) {
+  if (window.GameRoom?.difficultyLabel) {
+    return window.GameRoom.difficultyLabel(value, { levels: BOT_DIFFICULTIES, fallback: "medium" });
+  }
   const normalized = normalizeBotDifficulty(value);
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function sessionOptionLabel(session) {
+  if (window.GameRoom?.sessionOptionLabel) return window.GameRoom.sessionOptionLabel(session);
   const players = Array.isArray(session.payload?.players) ? session.payload.players.length : 0;
   const round = clampNumber(session.payload?.roundNumber, 1, 999, 1);
   return `${session.name} • ${players}P • Round ${round}`;
 }
 
+function sessionSelectPlaceholder() {
+  return window.GameRoom?.sessionSelectPlaceholder
+    ? window.GameRoom.sessionSelectPlaceholder()
+    : "Saved sessions on this device";
+}
+
+function sessionSaveButtonLabel(currentSession = null) {
+  return window.GameRoom?.sessionSaveButtonLabel
+    ? window.GameRoom.sessionSaveButtonLabel(currentSession)
+    : (currentSession ? "Update Session" : "Save Session");
+}
+
+function sessionToggleLabel(expanded) {
+  return window.GameRoom?.sessionToggleLabel
+    ? window.GameRoom.sessionToggleLabel(expanded)
+    : (expanded ? "Hide Sessions" : "Sessions");
+}
+
+function sessionStatusText(options = {}) {
+  if (window.GameRoom?.sessionStatusText) return window.GameRoom.sessionStatusText(options);
+  if (options.message) return String(options.message);
+  const sessions = Array.isArray(options.sessions) ? options.sessions : [];
+  if (!sessions.length) return "No saved sessions yet. Save on this device or download a JSON backup copy.";
+  const sessionNoun = sessions.length === 1 ? "session" : "sessions";
+  if (options.currentSession?.name) return `${sessions.length} saved ${sessionNoun}. Current session: ${options.currentSession.name}.`;
+  return `${sessions.length} saved ${sessionNoun} on this device.`;
+}
+
 function defaultSessionName(payload = snapshotState()) {
+  if (window.GameRoom?.defaultSessionName) {
+    return window.GameRoom.defaultSessionName(payload, {
+      gameName: "Phase 10",
+      normalizeName,
+    });
+  }
   const names = Array.isArray(payload.players)
     ? payload.players.map((player) => normalizeName(player?.name, "")).filter(Boolean)
     : [];
@@ -840,6 +890,7 @@ function defaultSessionName(payload = snapshotState()) {
 }
 
 function sanitizeFileName(name) {
+  if (window.GameRoom?.sanitizeFileName) return window.GameRoom.sanitizeFileName(name, "phase10-session");
   const base = String(name || "phase10-session")
     .trim()
     .replace(/[^a-z0-9._-]+/gi, "-")
@@ -848,6 +899,7 @@ function sanitizeFileName(name) {
 }
 
 function exportDateStamp(date = new Date()) {
+  if (window.GameRoom?.exportDateStamp) return window.GameRoom.exportDateStamp(date);
   const month = date.toLocaleString("en-US", { month: "short" });
   const year = date.getFullYear();
   const day = String(date.getDate()).padStart(2, "0");
@@ -855,6 +907,7 @@ function exportDateStamp(date = new Date()) {
 }
 
 function exportTimeStamp(date = new Date()) {
+  if (window.GameRoom?.exportTimeStamp) return window.GameRoom.exportTimeStamp(date);
   const rawHours = Number(date.getHours()) || 0;
   const suffix = rawHours >= 12 ? "PM" : "AM";
   const hours12 = rawHours % 12 || 12;
@@ -864,6 +917,7 @@ function exportTimeStamp(date = new Date()) {
 }
 
 function exportPlayerNameSegment(payload = snapshotState()) {
+  if (window.GameRoom?.exportPlayerNameSegment) return window.GameRoom.exportPlayerNameSegment(payload, normalizeName);
   const names = Array.isArray(payload.players)
     ? payload.players
         .map((player) => sanitizeFileName(normalizeName(player?.name, "")).slice(0, 8))
@@ -874,6 +928,9 @@ function exportPlayerNameSegment(payload = snapshotState()) {
 
 function exportFileNameForSession(exportable, when = new Date()) {
   const payload = exportable?.payload || snapshotState();
+  if (window.GameRoom?.exportFileName) {
+    return window.GameRoom.exportFileName("phase10", payload, { normalizeName, when });
+  }
   const date = exportDateStamp(when);
   const game = "phase10";
   const players = exportPlayerNameSegment(payload);
@@ -883,6 +940,9 @@ function exportFileNameForSession(exportable, when = new Date()) {
 
 function exportFileNameForScoreKeeper(exportable, when = new Date()) {
   const payload = exportable?.sourcePayload || exportable?.scorekeeperPayload || snapshotState();
+  if (window.GameRoom?.exportFileName) {
+    return window.GameRoom.exportFileName("phase10", payload, { normalizeName, scoreKeeper: true, when });
+  }
   const date = exportDateStamp(when);
   const players = exportPlayerNameSegment(payload);
   const time = exportTimeStamp(when);
@@ -906,8 +966,7 @@ function startNewGame() {
   const botCount = clampNumber(Number(els.botCount.value), 1, 3, 2);
   state.friendlyShuffle = els.friendlyShuffleToggle.checked;
   const setupBotConfig = syncSetupBotConfigFromInputs();
-  const customBotNames = randomBotNames(botCount, [humanName]);
-  state.setupBotNames = Array.from({ length: 3 }, (_, index) => customBotNames[index] || BOT_NAMES[index] || `Bot ${index + 1}`);
+  const customBotNames = setupBotConfig.names.slice(0, botCount);
   const customBotDifficulties = setupBotConfig.difficulties.slice(0, botCount);
   const usedNames = new Set([humanName.toLowerCase()]);
 
@@ -973,10 +1032,10 @@ function resetTable() {
   state.currentSessionId = null;
   state.sessionToolsExpanded = true;
   state.mobileView = "play";
-  state.setupBotNames = randomBotNames(3);
+  shuffleSetupBotNames();
   state.setupBotDifficulties = ["medium", "medium", "medium"];
   els.friendlyShuffleToggle.checked = state.friendlyShuffle;
-  renderBotNameFields();
+  renderBotNameFields(state.setupBotNames, state.setupBotDifficulties);
   clearSavedGame();
   render();
 }
@@ -1104,64 +1163,38 @@ function scoreKeeperPayloadFromPhase10(payload) {
   if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.roundHistory)) {
     return null;
   }
-  const players = payload.players.map((player, index) => ({
-    id: String(player.id || `p-${index + 1}`),
-    name: normalizeName(player.name, `Player ${index + 1}`),
-  }));
+  const players = scoreKeeperPlayers(payload.players, normalizeName);
   if (!players.length || !payload.roundHistory.length) return null;
 
-  const playerIds = new Set(players.map((player) => player.id));
   const rounds = payload.roundHistory.map((round, index) => {
-    const scores = {};
     const phase10CompletedByPlayerId = {};
     for (const player of players) {
       const result = round.playerResults?.[player.id];
-      const points = Number(result?.points ?? 0);
-      scores[player.id] = Number.isFinite(points) ? Math.trunc(points) : 0;
       phase10CompletedByPlayerId[player.id] = result?.completedPhaseNumber ? 1 : 0;
     }
-    return {
-      n: index + 1,
-      scores,
-      ts: Number(round.ts) || Date.now(),
-      phase10CompletedByPlayerId,
-      phase10OutPlayerId: playerIds.has(round.outPlayerId) ? round.outPlayerId : null,
-      phase10SourceRoundNumber: clampNumber(round.roundNumber, 1, 999, index + 1),
-    };
+    const scores = scoreKeeperScores(players, (player) => round.playerResults?.[player.id]?.points ?? 0);
+    return scoreKeeperRound(index, scores, {
+      ts: round.ts,
+      extra: {
+        phase10CompletedByPlayerId,
+        phase10OutPlayerId: scoreKeeperWinnerId(round.outPlayerId, players),
+        phase10SourceRoundNumber: clampNumber(round.roundNumber, 1, 999, index + 1),
+      },
+    });
   });
-  const winnerId = playerIds.has(payload.winnerId) ? payload.winnerId : null;
-  const winnerMilestones = winnerId
-    ? [{ winnerId, roundN: rounds.length, target: PHASES.length, ts: Date.now() }]
-    : [];
+  const winnerId = scoreKeeperWinnerId(payload.winnerId, players);
 
-  return {
-    mode: winnerId ? "finished" : "playing",
+  return scoreKeeperPayloadBase({
     presetKey: "phase10",
-    customGameName: "",
-    heartsDeckCount: 1,
     target: PHASES.length,
     winMode: "high",
     players,
-    roundEntryOrder: players.map((player) => player.id),
-    playerInactiveRanges: {},
-    teams: null,
     rounds,
     winnerId,
-    quizTieIds: [],
-    gameState: winnerId ? "completed" : "in_progress",
-    firstWinnerAt: winnerMilestones[0] || null,
-    finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
-    winnerMilestones,
-    sortByTotal: false,
     historySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
-    showHistoryTotals: true,
-    spadesPartnerIndex: 2,
     presetNote:
       "Track leftover hand points each round and mark who completed their phase. First to finish Phase 10 wins; ties at the final phase go to the lowest total points.",
-    skyjoCurrentRoundWentOutPlayerId: null,
-    rummikubCurrentRoundWinnerId: null,
-    currentSessionId: null,
-  };
+  });
 }
 
 function exportSessionFile() {
@@ -1171,27 +1204,14 @@ function exportSessionFile() {
     return null;
   }
 
-  const bundle = {
+  const bundle = sessionExportBundle({
     app: "phase10-table",
     version: EXPORT_VERSION,
-    exportedAt: new Date().toISOString(),
-    session: {
-      id: exportable.id,
-      name: exportable.name,
-    },
+    sessionId: exportable.id,
+    sessionName: exportable.name,
     payload: exportable.payload,
-  };
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], {
-    type: "application/json",
   });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = exportFileNameForSession(exportable);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  downloadJson(exportFileNameForSession(exportable), bundle);
   showSessionMessage(`Downloaded session JSON: ${exportable.name}.`);
   return exportable;
 }
@@ -1203,30 +1223,16 @@ function exportScoreKeeperFile() {
     return null;
   }
 
-  const bundle = {
-    app: "dashboard-game-export",
+  const bundle = scoreKeeperExportBundle({
     version: EXPORT_VERSION,
     sourceGame: "phase10-table",
     scorekeeperPreset: "phase10",
-    exportedAt: new Date().toISOString(),
-    session: {
-      id: exportable.id,
-      name: exportable.name,
-    },
+    sessionId: exportable.id,
+    sessionName: exportable.name,
     scorekeeperPayload: exportable.scorekeeperPayload,
     sourcePayload: exportable.sourcePayload,
-  };
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], {
-    type: "application/json",
   });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = exportFileNameForScoreKeeper(exportable);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  downloadJson(exportFileNameForScoreKeeper(exportable), bundle);
   showSessionMessage(`Downloaded ScoreKeeper JSON: ${exportable.name}.`);
   return exportable;
 }
@@ -1339,7 +1345,13 @@ function nextBotName(usedNames, fallbackIndex) {
   return generated;
 }
 
+function shuffleSetupBotNames() {
+  const humanName = normalizeName(els.humanName?.value, "Player 1");
+  state.setupBotNames = setupBotNames(3, humanName, "Player 1");
+}
+
 function randomBotNames(count, excludedNames = []) {
+  if (window.GameRoom?.randomBotNames) return window.GameRoom.randomBotNames(count, excludedNames);
   const used = new Set(excludedNames.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean));
   const names = [];
   for (const name of shuffle(BOT_NAMES)) {
@@ -1349,6 +1361,19 @@ function randomBotNames(count, excludedNames = []) {
     if (names.length === count) break;
   }
   return Array.from({ length: count }, (_, index) => names[index] || `Bot ${index + 1}`);
+}
+
+function setupBotNames(count, humanName, fallbackHumanName) {
+  if (window.GameRoom?.setupBotNames) return window.GameRoom.setupBotNames(count, humanName, fallbackHumanName);
+  const excludedHumanName = String(humanName || fallbackHumanName).trim() || fallbackHumanName;
+  return randomBotNames(count, [excludedHumanName]);
+}
+
+function setupBotDifficulties(count, difficulties = []) {
+  if (window.GameRoom?.setupBotDifficulties) {
+    return window.GameRoom.setupBotDifficulties(count, difficulties, { levels: BOT_DIFFICULTIES, fallback: "medium" });
+  }
+  return Array.from({ length: count }, (_, index) => normalizeBotDifficulty(Array.isArray(difficulties) ? difficulties[index] : undefined));
 }
 
 function resolveBotName(rawName, usedNames, fallbackIndex) {
@@ -3233,7 +3258,7 @@ function renderSessionControls() {
         : "";
   state.selectedSessionId = selectedId;
 
-  els.savedSessionSelect.innerHTML = `<option value="">Saved sessions on this device</option>`;
+  els.savedSessionSelect.innerHTML = `<option value="">${escapeHtml(sessionSelectPlaceholder())}</option>`;
   sessions.forEach((session) => {
     const option = document.createElement("option");
     option.value = session.id;
@@ -3246,7 +3271,7 @@ function renderSessionControls() {
   const canLoadSelected = Boolean(selectedId);
   const canExport = Boolean(resolveExportSession());
 
-  els.saveSessionBtn.textContent = currentSession ? "Update Session" : "Save Session";
+  els.saveSessionBtn.textContent = sessionSaveButtonLabel(currentSession);
   els.loadSessionBtn.disabled = !canLoadSelected;
   els.deleteSessionBtn.disabled = !canLoadSelected;
   els.savedSessionSelect.disabled = sessions.length === 0;
@@ -3254,7 +3279,7 @@ function renderSessionControls() {
   els.exportScoreKeeperBtn.disabled = !resolveScoreKeeperExportSession();
   els.sessionToolsToggle.hidden = !state.gameStarted;
   els.sessionToolsBody.hidden = state.gameStarted && !state.sessionToolsExpanded;
-  els.sessionToolsToggle.textContent = state.sessionToolsExpanded ? "Hide Sessions" : "Sessions";
+  els.sessionToolsToggle.textContent = sessionToggleLabel(state.sessionToolsExpanded);
   els.sessionToolsToggle.setAttribute("aria-expanded", String(!els.sessionToolsBody.hidden));
 
   if (state.sessionStatusMessage) {
@@ -3262,18 +3287,7 @@ function renderSessionControls() {
     return;
   }
 
-  if (!sessions.length) {
-    els.sessionStatus.textContent = "No saved sessions yet. Save on this device or download a JSON backup copy.";
-    return;
-  }
-
-  const sessionNoun = sessions.length === 1 ? "session" : "sessions";
-  if (currentSession) {
-    els.sessionStatus.textContent = `${sessions.length} saved ${sessionNoun}. Current session: ${currentSession.name}.`;
-    return;
-  }
-
-  els.sessionStatus.textContent = `${sessions.length} saved ${sessionNoun} on this device.`;
+  els.sessionStatus.textContent = sessionStatusText({ sessions, currentSession });
 }
 
 function renderStatus() {
@@ -3576,11 +3590,10 @@ function renderWinnerBanner() {
     return;
   }
   const scoreLabel = winner.isHuman ? "Your Final Score" : `${winner.name}'s Final Score`;
-  els.winnerBanner.innerHTML = `
-    <span class="starter-kicker">Game winner</span>
-    <strong>Congratulations, ${escapeHtml(winner.name)}!</strong>
-    <span>${escapeHtml(winner.name)} completed Phase 10. ${escapeHtml(scoreLabel)}: ${escapeHtml(winner.score)} points.</span>
-  `;
+  els.winnerBanner.innerHTML = winnerBannerMarkup({
+    winnerName: winner.name,
+    message: `${winner.name} completed Phase 10. ${scoreLabel}: ${winner.score} points.`,
+  });
 }
 
 function phasePreviewGroupLabel(group) {
@@ -3709,11 +3722,7 @@ function renderHand() {
 }
 
 function renderRoundHistory() {
-  if (els.roundHistoryOrderBtn) {
-    els.roundHistoryOrderBtn.textContent =
-      state.roundHistorySortDir === "desc" ? "Newest First" : "Oldest First";
-    els.roundHistoryOrderBtn.disabled = state.roundHistory.length <= 1;
-  }
+  renderHistorySortControl(els.roundHistoryOrderBtn, state.roundHistorySortDir, state.roundHistory.length);
 
   if (!state.players.length || !state.roundHistory.length) {
     els.roundHistorySummary.textContent = state.gameStarted
@@ -3723,10 +3732,7 @@ function renderRoundHistory() {
     return;
   }
 
-  const orderedHistory =
-    state.roundHistorySortDir === "desc"
-      ? [...state.roundHistory].reverse()
-      : state.roundHistory;
+  const orderedHistory = orderedRoundHistory();
 
   const rows = orderedHistory
     .map((entry) => {
@@ -3882,11 +3888,172 @@ function appendLog(message) {
 }
 
 function uid() {
+  if (window.GameRoom?.uid) return window.GameRoom.uid();
   return Math.random().toString(36).slice(2, 10);
 }
 
 function cloneJson(value) {
+  if (window.GameRoom?.cloneJson) return window.GameRoom.cloneJson(value);
   return JSON.parse(JSON.stringify(value));
+}
+
+function readStoredJson(key, fallback = null, onError = null) {
+  if (window.GameRoom?.readStoredJson) return window.GameRoom.readStoredJson(key, fallback, onError);
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    if (typeof onError === "function") onError();
+    return fallback;
+  }
+}
+
+function writeStoredJson(key, value) {
+  if (window.GameRoom?.writeStoredJson) return window.GameRoom.writeStoredJson(key, value);
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeStoredItem(key) {
+  if (window.GameRoom?.removeStoredItem) return window.GameRoom.removeStoredItem(key);
+  try {
+    window.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function downloadJson(filename, payload) {
+  if (window.GameRoom?.downloadJson) {
+    window.GameRoom.downloadJson(filename, payload);
+    return;
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function winnerBannerMarkup(options) {
+  if (window.GameRoom?.winnerBannerMarkup) return window.GameRoom.winnerBannerMarkup(options);
+  const winnerName = options?.winnerName || "Player";
+  return `
+    <span class="starter-kicker">${escapeHtml(options?.kicker || "Game winner")}</span>
+    <strong>Congratulations, ${escapeHtml(winnerName)}!</strong>
+    <span>${escapeHtml(options?.message || "")}</span>
+  `;
+}
+
+function sessionExportBundle(options) {
+  if (window.GameRoom?.sessionExportBundle) return window.GameRoom.sessionExportBundle(options);
+  return {
+    app: options.app,
+    version: options.version ?? 1,
+    exportedAt: options.exportedAt || new Date().toISOString(),
+    session: {
+      id: options.sessionId ?? null,
+      name: options.sessionName || "Session",
+    },
+    payload: options.payload,
+  };
+}
+
+function scoreKeeperExportBundle(options) {
+  if (window.GameRoom?.scoreKeeperExportBundle) return window.GameRoom.scoreKeeperExportBundle(options);
+  return {
+    app: "dashboard-game-export",
+    version: options.version ?? 1,
+    sourceGame: options.sourceGame,
+    scorekeeperPreset: options.scorekeeperPreset,
+    exportedAt: options.exportedAt || new Date().toISOString(),
+    session: {
+      id: options.sessionId ?? null,
+      name: options.sessionName || "Session",
+    },
+    scorekeeperPayload: options.scorekeeperPayload,
+    sourcePayload: options.sourcePayload,
+  };
+}
+
+function scoreKeeperPayloadBase(options) {
+  if (window.GameRoom?.scoreKeeperPayloadBase) return window.GameRoom.scoreKeeperPayloadBase(options);
+  const players = Array.isArray(options.players) ? options.players : [];
+  const rounds = Array.isArray(options.rounds) ? options.rounds : [];
+  const winnerId = options.winnerId || null;
+  const winnerMilestones = winnerId
+    ? [{ winnerId, roundN: rounds.length, target: options.target, ts: Date.now() }]
+    : [];
+  return {
+    mode: winnerId ? "finished" : "playing",
+    presetKey: options.presetKey,
+    customGameName: "",
+    heartsDeckCount: 1,
+    target: options.target,
+    winMode: options.winMode,
+    players,
+    roundEntryOrder: players.map((player) => player.id),
+    playerInactiveRanges: {},
+    teams: null,
+    rounds,
+    winnerId,
+    quizTieIds: [],
+    gameState: winnerId ? "completed" : "in_progress",
+    firstWinnerAt: winnerMilestones[0] || null,
+    finalWinnerAt: winnerMilestones[winnerMilestones.length - 1] || null,
+    winnerMilestones,
+    sortByTotal: false,
+    historySortDir: options.historySortDir || "desc",
+    showHistoryTotals: true,
+    spadesPartnerIndex: 2,
+    presetNote: options.presetNote || "",
+    skyjoCurrentRoundWentOutPlayerId: null,
+    rummikubCurrentRoundWinnerId: null,
+    currentSessionId: null,
+  };
+}
+
+function scoreKeeperPlayers(players, normalizeNameFn = normalizeName) {
+  if (window.GameRoom?.scoreKeeperPlayers) return window.GameRoom.scoreKeeperPlayers(players, normalizeNameFn);
+  return Array.isArray(players)
+    ? players.map((player, index) => ({
+      id: String(player?.id || `p-${index + 1}`),
+      name: normalizeNameFn(player?.name, `Player ${index + 1}`),
+    }))
+    : [];
+}
+
+function scoreKeeperScores(players, scoreForPlayer) {
+  if (window.GameRoom?.scoreKeeperScores) return window.GameRoom.scoreKeeperScores(players, scoreForPlayer);
+  return Object.fromEntries(players.map((player, index) => {
+    const score = Number(scoreForPlayer(player, index));
+    return [player.id, Number.isFinite(score) ? Math.trunc(score) : 0];
+  }));
+}
+
+function scoreKeeperWinnerId(winnerId, players) {
+  if (window.GameRoom?.scoreKeeperWinnerId) return window.GameRoom.scoreKeeperWinnerId(winnerId, players);
+  return new Set(players.map((player) => player.id)).has(winnerId) ? winnerId : null;
+}
+
+function scoreKeeperRound(index, scores, options = {}) {
+  if (window.GameRoom?.scoreKeeperRound) return window.GameRoom.scoreKeeperRound(index, scores, options);
+  return {
+    n: Number.isFinite(Number(options.n)) ? Math.trunc(Number(options.n)) : index + 1,
+    scores,
+    ts: Number(options.ts) || Date.now(),
+    ...(options.extra || {}),
+  };
 }
 
 function initializeDebugTools() {
@@ -4050,6 +4217,7 @@ function pause(ms) {
 }
 
 function escapeHtml(value) {
+  if (window.GameRoom?.escapeHtml) return window.GameRoom.escapeHtml(value);
   return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
