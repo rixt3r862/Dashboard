@@ -501,6 +501,58 @@ test("ScoreKeeper payload base fills common dashboard export fields", () => {
   assert.equal(payload.currentSessionId, null);
 });
 
+test("ScoreKeeper payload from rounds builds common game exports", () => {
+  const { gameRoom } = loadGameRoom();
+  const payload = gameRoom.scoreKeeperPayloadFromRounds({
+    payload: {
+      players: [
+        { id: "p1", name: " Rick " },
+        { id: "p2", name: "Sam" },
+      ],
+      winnerId: "p2",
+      roundHistory: [
+        {
+          roundNumber: 4,
+          results: {
+            p1: { raw: "7" },
+            p2: { raw: "3" },
+          },
+          ts: 1200,
+          triggerId: "p1",
+        },
+      ],
+    },
+    presetKey: "skyjo",
+    target: 100,
+    winMode: "low",
+    normalizeName: (value, fallback) => String(value || "").trim() || fallback,
+    scoreForRound: (round, player) => round.results[player.id].raw,
+    roundOptions: (round) => ({
+      extra: {
+        skyjoSourceRoundNumber: round.roundNumber,
+        skyjoWentOutPlayerId: round.triggerId,
+      },
+    }),
+    presetNote: "Lowest score wins.",
+  });
+
+  assert.equal(payload.presetKey, "skyjo");
+  assert.equal(payload.target, 100);
+  assert.equal(payload.winnerId, "p2");
+  assert.deepEqual(JSON.parse(JSON.stringify(payload.players)), [
+    { id: "p1", name: "Rick" },
+    { id: "p2", name: "Sam" },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(payload.rounds)), [{
+    n: 1,
+    scores: { p1: 7, p2: 3 },
+    ts: 1200,
+    skyjoSourceRoundNumber: 4,
+    skyjoWentOutPlayerId: "p1",
+  }]);
+  assert.equal(gameRoom.scoreKeeperPayloadFromRounds({ payload: { players: [], roundHistory: [] } }), null);
+});
+
 test("downloadJson creates, clicks, and revokes a JSON download link", () => {
   const { appendedLinks, createdLinks, createdUrls, gameRoom, revokedUrls } = loadGameRoom();
   const payload = { game: "Hearts", scores: [0, 26] };
@@ -606,15 +658,15 @@ test("each game delegates expected helper wrappers to window.GameRoom", () => {
   const expectations = [
     {
       jsPath: "Hearts/hearts.js",
-      helpers: ["BOT_NAMES", "botDifficultyLevels", "randomBotNames", "setupBotNames", "normalizeBotDifficulty", "difficultyLabel", "setupBotDifficulties", "escapeHtml", "winnerBannerMarkup", "normalizeHistorySortDir", "toggleHistorySortDir", "orderedHistory", "renderHistorySortControl", "sessionSelectPlaceholder", "sessionSaveButtonLabel", "sessionToggleLabel", "sessionStatusText", "normalizeSessionRecord", "sessionOptionLabel", "uid", "cloneJson", "slugify", "downloadJson", "readStoredJson", "writeStoredJson", "scoreKeeperExportBundle", "scoreKeeperPayloadBase", "scoreKeeperPlayers", "scoreKeeperScores", "scoreKeeperWinnerId", "scoreKeeperRound"],
+      helpers: ["BOT_NAMES", "botDifficultyLevels", "randomBotNames", "setupBotNames", "normalizeBotDifficulty", "difficultyLabel", "setupBotDifficulties", "escapeHtml", "winnerBannerMarkup", "normalizeHistorySortDir", "toggleHistorySortDir", "orderedHistory", "renderHistorySortControl", "sessionSelectPlaceholder", "sessionSaveButtonLabel", "sessionToggleLabel", "sessionStatusText", "normalizeSessionRecord", "sessionOptionLabel", "sessionExportBundle", "uid", "cloneJson", "slugify", "downloadJson", "readStoredJson", "writeStoredJson", "scoreKeeperExportBundle", "scoreKeeperPayloadBase", "scoreKeeperPayloadFromRounds", "scoreKeeperPlayers", "scoreKeeperScores", "scoreKeeperWinnerId", "scoreKeeperRound"],
     },
     {
       jsPath: "SkyJo/skyjo.js",
-      helpers: ["BOT_NAMES", "botDifficultyLevels", "randomBotNames", "setupBotNames", "normalizeBotDifficulty", "difficultyLabel", "setupBotDifficulties", "escapeHtml", "winnerBannerMarkup", "normalizeHistorySortDir", "toggleHistorySortDir", "orderedHistory", "renderHistorySortControl", "uid", "cloneJson", "readStoredJson", "writeStoredJson", "downloadJson", "sessionExportBundle", "scoreKeeperExportBundle", "scoreKeeperPayloadBase", "scoreKeeperPlayers", "scoreKeeperScores", "scoreKeeperWinnerId", "scoreKeeperRound", "normalizeSessionRecord", "sessionOptionLabel", "sessionSelectPlaceholder", "sessionSaveButtonLabel", "sessionToggleLabel", "sessionStatusText", "defaultSessionName", "sanitizeFileName", "exportDateStamp", "exportTimeStamp", "exportPlayerNameSegment", "exportFileName"],
+      helpers: ["BOT_NAMES", "botDifficultyLevels", "randomBotNames", "setupBotNames", "normalizeBotDifficulty", "difficultyLabel", "setupBotDifficulties", "escapeHtml", "winnerBannerMarkup", "normalizeHistorySortDir", "toggleHistorySortDir", "orderedHistory", "renderHistorySortControl", "uid", "cloneJson", "readStoredJson", "writeStoredJson", "downloadJson", "sessionExportBundle", "scoreKeeperExportBundle", "scoreKeeperPayloadBase", "scoreKeeperPayloadFromRounds", "scoreKeeperPlayers", "scoreKeeperScores", "scoreKeeperWinnerId", "scoreKeeperRound", "normalizeSessionRecord", "sessionOptionLabel", "sessionSelectPlaceholder", "sessionSaveButtonLabel", "sessionToggleLabel", "sessionStatusText", "defaultSessionName", "sanitizeFileName", "exportDateStamp", "exportTimeStamp", "exportPlayerNameSegment", "exportFileName"],
     },
     {
       jsPath: "Phase10/phase10.js",
-      helpers: ["BOT_NAMES", "botDifficultyLevels", "randomBotNames", "setupBotNames", "normalizeBotDifficulty", "difficultyLabel", "setupBotDifficulties", "escapeHtml", "winnerBannerMarkup", "normalizeHistorySortDir", "toggleHistorySortDir", "orderedHistory", "renderHistorySortControl", "uid", "cloneJson", "readStoredJson", "writeStoredJson", "removeStoredItem", "downloadJson", "sessionExportBundle", "scoreKeeperExportBundle", "scoreKeeperPayloadBase", "scoreKeeperPlayers", "scoreKeeperScores", "scoreKeeperWinnerId", "scoreKeeperRound", "normalizeSessionRecord", "sessionOptionLabel", "sessionSelectPlaceholder", "sessionSaveButtonLabel", "sessionToggleLabel", "sessionStatusText", "defaultSessionName", "sanitizeFileName", "exportDateStamp", "exportTimeStamp", "exportPlayerNameSegment", "exportFileName"],
+      helpers: ["BOT_NAMES", "botDifficultyLevels", "randomBotNames", "setupBotNames", "normalizeBotDifficulty", "difficultyLabel", "setupBotDifficulties", "escapeHtml", "winnerBannerMarkup", "normalizeHistorySortDir", "toggleHistorySortDir", "orderedHistory", "renderHistorySortControl", "uid", "cloneJson", "readStoredJson", "writeStoredJson", "removeStoredItem", "downloadJson", "sessionExportBundle", "scoreKeeperExportBundle", "scoreKeeperPayloadBase", "scoreKeeperPayloadFromRounds", "scoreKeeperPlayers", "scoreKeeperScores", "scoreKeeperWinnerId", "scoreKeeperRound", "normalizeSessionRecord", "sessionOptionLabel", "sessionSelectPlaceholder", "sessionSaveButtonLabel", "sessionToggleLabel", "sessionStatusText", "defaultSessionName", "sanitizeFileName", "exportDateStamp", "exportTimeStamp", "exportPlayerNameSegment", "exportFileName"],
     },
   ];
 

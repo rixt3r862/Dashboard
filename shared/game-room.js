@@ -335,6 +335,49 @@
     };
   }
 
+  function scoreKeeperPayloadFromRounds(options = {}) {
+    const payload = options.payload || {};
+    const rawPlayers = Array.isArray(options.players) ? options.players : payload.players;
+    const rawHistory = Array.isArray(options.history)
+      ? options.history
+      : payload[options.historyKey || "roundHistory"];
+    if (!Array.isArray(rawPlayers) || !Array.isArray(rawHistory)) return null;
+
+    const players = scoreKeeperPlayers(rawPlayers, options.normalizeName);
+    if (!players.length || !rawHistory.length) return null;
+
+    const scoreForRound = typeof options.scoreForRound === "function"
+      ? options.scoreForRound
+      : () => 0;
+    const rounds = rawHistory.map((entry, index) => {
+      const scores = scoreKeeperScores(players, (player, playerIndex) =>
+        scoreForRound(entry, player, playerIndex, index));
+      const roundOptions = typeof options.roundOptions === "function"
+        ? options.roundOptions(entry, index, players, scores) || {}
+        : {};
+      return scoreKeeperRound(index, scores, {
+        ts: entry?.ts,
+        ...roundOptions,
+      });
+    });
+
+    const target = typeof options.target === "function"
+      ? options.target(payload)
+      : options.target;
+    const winnerId = scoreKeeperWinnerId(options.winnerId ?? payload.winnerId, players);
+    return scoreKeeperPayloadBase({
+      presetKey: options.presetKey,
+      target,
+      winMode: options.winMode,
+      players,
+      rounds,
+      winnerId,
+      historySortDir: options.historySortDir || "desc",
+      presetNote: options.presetNote || "",
+      ...options.baseOptions,
+    });
+  }
+
   function downloadJson(filename, payload) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -409,6 +452,7 @@
     normalizeBotDifficulty,
     scoreKeeperExportBundle,
     scoreKeeperPayloadBase,
+    scoreKeeperPayloadFromRounds,
     scoreKeeperPlayers,
     scoreKeeperRound,
     scoreKeeperScores,

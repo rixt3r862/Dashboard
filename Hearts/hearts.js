@@ -101,6 +101,8 @@ const els = {
   loadSessionBtn: document.getElementById("loadSessionBtn"),
   deleteSessionBtn: document.getElementById("deleteSessionBtn"),
   downloadSessionBtn: document.getElementById("downloadSessionBtn"),
+  importSessionBtn: document.getElementById("importSessionBtn"),
+  importSessionFile: document.getElementById("importSessionFile"),
   exportScoreKeeperBtn: document.getElementById("exportScoreKeeperBtn"),
   sessionStatus: document.getElementById("sessionStatus"),
   eventNotice: document.getElementById("eventNotice"),
@@ -158,6 +160,12 @@ function bindEvents() {
   els.loadSessionBtn.addEventListener("click", loadSelectedSession);
   els.deleteSessionBtn.addEventListener("click", deleteSelectedSession);
   els.downloadSessionBtn.addEventListener("click", downloadSession);
+  els.importSessionBtn.addEventListener("click", () => {
+    els.importSessionFile.click();
+  });
+  els.importSessionFile.addEventListener("change", () => {
+    importSessionFile(els.importSessionFile.files?.[0]);
+  });
   els.exportScoreKeeperBtn.addEventListener("click", exportScoreKeeper);
 }
 
@@ -1233,7 +1241,7 @@ function readSavedSessions() {
 }
 
 function writeSavedSessions(sessions) {
-  writeStoredJson(STORAGE_SESSIONS_KEY, sessions.map(normalizeHeartsSessionRecord).filter(Boolean));
+  return writeStoredJson(STORAGE_SESSIONS_KEY, sessions.map(normalizeHeartsSessionRecord).filter(Boolean));
 }
 
 function saveSession() {
@@ -1281,8 +1289,76 @@ function downloadSession() {
     return;
   }
   const snapshot = sessionSnapshot();
-  downloadJson(`${slugify(defaultSessionName())}.json`, snapshot);
+  const bundle = sessionExportBundle({
+    app: "hearts-table",
+    version: SESSION_EXPORT_VERSION,
+    sessionName: defaultSessionName(),
+    payload: snapshot,
+  });
+  downloadJson(`${slugify(defaultSessionName())}.json`, bundle);
   showSessionStatus("Session downloaded.");
+}
+
+function parseImportedSession(json, filename = "") {
+  if (!json || typeof json !== "object") return null;
+  const payload =
+    json.app === "hearts-table" && json.payload && typeof json.payload === "object"
+      ? json.payload
+      : json.payload && typeof json.payload === "object"
+        ? json.payload
+        : json.snapshot && typeof json.snapshot === "object"
+          ? json.snapshot
+          : json;
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.players)) return null;
+
+  const fallbackName = filename
+    ? slugify(filename.replace(/\.json$/i, ""))
+    : defaultSessionName();
+  const providedName =
+    typeof json.session?.name === "string" && json.session.name.trim()
+      ? json.session.name.trim()
+      : typeof json.name === "string" && json.name.trim()
+        ? json.name.trim()
+        : fallbackName;
+  const id = uid();
+  const now = Date.now();
+  return normalizeHeartsSessionRecord({
+    id,
+    name: providedName,
+    payload: cloneJson({ ...payload, currentSessionId: id }),
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function importSessionFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const imported = parseImportedSession(parsed, file.name);
+    if (!imported) {
+      showSessionStatus("That file is not a valid Hearts session.");
+      return;
+    }
+
+    const nextSessions = [
+      imported,
+      ...readSavedSessions().filter((session) => session.id !== imported.id),
+    ].sort((left, right) => right.updatedAt - left.updatedAt);
+    if (!writeSavedSessions(nextSessions)) {
+      showSessionStatus("Unable to import that session.");
+      return;
+    }
+
+    restoreSessionSnapshot(imported.payload);
+    renderSessionControls(imported.id);
+    showSessionStatus(`Session imported: ${imported.name}.`);
+  } catch {
+    showSessionStatus("Import failed. Check that the file contains valid JSON.");
+  } finally {
+    els.importSessionFile.value = "";
+  }
 }
 
 function exportScoreKeeper() {
@@ -1304,20 +1380,16 @@ function exportScoreKeeper() {
 }
 
 function scoreKeeperPayload(snapshot) {
-  const players = scoreKeeperPlayers(snapshot.players);
-  const rounds = snapshot.handHistory.slice().reverse().map((entry, index) =>
-    scoreKeeperRound(index, scoreKeeperScores(players, (_player, playerIndex) => entry.points[playerIndex] || 0), {
-      n: Number(entry.handNumber),
-    }),
-  );
-  const winnerId = scoreKeeperWinnerId(snapshot.winnerId, players);
-  return scoreKeeperPayloadBase({
+  return scoreKeeperPayloadFromRounds({
+    payload: snapshot,
+    history: snapshot.handHistory.slice().reverse(),
     presetKey: "hearts",
     target: snapshot.targetScore,
     winMode: "low",
-    players,
-    rounds,
-    winnerId,
+    scoreForRound: (entry, _player, playerIndex) => entry.points[playerIndex] || 0,
+    roundOptions: (entry) => ({
+      n: Number(entry.handNumber),
+    }),
     historySortDir: "desc",
     presetNote: "Lowest score wins. Hearts are 1 point and the queen of spades is 13.",
   });
@@ -1517,6 +1589,20 @@ function scoreKeeperExportBundle(options) {
   };
 }
 
+function sessionExportBundle(options) {
+  if (window.GameRoom?.sessionExportBundle) return window.GameRoom.sessionExportBundle(options);
+  return {
+    app: options.app,
+    version: options.version ?? 1,
+    exportedAt: options.exportedAt || new Date().toISOString(),
+    session: {
+      id: options.sessionId ?? null,
+      name: options.sessionName || "Session",
+    },
+    payload: options.payload,
+  };
+}
+
 function scoreKeeperPlayers(players) {
   if (window.GameRoom?.scoreKeeperPlayers) return window.GameRoom.scoreKeeperPlayers(players);
   return Array.isArray(players)
@@ -1585,6 +1671,44 @@ function scoreKeeperPayloadBase(options) {
     rummikubCurrentRoundWinnerId: null,
     currentSessionId: null,
   };
+}
+
+function scoreKeeperPayloadFromRounds(options = {}) {
+  if (window.GameRoom?.scoreKeeperPayloadFromRounds) return window.GameRoom.scoreKeeperPayloadFromRounds(options);
+  const payload = options.payload || {};
+  const rawPlayers = Array.isArray(options.players) ? options.players : payload.players;
+  const rawHistory = Array.isArray(options.history)
+    ? options.history
+    : payload[options.historyKey || "roundHistory"];
+  if (!Array.isArray(rawPlayers) || !Array.isArray(rawHistory)) return null;
+
+  const players = scoreKeeperPlayers(rawPlayers);
+  if (!players.length || !rawHistory.length) return null;
+
+  const scoreForRound = typeof options.scoreForRound === "function" ? options.scoreForRound : () => 0;
+  const rounds = rawHistory.map((entry, index) => {
+    const scores = scoreKeeperScores(players, (player, playerIndex) =>
+      scoreForRound(entry, player, playerIndex, index));
+    const roundOptions = typeof options.roundOptions === "function"
+      ? options.roundOptions(entry, index, players, scores) || {}
+      : {};
+    return scoreKeeperRound(index, scores, {
+      ts: entry?.ts,
+      ...roundOptions,
+    });
+  });
+
+  return scoreKeeperPayloadBase({
+    presetKey: options.presetKey,
+    target: typeof options.target === "function" ? options.target(payload) : options.target,
+    winMode: options.winMode,
+    players,
+    rounds,
+    winnerId: scoreKeeperWinnerId(options.winnerId ?? payload.winnerId, players),
+    historySortDir: options.historySortDir || "desc",
+    presetNote: options.presetNote || "",
+    ...options.baseOptions,
+  });
 }
 
 function render() {

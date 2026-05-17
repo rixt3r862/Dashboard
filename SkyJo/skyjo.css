@@ -98,12 +98,10 @@ button {
 }
 
 .panel {
-  border: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
-    var(--panel);
-  border-radius: 1.4rem;
-  box-shadow: var(--shadow);
+  border: 1px solid var(--game-panel-border);
+  background: var(--game-panel-bg);
+  border-radius: var(--game-panel-radius);
+  box-shadow: var(--game-panel-shadow);
 }
 
 .layout {
@@ -264,7 +262,7 @@ button {
 }
 
 .panel-head {
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--game-panel-head-gap);
 }
 
 .panel-head h2,
@@ -273,14 +271,14 @@ button {
 }
 
 .panel-head h2 {
-  font-size: 1.05rem;
+  font-size: var(--game-panel-title-size);
 }
 
 .panel-head p,
 .player-head p {
   margin: 0.26rem 0 0;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  font-size: var(--game-panel-copy-size);
+  line-height: var(--game-panel-copy-line-height);
 }
 
 .setup-form,
@@ -302,14 +300,14 @@ button {
 
 .field {
   display: grid;
-  gap: 0.3rem;
+  gap: var(--game-field-gap);
 }
 
 .field span {
-  font-size: 0.72rem;
+  font-size: var(--game-field-label-size);
   color: var(--accent-strong);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--game-field-label-spacing);
 }
 
 @keyframes flowBannerIn {
@@ -400,18 +398,18 @@ button {
 .field input,
 .field select {
   width: 100%;
-  border: 1px solid rgba(250, 246, 232, 0.14);
-  border-radius: 0.8rem;
-  background: rgba(6, 24, 18, 0.6);
+  border: 1px solid var(--game-field-border);
+  border-radius: var(--game-field-radius);
+  background: var(--game-field-bg);
   color: var(--text);
-  padding: 0.62rem 0.7rem;
+  padding: var(--game-field-padding);
   outline: none;
 }
 
 .field input:focus,
 .field select:focus {
-  border-color: rgba(255, 214, 127, 0.58);
-  box-shadow: 0 0 0 3px rgba(255, 214, 127, 0.1);
+  border-color: var(--game-field-focus-border);
+  box-shadow: var(--game-field-focus-ring);
 }
 
 .field input:disabled,
@@ -568,8 +566,8 @@ button {
   margin: 0;
   min-height: 2.8em;
   color: var(--muted);
-  font-size: 0.79rem;
-  line-height: 1.4;
+  font-size: var(--game-session-status-size);
+  line-height: var(--game-session-status-line-height);
 }
 
 .status-grid {

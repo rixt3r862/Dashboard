@@ -1160,37 +1160,28 @@ function resolveScoreKeeperExportSession() {
 }
 
 function scoreKeeperPayloadFromPhase10(payload) {
-  if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.roundHistory)) {
-    return null;
-  }
-  const players = scoreKeeperPlayers(payload.players, normalizeName);
-  if (!players.length || !payload.roundHistory.length) return null;
-
-  const rounds = payload.roundHistory.map((round, index) => {
-    const phase10CompletedByPlayerId = {};
-    for (const player of players) {
-      const result = round.playerResults?.[player.id];
-      phase10CompletedByPlayerId[player.id] = result?.completedPhaseNumber ? 1 : 0;
-    }
-    const scores = scoreKeeperScores(players, (player) => round.playerResults?.[player.id]?.points ?? 0);
-    return scoreKeeperRound(index, scores, {
-      ts: round.ts,
-      extra: {
-        phase10CompletedByPlayerId,
-        phase10OutPlayerId: scoreKeeperWinnerId(round.outPlayerId, players),
-        phase10SourceRoundNumber: clampNumber(round.roundNumber, 1, 999, index + 1),
-      },
-    });
-  });
-  const winnerId = scoreKeeperWinnerId(payload.winnerId, players);
-
-  return scoreKeeperPayloadBase({
+  if (!payload) return null;
+  return scoreKeeperPayloadFromRounds({
+    payload,
     presetKey: "phase10",
     target: PHASES.length,
     winMode: "high",
-    players,
-    rounds,
-    winnerId,
+    normalizeName,
+    scoreForRound: (round, player) => round.playerResults?.[player.id]?.points ?? 0,
+    roundOptions: (round, index, players) => {
+      const phase10CompletedByPlayerId = {};
+      for (const player of players) {
+        const result = round.playerResults?.[player.id];
+        phase10CompletedByPlayerId[player.id] = result?.completedPhaseNumber ? 1 : 0;
+      }
+      return {
+        extra: {
+          phase10CompletedByPlayerId,
+          phase10OutPlayerId: scoreKeeperWinnerId(round.outPlayerId, players),
+          phase10SourceRoundNumber: clampNumber(round.roundNumber, 1, 999, index + 1),
+        },
+      };
+    },
     historySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
     presetNote:
       "Track leftover hand points each round and mark who completed their phase. First to finish Phase 10 wins; ties at the final phase go to the lowest total points.",
@@ -4021,6 +4012,44 @@ function scoreKeeperPayloadBase(options) {
     rummikubCurrentRoundWinnerId: null,
     currentSessionId: null,
   };
+}
+
+function scoreKeeperPayloadFromRounds(options = {}) {
+  if (window.GameRoom?.scoreKeeperPayloadFromRounds) return window.GameRoom.scoreKeeperPayloadFromRounds(options);
+  const payload = options.payload || {};
+  const rawPlayers = Array.isArray(options.players) ? options.players : payload.players;
+  const rawHistory = Array.isArray(options.history)
+    ? options.history
+    : payload[options.historyKey || "roundHistory"];
+  if (!Array.isArray(rawPlayers) || !Array.isArray(rawHistory)) return null;
+
+  const players = scoreKeeperPlayers(rawPlayers, options.normalizeName);
+  if (!players.length || !rawHistory.length) return null;
+
+  const scoreForRound = typeof options.scoreForRound === "function" ? options.scoreForRound : () => 0;
+  const rounds = rawHistory.map((entry, index) => {
+    const scores = scoreKeeperScores(players, (player, playerIndex) =>
+      scoreForRound(entry, player, playerIndex, index));
+    const roundOptions = typeof options.roundOptions === "function"
+      ? options.roundOptions(entry, index, players, scores) || {}
+      : {};
+    return scoreKeeperRound(index, scores, {
+      ts: entry?.ts,
+      ...roundOptions,
+    });
+  });
+
+  return scoreKeeperPayloadBase({
+    presetKey: options.presetKey,
+    target: typeof options.target === "function" ? options.target(payload) : options.target,
+    winMode: options.winMode,
+    players,
+    rounds,
+    winnerId: scoreKeeperWinnerId(options.winnerId ?? payload.winnerId, players),
+    historySortDir: options.historySortDir || "desc",
+    presetNote: options.presetNote || "",
+    ...options.baseOptions,
+  });
 }
 
 function scoreKeeperPlayers(players, normalizeNameFn = normalizeName) {

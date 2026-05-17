@@ -26,6 +26,15 @@
   --game-btn-danger-bg: rgba(217, 75, 75, 0.12);
   --game-btn-danger-hover-bg: rgba(217, 75, 75, 0.18);
   --game-btn-danger-hover-border: rgba(217, 75, 75, 0.5);
+  --game-panel-title-size: 1.25rem;
+  --game-panel-copy-size: 0.88rem;
+  --game-panel-copy-line-height: 1.4;
+  --game-field-gap: 0.35rem;
+  --game-field-label-size: 0.82rem;
+  --game-field-border: rgba(240, 242, 233, 0.16);
+  --game-field-bg: rgba(250, 246, 232, 0.08);
+  --game-field-radius: 0.95rem;
+  --game-field-padding: 0.75rem 0.9rem;
 }
 
 *,
@@ -107,12 +116,10 @@ select {
 }
 
 .panel {
-  border: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
-    var(--panel);
-  border-radius: 1.4rem;
-  box-shadow: var(--shadow);
+  border: 1px solid var(--game-panel-border);
+  background: var(--game-panel-bg);
+  border-radius: var(--game-panel-radius);
+  box-shadow: var(--game-panel-shadow);
 }
 
 .layout {
@@ -372,13 +379,13 @@ select {
 .panel-head h2 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.25rem;
+  font-size: var(--game-panel-title-size);
 }
 
 .panel-head p {
   margin: 0.35rem 0 0;
-  line-height: 1.4;
-  font-size: 0.88rem;
+  line-height: var(--game-panel-copy-line-height);
+  font-size: var(--game-panel-copy-size);
 }
 
 .round-history-head {
@@ -500,7 +507,7 @@ select {
 
 .field {
   display: grid;
-  gap: 0.35rem;
+  gap: var(--game-field-gap);
 }
 
 .checkbox-field {
@@ -540,20 +547,20 @@ select {
 
 .field span,
 .chip-label {
-  font-size: 0.82rem;
+  font-size: var(--game-field-label-size);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--game-field-label-spacing);
   color: var(--accent-strong);
 }
 
 .field input,
 .field select {
   width: 100%;
-  border: 1px solid rgba(240, 242, 233, 0.16);
-  background: rgba(250, 246, 232, 0.08);
+  border: 1px solid var(--game-field-border);
+  background: var(--game-field-bg);
   color: var(--text);
-  border-radius: 0.95rem;
-  padding: 0.75rem 0.9rem;
+  border-radius: var(--game-field-radius);
+  padding: var(--game-field-padding);
 }
 
 .setup-form .field input,
@@ -700,8 +707,8 @@ select {
   margin: 0;
   min-height: 2.8em;
   color: var(--muted);
-  font-size: 0.79rem;
-  line-height: 1.4;
+  font-size: var(--game-session-status-size);
+  line-height: var(--game-session-status-line-height);
 }
 
 body.game-active .sidebar {

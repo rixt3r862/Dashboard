@@ -9,3 +9,6 @@ When adding a new standalone page, include these head entries so browser/PWA too
 - `rel="apple-touch-icon"` alongside the favicon. Microsoft Edge Tools flags pages that omit this.
 - `shared/pwa.js` when the page should participate in the dashboard PWA/service-worker flow.
 
+## Game Room Shared Helpers
+
+Hearts, SkyJo, and Phase10 load `shared/game-room.js` before their game scripts, then delegate common helpers through `window.GameRoom`. Keep the small local wrapper/fallback functions in each game script when adding shared helpers; they let the standalone pages keep working if the shared script fails to load during local testing or cache churn.

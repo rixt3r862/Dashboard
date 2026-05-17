@@ -1671,6 +1671,44 @@ function scoreKeeperPayloadBase(options) {
   };
 }
 
+function scoreKeeperPayloadFromRounds(options = {}) {
+  if (window.GameRoom?.scoreKeeperPayloadFromRounds) return window.GameRoom.scoreKeeperPayloadFromRounds(options);
+  const payload = options.payload || {};
+  const rawPlayers = Array.isArray(options.players) ? options.players : payload.players;
+  const rawHistory = Array.isArray(options.history)
+    ? options.history
+    : payload[options.historyKey || "roundHistory"];
+  if (!Array.isArray(rawPlayers) || !Array.isArray(rawHistory)) return null;
+
+  const players = scoreKeeperPlayers(rawPlayers, options.normalizeName);
+  if (!players.length || !rawHistory.length) return null;
+
+  const scoreForRound = typeof options.scoreForRound === "function" ? options.scoreForRound : () => 0;
+  const rounds = rawHistory.map((entry, index) => {
+    const scores = scoreKeeperScores(players, (player, playerIndex) =>
+      scoreForRound(entry, player, playerIndex, index));
+    const roundOptions = typeof options.roundOptions === "function"
+      ? options.roundOptions(entry, index, players, scores) || {}
+      : {};
+    return scoreKeeperRound(index, scores, {
+      ts: entry?.ts,
+      ...roundOptions,
+    });
+  });
+
+  return scoreKeeperPayloadBase({
+    presetKey: options.presetKey,
+    target: typeof options.target === "function" ? options.target(payload) : options.target,
+    winMode: options.winMode,
+    players,
+    rounds,
+    winnerId: scoreKeeperWinnerId(options.winnerId ?? payload.winnerId, players),
+    historySortDir: options.historySortDir || "desc",
+    presetNote: options.presetNote || "",
+    ...options.baseOptions,
+  });
+}
+
 function scoreKeeperPlayers(players, normalizeName = cleanName) {
   if (window.GameRoom?.scoreKeeperPlayers) return window.GameRoom.scoreKeeperPlayers(players, normalizeName);
   return Array.isArray(players)
@@ -1984,34 +2022,24 @@ function resolveScoreKeeperExportSession() {
 }
 
 function scoreKeeperPayloadFromSkyJo(payload) {
-  if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.roundHistory)) {
-    return null;
-  }
-  const players = scoreKeeperPlayers(payload.players, cleanName);
-  if (!players.length || !payload.roundHistory.length) return null;
-
-  const rounds = payload.roundHistory.map((round, index) => {
-    const scores = scoreKeeperScores(players, (player) => round.results?.[player.id]?.raw ?? 0);
-    return scoreKeeperRound(index, scores, {
-      ts: round.ts,
+  if (!payload) return null;
+  const target = Number.isFinite(Number(payload.targetScore))
+    ? Math.trunc(Number(payload.targetScore))
+    : DEFAULT_TARGET_SCORE;
+  return scoreKeeperPayloadFromRounds({
+    payload,
+    presetKey: "skyjo",
+    target,
+    winMode: "low",
+    normalizeName: cleanName,
+    scoreForRound: (round, player) => round.results?.[player.id]?.raw ?? 0,
+    roundOptions: (round, index, players) => ({
       extra: {
         skyjoWentOutPlayerId: scoreKeeperWinnerId(round.triggerId, players),
         skyjoSourceRoundNumber: Number(round.roundNumber) || index + 1,
         skyjoTargetHitId: scoreKeeperWinnerId(round.targetHitId, players),
       },
-    });
-  });
-  const winnerId = scoreKeeperWinnerId(payload.winnerId, players);
-  const target = Number.isFinite(Number(payload.targetScore))
-    ? Math.trunc(Number(payload.targetScore))
-    : DEFAULT_TARGET_SCORE;
-  return scoreKeeperPayloadBase({
-    presetKey: "skyjo",
-    target,
-    winMode: "low",
-    players,
-    rounds,
-    winnerId,
+    }),
     historySortDir: normalizeRoundHistorySortDir(payload.roundHistorySortDir),
     presetNote: "Lowest score wins. Negative scores possible.",
   });
