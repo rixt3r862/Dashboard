@@ -16,3 +16,12 @@ Hearts, SkyJo, and Phase10 load `shared/game-room.js` before their game scripts,
 ## Client-Side Error Logging
 
 Production pages load a lightweight client-side error logger from `shared/pwa.js`. It stores the latest browser errors in `localStorage` under `dashboard.clientErrors.v1` and exposes `window.DashboardErrorLog` in DevTools with `list()`, `clear()`, `record(entry)`, and `download()` helpers. Known extension-origin noise such as `Unchecked runtime.lastError: The message port closed before a response was received` is filtered before storage.
+
+When diagnosing a future browser-only issue, suggest this flow:
+
+1. Open DevTools on the affected page and run `DashboardErrorLog.clear()`.
+2. Reproduce the issue.
+3. Run `DashboardErrorLog.list()` to inspect captured entries.
+4. Run `DashboardErrorLog.download()` and attach the downloaded JSON file for review.
+
+For a quick logger sanity check, run `DashboardErrorLog.record({ type: "manual", message: "Logger test" })`, then `DashboardErrorLog.download()`.
