@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v74";
+const VERSION = "dashboard-v75";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -30,6 +30,9 @@ const CORE_ASSETS = [
   "./Hearts/index.html",
   "./Hearts/hearts.css",
   "./Hearts/hearts.js",
+  "./Spades/index.html",
+  "./Spades/spades.css",
+  "./Spades/spades.js",
   "./ScoreKeeper/index.html",
   "./ScoreKeeper/SK.css",
   "./ScoreKeeper/SK.js",

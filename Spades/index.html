@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spades Table</title>
+    <link rel="manifest" href="../app.webmanifest" />
+    <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <link rel="stylesheet" href="../shared/game-room.css?v=20260517a" />
+    <link rel="stylesheet" href="./spades.css?v=20260517a" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%230e2238%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2256%22 fill=%22%23b8d7ff%22>♠</text></svg>"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%230e2238%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2256%22 fill=%22%23b8d7ff%22>♠</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Card Table</p>
+          <h1>Spades <span>-</span> <small>A single-device partnership Spades table for one human player and three bots. Bid your hand, follow suit, and mind the bags.</small></h1>
+          <p class="phone-support-note">
+            Best experience on tablet or desktop. Phone view keeps bidding and the full hand playable.
+          </p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="panel setup-panel">
+            <div class="panel-head">
+              <h2>New Table</h2>
+              <p>Set your name, bot names, and deal a four-player partnership game.</p>
+            </div>
+            <form id="setupForm" class="setup-form">
+              <div id="setupFields" class="setup-fields">
+                <label class="field">
+                  <span>Human player</span>
+                  <input id="humanName" type="text" maxlength="24" autocomplete="off" placeholder="Player 1" value="Rick" />
+                </label>
+                <label class="field">
+                  <span>Target score</span>
+                  <input id="targetScore" type="number" min="100" max="1000" step="50" inputmode="numeric" value="500" />
+                </label>
+                <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+                <button id="shuffleBotNamesBtn" class="btn" type="button">Shuffle Names</button>
+                <button id="startGameBtn" class="btn btn-primary" type="submit">Start Game</button>
+              </div>
+              <button id="samePlayersBtn" class="btn same-players-btn" type="button" hidden>
+                Start Game with Same Players
+              </button>
+              <div id="setupSummary" class="setup-summary" hidden></div>
+              <button id="resetTableBtn" class="btn" type="button">Reset</button>
+            </form>
+          </section>
+
+          <section id="sessionPanel" class="panel session-panel">
+            <div class="panel-head session-head">
+              <div>
+                <h2>Sessions</h2>
+                <p id="sessionStatus">No saved sessions yet. Save on this device or download a JSON backup copy.</p>
+              </div>
+              <button id="sessionToggleBtn" class="btn session-toggle-btn" type="button" aria-expanded="true">Hide Sessions</button>
+            </div>
+            <div id="sessionTools" class="session-tools">
+              <label class="field">
+                <span>Saved sessions</span>
+                <select id="savedSessionSelect" aria-label="Saved Spades sessions">
+                  <option value="">Saved sessions on this device</option>
+                </select>
+              </label>
+              <div class="session-tool-grid">
+                <button id="saveSessionBtn" class="btn session-tool-wide" type="button">Save Session</button>
+                <button id="loadSessionBtn" class="btn" type="button">Load Saved</button>
+                <button id="deleteSessionBtn" class="btn btn-danger" type="button">Delete Saved</button>
+                <button id="downloadSessionBtn" class="btn" type="button">Download JSON</button>
+                <button id="importSessionBtn" class="btn" type="button">Import JSON</button>
+                <button id="exportScoreKeeperBtn" class="btn session-tool-wide" type="button">Export to ScoreKeeper</button>
+              </div>
+              <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
+            </div>
+          </section>
+
+          <section class="panel status-panel">
+            <div class="panel-head">
+              <h2>Hand Status</h2>
+              <p id="statusText">Deal a table to begin.</p>
+            </div>
+            <div class="status-grid">
+              <div class="status-chip">
+                <span class="chip-label">Hand</span>
+                <strong id="roundValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Turn</span>
+                <strong id="turnValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Bid</span>
+                <strong id="bidValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Lead Suit</span>
+                <strong id="leadSuitValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Spades</span>
+                <strong id="spadesValue">-</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel action-panel">
+            <div class="panel-head">
+              <h2>Actions</h2>
+              <p id="actionHint">Your controls will appear once the game starts.</p>
+            </div>
+            <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
+          </section>
+
+          <section class="panel rules-panel">
+            <div class="panel-head">
+              <h2>Table Rules</h2>
+              <p>Partnership Spades, fixed teams.</p>
+            </div>
+            <ul class="rule-list">
+              <li>You partner with the player across the table.</li>
+              <li>Bid 0 through 13 before each hand.</li>
+              <li>Follow suit when possible.</li>
+              <li>Spades cannot be led until broken unless you only have spades.</li>
+              <li>Made bids score 10 per bid plus bags. Missed bids lose 10 per bid.</li>
+              <li>Successful nil scores 100; failed nil loses 100.</li>
+              <li>Every 10 team bags costs 100.</li>
+            </ul>
+          </section>
+        </aside>
+
+        <section class="table-area">
+          <section id="winnerBanner" class="game-flow-banner winner-banner" hidden></section>
+
+          <section class="panel scoreboard-panel">
+            <div class="panel-head board-head">
+              <h2>Scores <span>-</span> <small id="leaderText">Highest score wins when a team reaches the target.</small></h2>
+            </div>
+            <div id="scoreBoard" class="score-board"></div>
+          </section>
+
+          <section class="panel felt-panel">
+            <div class="table-felt">
+              <div id="opponentTop" class="seat seat-top"></div>
+              <div id="opponentLeft" class="seat seat-left"></div>
+              <div id="opponentRight" class="seat seat-right"></div>
+              <div class="trick-zone">
+                <div id="trickCards" class="trick-cards"></div>
+                <div id="spadeBurst" class="break-burst" hidden aria-hidden="true"></div>
+              </div>
+              <div id="humanSeat" class="seat seat-bottom"></div>
+            </div>
+          </section>
+
+          <section class="panel hand-panel">
+            <div class="panel-head hand-head">
+              <div class="hand-title">
+                <h2>Your Hand</h2>
+                <p id="handSummary">Start a game to see your cards.</p>
+              </div>
+              <div id="bidControls" class="bid-controls" hidden>
+                <label class="field bid-field">
+                  <span>Your bid</span>
+                  <input id="humanBid" type="number" min="0" max="13" inputmode="numeric" value="3" />
+                </label>
+                <button id="confirmBidBtn" class="btn btn-primary" type="button">Bid</button>
+              </div>
+            </div>
+            <div class="hand-controls">
+              <button id="nextHandBtn" class="btn btn-primary next-hand-btn" type="button" hidden>
+                Deal Next Hand
+              </button>
+            </div>
+            <div id="humanHand" class="human-hand"></div>
+          </section>
+
+          <section class="panel history-panel">
+            <div class="panel-head history-head">
+              <div>
+                <h2>Hand History</h2>
+                <p id="historySummary">Completed hands will appear here.</p>
+              </div>
+              <button id="historyOrderBtn" class="btn history-order-btn" type="button">Newest First</button>
+            </div>
+            <div id="historyWrap" class="history-wrap"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="../shared/game-room.js?v=20260517a"></script>
+    <script src="./spades.js?v=20260517a"></script>
+  </body>
+</html>

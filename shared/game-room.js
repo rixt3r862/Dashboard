@@ -8,6 +8,7 @@
   ];
   const BOT_DIFFICULTY_SETS = {
     hearts: ["easy", "medium", "hard"],
+    spades: ["easy", "medium", "hard"],
     standard: ["easy", "medium", "hard"],
   };
 
@@ -432,6 +433,7 @@
     BOT_NAMES,
     botDifficultyLevels,
     cloneJson,
+    clampInteger,
     defaultSessionName,
     difficultyLabel,
     downloadJson,

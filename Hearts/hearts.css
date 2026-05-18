@@ -687,12 +687,11 @@ button {
 
 .seat {
   position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.6rem;
-  min-width: 11.5rem;
-  padding: 0.5rem 0.62rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  min-width: 8.2rem;
+  padding: 0.55rem;
   border-radius: 1rem;
   border: 1px solid rgba(250, 246, 232, 0.09);
   background: rgba(6, 24, 18, 0.46);
@@ -760,19 +759,16 @@ button {
   transform: translateX(-50%);
 }
 
+.seat-left,
 .seat-right {
-  flex-direction: row-reverse;
-}
-
-.seat-right .seat-name {
-  text-align: left;
+  min-width: 6.35rem;
 }
 
 .seat-name {
-  flex: 0 0 3.8rem;
+  max-width: 9.5rem;
   min-width: 0;
   font-weight: 800;
-  text-align: right;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
