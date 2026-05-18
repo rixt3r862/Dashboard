@@ -681,7 +681,9 @@ button {
   overflow: hidden;
   border: 1px solid rgba(250, 246, 232, 0.1);
   background:
-    radial-gradient(ellipse at center, rgba(255, 214, 127, 0.1), transparent 44%),
+    linear-gradient(180deg, rgba(6, 24, 18, 0.26), rgba(6, 24, 18, 0.68)),
+    radial-gradient(ellipse at center, rgba(255, 214, 127, 0.12), transparent 46%),
+    url("../ScoreKeeper/img/Hearts.png") center / auto 100% no-repeat,
     radial-gradient(ellipse at center, rgba(31, 107, 78, 0.98), rgba(7, 39, 28, 0.96));
 }
 
