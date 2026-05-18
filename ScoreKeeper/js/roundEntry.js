@@ -103,6 +103,25 @@ export function createRoundEntryController(deps) {
     state.currentRoundPhase10Completed = next;
   }
 
+  function ensureCurrentSpadesTeamStats() {
+    if (!state.currentRoundSpadesTeamBids || typeof state.currentRoundSpadesTeamBids !== "object") {
+      state.currentRoundSpadesTeamBids = {};
+    }
+    if (!state.currentRoundSpadesTeamTricks || typeof state.currentRoundSpadesTeamTricks !== "object") {
+      state.currentRoundSpadesTeamTricks = {};
+    }
+    for (const team of state.teams || []) {
+      state.currentRoundSpadesTeamBids[team.id] = Math.max(
+        0,
+        Math.trunc(Number(state.currentRoundSpadesTeamBids[team.id] ?? 0) || 0),
+      );
+      state.currentRoundSpadesTeamTricks[team.id] = Math.max(
+        0,
+        Math.trunc(Number(state.currentRoundSpadesTeamTricks[team.id] ?? 0) || 0),
+      );
+    }
+  }
+
   function readRoundScores() {
     ensureCurrentRoundScores();
     return { ...state.currentRoundScores };
@@ -111,6 +130,26 @@ export function createRoundEntryController(deps) {
   function readPhase10Completions() {
     ensureCurrentPhase10Completions();
     return { ...state.currentRoundPhase10Completed };
+  }
+
+  function readSpadesTeamStats() {
+    ensureCurrentSpadesTeamStats();
+    els.roundPreviewBody
+      ?.querySelectorAll('input[data-preview-action="spades-stat"][data-team-id][data-spades-stat]')
+      .forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) return;
+        const teamId = input.getAttribute("data-team-id");
+        const stat = input.getAttribute("data-spades-stat");
+        if (!teamId || !stat) return;
+        const value = Math.max(0, Math.trunc(Number.parseInt(input.value, 10) || 0));
+        if (stat === "bid") state.currentRoundSpadesTeamBids[teamId] = value;
+        if (stat === "tricks") state.currentRoundSpadesTeamTricks[teamId] = value;
+        syncSpadesTeamScore(teamId);
+      });
+    return {
+      bids: { ...state.currentRoundSpadesTeamBids },
+      tricks: { ...state.currentRoundSpadesTeamTricks },
+    };
   }
 
   function closeRoundHelperForm() {
@@ -152,6 +191,66 @@ export function createRoundEntryController(deps) {
 
   function isQuiz() {
     return state.presetKey === "quiz";
+  }
+
+  function usesSpadesTeamEntry() {
+    return state.presetKey === "spades" && Array.isArray(state.teams) && state.teams.length;
+  }
+
+  function spadesHandScore(bid, tricks) {
+    const normalizedBid = Math.max(0, Math.trunc(Number(bid) || 0));
+    const normalizedTricks = Math.max(0, Math.trunc(Number(tricks) || 0));
+    return normalizedTricks >= normalizedBid
+      ? normalizedBid * 10 + (normalizedTricks - normalizedBid)
+      : normalizedBid * -10;
+  }
+
+  function teamRoundScore(team, scores = state.currentRoundScores) {
+    return (team?.members || []).reduce(
+      (sum, playerId) => sum + Number(scores?.[playerId] ?? 0),
+      0,
+    );
+  }
+
+  function syncSpadesTeamScore(teamId) {
+    const team = state.teams?.find((entry) => entry.id === teamId);
+    if (!team?.members?.length) return;
+    ensureCurrentRoundScores();
+    ensureCurrentSpadesTeamStats();
+    const score = spadesHandScore(
+      state.currentRoundSpadesTeamBids[teamId],
+      state.currentRoundSpadesTeamTricks[teamId],
+    );
+    team.members.forEach((playerId, index) => {
+      state.currentRoundScores[playerId] = index === 0 ? score : 0;
+    });
+  }
+
+  function setSpadesTeamStatValue(teamId, stat, value, opts = {}) {
+    const { silent = false } = opts;
+    if (!state.teams?.some((entry) => entry.id === teamId)) return;
+    ensureCurrentSpadesTeamStats();
+    const n = Number.parseInt(value, 10);
+    const normalized = Math.max(0, Number.isNaN(n) ? 0 : n);
+    if (stat === "bid") state.currentRoundSpadesTeamBids[teamId] = normalized;
+    if (stat === "tricks") state.currentRoundSpadesTeamTricks[teamId] = normalized;
+    syncSpadesTeamScore(teamId);
+    const row = els.roundPreviewBody?.querySelector(
+      `[data-preview-row="${CSS.escape(teamId)}"]`,
+    );
+    const scoreText = row?.querySelector(".round-preview-spades-score strong");
+    if (scoreText) {
+      scoreText.textContent = String(
+        spadesHandScore(
+          state.currentRoundSpadesTeamBids[teamId],
+          state.currentRoundSpadesTeamTricks[teamId],
+        ),
+      );
+    }
+    if (!silent) {
+      showMsg(els.roundMsg, "");
+      renderRoundPreview();
+    }
   }
 
   function syncSkyjoOutScoreHints() {
@@ -225,6 +324,18 @@ export function createRoundEntryController(deps) {
           input.value = nextValue;
         }
       });
+    els.roundPreviewBody
+      .querySelectorAll('input[data-preview-action="input"][data-team-id]')
+      .forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) return;
+        const teamId = input.getAttribute("data-team-id");
+        const team = state.teams?.find((entry) => entry.id === teamId);
+        if (!team) return;
+        const nextValue = String(teamRoundScore(team));
+        if (input.value !== nextValue) {
+          input.value = nextValue;
+        }
+      });
   }
 
   function setRoundScoreInputValue(playerId, value, opts = {}) {
@@ -242,6 +353,22 @@ export function createRoundEntryController(deps) {
     syncSkyjoOutScoreHints();
     if (autoSelectedRummikubWinner) {
       syncRummikubWinnerUi();
+    }
+  }
+
+  function setTeamRoundScoreInputValue(teamId, value, opts = {}) {
+    const { silent = false } = opts;
+    const team = state.teams?.find((entry) => entry.id === teamId);
+    if (!team?.members?.length) return;
+    const n = Number.parseInt(value, 10);
+    const nextScore = Number.isNaN(n) ? 0 : n;
+    ensureCurrentRoundScores();
+    team.members.forEach((playerId, index) => {
+      state.currentRoundScores[playerId] = index === 0 ? nextScore : 0;
+    });
+    if (!silent) {
+      showMsg(els.roundMsg, "");
+      renderRoundPreview();
     }
   }
 
@@ -316,6 +443,19 @@ export function createRoundEntryController(deps) {
     const n = Number.parseInt(value, 10);
     if (!Number.isInteger(n)) {
       showMsg(els.roundMsg, "Enter a whole number.");
+      return;
+    }
+    if (usesSpadesTeamEntry()) {
+      ensureCurrentSpadesTeamStats();
+      for (const team of state.teams) {
+        state.currentRoundSpadesTeamBids[team.id] = n;
+        state.currentRoundSpadesTeamTricks[team.id] = n;
+        syncSpadesTeamScore(team.id);
+      }
+      renderRoundPreview();
+      closeRoundHelperForm();
+      showMsg(els.roundMsg, "");
+      setLive("Applied bid and tricks to all teams.");
       return;
     }
     const scores = Object.fromEntries(activePlayers().map((p) => [p.id, n]));
@@ -582,7 +722,61 @@ export function createRoundEntryController(deps) {
       ? "Point"
       : isRummikub()
       ? "Rack Total"
+      : usesSpadesTeamEntry()
+      ? "Hand Score"
       : "Score";
+
+    if (usesSpadesTeamEntry()) {
+      ensureCurrentSpadesTeamStats();
+      const playerById = new Map(activePlayers().map((player) => [player.id, player]));
+      const rows = state.teams
+        .map((team) => {
+          const teamName = escapeHtml(team.name || "Team");
+          const memberNames = (team.members || [])
+            .map((playerId) => playerById.get(playerId)?.name)
+            .filter(Boolean)
+            .join(" + ");
+          const membersLabel = memberNames ? `<span class="round-preview-note">${escapeHtml(memberNames)}</span>` : "";
+          const bid = Number(state.currentRoundSpadesTeamBids[team.id] ?? 0);
+          const tricks = Number(state.currentRoundSpadesTeamTricks[team.id] ?? 0);
+          const val = spadesHandScore(bid, tricks);
+          syncSpadesTeamScore(team.id);
+          return `
+            <div class="round-preview-item spades-team" data-preview-row="${escapeHtml(team.id)}">
+              <span class="round-preview-player">
+                <span class="round-preview-name">${teamName}</span>
+                ${membersLabel}
+              </span>
+              <span class="round-preview-right">
+                <span class="round-preview-spades-field">
+                  <span class="round-preview-note">Bid</span>
+                  <input type="number" name="spadesBid-${escapeHtml(team.id)}" inputmode="numeric" autocomplete="off" class="round-preview-input" data-preview-action="spades-stat" data-spades-stat="bid" data-team-id="${escapeHtml(team.id)}" min="0" max="13" value="${bid}" aria-label="Bid for ${teamName}" />
+                </span>
+                <span class="round-preview-spades-field">
+                  <span class="round-preview-note">Tricks</span>
+                  <input type="number" name="spadesTricks-${escapeHtml(team.id)}" inputmode="numeric" autocomplete="off" class="round-preview-input" data-preview-action="spades-stat" data-spades-stat="tricks" data-team-id="${escapeHtml(team.id)}" min="0" max="13" value="${tricks}" aria-label="Tricks taken by ${teamName}" />
+                </span>
+                <span class="round-preview-spades-score" aria-label="Calculated score for ${teamName}">
+                  <span class="round-preview-note">Score</span>
+                  <strong>${val}</strong>
+                </span>
+              </span>
+            </div>
+          `;
+        })
+        .join("");
+      els.roundPreviewBody.innerHTML = `
+        <div class="round-preview-cols">
+          <span>Team</span>
+          <span>Bid / Tricks / ${valueLabel}</span>
+        </div>
+        ${rows}
+      `;
+      renderRoundHelpers();
+      syncRenderedScoreInputs();
+      onRoundInputsChanged?.();
+      return;
+    }
 
     const ordered = orderedPlayers();
     const rows = ordered
@@ -753,6 +947,8 @@ export function createRoundEntryController(deps) {
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundSpadesTeamBids = {};
+    state.currentRoundSpadesTeamTricks = {};
     renderRoundPreview();
     syncRenderedScoreInputs();
   }
@@ -765,12 +961,14 @@ export function createRoundEntryController(deps) {
       const action = btn.getAttribute("data-preview-action");
       if (action === "drag-handle") return;
       const playerId = btn.getAttribute("data-player-id");
-      if (!playerId) return;
+      const teamId = btn.getAttribute("data-team-id");
+      if (!playerId && !teamId) return;
 
       if (action === "set") {
         const raw = Number.parseInt(btn.getAttribute("data-value"), 10);
         const val = Number.isNaN(raw) ? 0 : raw;
-        setRoundScoreInputValue(playerId, val);
+        if (teamId) setTeamRoundScoreInputValue(teamId, val);
+        if (playerId) setRoundScoreInputValue(playerId, val);
         return;
       }
 
@@ -795,6 +993,12 @@ export function createRoundEntryController(deps) {
         const deltaRaw = Number.parseInt(btn.getAttribute("data-delta"), 10);
         const delta = Number.isNaN(deltaRaw) ? 0 : deltaRaw;
         const scores = readRoundScores();
+        if (teamId) {
+          const team = state.teams?.find((entry) => entry.id === teamId);
+          const current = team ? teamRoundScore(team, scores) : 0;
+          setTeamRoundScoreInputValue(teamId, current + delta);
+          return;
+        }
         const current = Number(scores[playerId] ?? 0);
         setRoundScoreInputValue(playerId, current + delta);
       }
@@ -810,20 +1014,49 @@ export function createRoundEntryController(deps) {
         roundActionSkyjoMarkGoOut(playerId);
         return;
       }
+      if (previewAction === "spades-stat") {
+        const teamId = target.getAttribute("data-team-id");
+        const stat = target.getAttribute("data-spades-stat");
+        if (!teamId || !stat) return;
+        setSpadesTeamStatValue(teamId, stat, target.value, { silent: true });
+        onRoundInputsChanged?.();
+        return;
+      }
       if (previewAction !== "input") return;
       const playerId = target.getAttribute("data-player-id");
-      if (!playerId) return;
-      setRoundScoreInputValue(playerId, target.value, { silent: true });
+      const teamId = target.getAttribute("data-team-id");
+      if (teamId) {
+        setTeamRoundScoreInputValue(teamId, target.value, { silent: true });
+      } else if (playerId) {
+        setRoundScoreInputValue(playerId, target.value, { silent: true });
+      } else {
+        return;
+      }
       onRoundInputsChanged?.();
     });
 
     els.roundPreviewBody.addEventListener("input", (e) => {
       const target = e.target;
       if (!(target instanceof HTMLInputElement)) return;
-      if (target.getAttribute("data-preview-action") !== "input") return;
+      const previewAction = target.getAttribute("data-preview-action");
+      if (previewAction === "spades-stat") {
+        const teamId = target.getAttribute("data-team-id");
+        const stat = target.getAttribute("data-spades-stat");
+        if (!teamId || !stat) return;
+        setSpadesTeamStatValue(teamId, stat, target.value, { silent: true });
+        onRoundInputsChanged?.();
+        return;
+      }
+      if (previewAction !== "input") return;
       const playerId = target.getAttribute("data-player-id");
-      if (!playerId) return;
-      setRoundScoreInputValue(playerId, target.value, { silent: true });
+      const teamId = target.getAttribute("data-team-id");
+      if (teamId) {
+        setTeamRoundScoreInputValue(teamId, target.value, { silent: true });
+      } else if (playerId) {
+        setRoundScoreInputValue(playerId, target.value, { silent: true });
+      } else {
+        return;
+      }
       onRoundInputsChanged?.();
     });
 
@@ -847,18 +1080,25 @@ export function createRoundEntryController(deps) {
         }
       }
       if (!(target instanceof HTMLInputElement)) return;
-      if (target.getAttribute("data-preview-action") !== "input") return;
+      const previewAction = target.getAttribute("data-preview-action");
+      if (previewAction !== "input" && previewAction !== "spades-stat") return;
 
       const inputs = Array.from(
         els.roundPreviewBody.querySelectorAll(
-          'input[data-preview-action="input"]',
+          'input[data-preview-action="input"], input[data-preview-action="spades-stat"]',
         ),
       );
       const currentIdx = inputs.indexOf(target);
       if (currentIdx < 0) return;
 
       const playerId = target.getAttribute("data-player-id");
-      if (playerId) {
+      const teamId = target.getAttribute("data-team-id");
+      if (previewAction === "spades-stat" && teamId) {
+        const stat = target.getAttribute("data-spades-stat");
+        if (stat) setSpadesTeamStatValue(teamId, stat, target.value, { silent: true });
+      } else if (teamId) {
+        setTeamRoundScoreInputValue(teamId, target.value, { silent: true });
+      } else if (playerId) {
         setRoundScoreInputValue(playerId, target.value, { silent: true });
       }
 
@@ -1070,6 +1310,7 @@ export function createRoundEntryController(deps) {
     ensureCurrentRoundScores,
     readRoundScores,
     readPhase10Completions,
+    readSpadesTeamStats,
     setRoundScoreInputValue,
     setPhase10CompletionValue,
     applyRoundScores,

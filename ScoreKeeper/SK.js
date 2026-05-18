@@ -215,6 +215,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     lastRoundScores: {}, // for display only
     currentRoundScores: {}, // in-progress round entry values
     currentRoundPhase10Completed: {}, // in-progress Phase 10 completion flags
+    currentRoundSpadesTeamBids: {}, // in-progress Spades team bids
+    currentRoundSpadesTeamTricks: {}, // in-progress Spades team tricks taken
     roundEntryOrder: [], // player ids for round-entry display only
     playerInactiveRanges: {}, // { [playerId]: [{ startRound, endRound|null }] }
     winnerId: null, // playerId or teamId (depending on mode)
@@ -238,8 +240,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     // Preset notes: keep visible during setup
     presetNote: "",
 
-    // Spades partner picker: partner for Player 1 is Player 2|3|4 (default: 2)
-    spadesPartnerIndex: 2,
+    // Spades partner picker: partner for Player 1 is Player 2|3|4 (default: 3, across the table)
+    spadesPartnerIndex: 3,
     activeRoundHelper: null,
 
     // SkyJo per-round "went out" marker for the current round entry.
@@ -1543,6 +1545,42 @@ import { createScoreboardController } from "./js/scoreboard.js";
           typeof r.skyjoWentOutPlayerId === "string"
             ? String(r.skyjoWentOutPlayerId)
             : null,
+        spadesTeamBidsByTeamId:
+          r.spadesTeamBidsByTeamId && typeof r.spadesTeamBidsByTeamId === "object"
+            ? Object.fromEntries(
+                Object.entries(r.spadesTeamBidsByTeamId).map(([id, value]) => [
+                  String(id),
+                  Math.max(0, Math.trunc(Number(value) || 0)),
+                ]),
+              )
+            : null,
+        spadesTeamTricksByTeamId:
+          r.spadesTeamTricksByTeamId && typeof r.spadesTeamTricksByTeamId === "object"
+            ? Object.fromEntries(
+                Object.entries(r.spadesTeamTricksByTeamId).map(([id, value]) => [
+                  String(id),
+                  Math.max(0, Math.trunc(Number(value) || 0)),
+                ]),
+              )
+            : null,
+        spadesBids:
+          r.spadesBids && typeof r.spadesBids === "object"
+            ? Object.fromEntries(
+                Object.entries(r.spadesBids).map(([id, value]) => [
+                  String(id),
+                  Math.max(0, Math.trunc(Number(value) || 0)),
+                ]),
+              )
+            : null,
+        spadesTricks:
+          r.spadesTricks && typeof r.spadesTricks === "object"
+            ? Object.fromEntries(
+                Object.entries(r.spadesTricks).map(([id, value]) => [
+                  String(id),
+                  Math.max(0, Math.trunc(Number(value) || 0)),
+                ]),
+              )
+            : null,
       }));
       state.winnerId = payload.winnerId || null;
       state.quizTieIds = Array.isArray(payload.quizTieIds)
@@ -1586,6 +1624,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.currentRoundPhase10Completed = Object.fromEntries(
         state.players.map((p) => [p.id, 0]),
       );
+      state.currentRoundSpadesTeamBids = {};
+      state.currentRoundSpadesTeamTricks = {};
       state.bannerDismissed = false;
       state.historyEditingRoundN = null;
       state.activeRoundHelper = null;
@@ -1628,7 +1668,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
       state.spadesPartnerIndex = [2, 3, 4].includes(payload.spadesPartnerIndex)
         ? payload.spadesPartnerIndex
-        : 2;
+        : 3;
       state.presetNote =
         typeof payload.presetNote === "string"
           ? payload.presetNote
@@ -1995,6 +2035,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.lastRoundScores = {};
     state.currentRoundScores = {};
     state.currentRoundPhase10Completed = {};
+    state.currentRoundSpadesTeamBids = {};
+    state.currentRoundSpadesTeamTricks = {};
     clearWinnerLifecycle();
     state.sortByTotal = false;
     state.currentSessionId = null;
@@ -2006,7 +2048,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.rummikubCurrentRoundWinnerId = null;
     state.rummikubCurrentRoundWinnerId = null;
     state.presetNote = "";
-    state.spadesPartnerIndex = 2;
+    state.spadesPartnerIndex = 3;
 
     els.presetSelect.value = "custom";
     if (els.customGameName) els.customGameName.value = "";
@@ -2070,6 +2112,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundSpadesTeamBids = {};
+    state.currentRoundSpadesTeamTricks = {};
     clearWinnerLifecycle();
     state.currentSessionId = null;
     state.selectedSessionId = "";
@@ -2203,6 +2247,33 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function heartsPenaltyPoints() {
     return heartsRoundPenaltyTotal(state.heartsDeckCount);
+  }
+
+  function spadesTeamStatsForCurrentRound() {
+    if (state.presetKey !== "spades" || !state.teams?.length) {
+      return { bids: {}, tricks: {} };
+    }
+    return roundEntry.readSpadesTeamStats();
+  }
+
+  function spadesRoundStatsBlockReason(stats = spadesTeamStatsForCurrentRound()) {
+    if (state.presetKey !== "spades" || !state.teams?.length) return "";
+    let trickTotal = 0;
+    for (const team of state.teams) {
+      const bid = Number(stats.bids?.[team.id] ?? 0);
+      const tricks = Number(stats.tricks?.[team.id] ?? 0);
+      if (!Number.isInteger(bid) || bid < 0 || bid > 13) {
+        return "Spades: bids must be whole numbers from 0 to 13.";
+      }
+      if (!Number.isInteger(tricks) || tricks < 0 || tricks > 13) {
+        return "Spades: tricks taken must be whole numbers from 0 to 13.";
+      }
+      trickTotal += tricks;
+    }
+    if (trickTotal !== 13) {
+      return `Spades: tricks taken must total 13 for the hand (currently ${trickTotal}).`;
+    }
+    return "";
   }
 
   function playerCountLimitsForPreset(presetKey = state.presetKey) {
@@ -2485,7 +2556,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     // Convert partner (2|3|4) -> index (1|2|3)
     const partnerIdx = Math.min(
       3,
-      Math.max(1, (state.spadesPartnerIndex ?? 2) - 1),
+      Math.max(1, (state.spadesPartnerIndex ?? 3) - 1),
     );
 
     const p0 = players[0];
@@ -2544,7 +2615,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     const current = [2, 3, 4].includes(state.spadesPartnerIndex)
       ? state.spadesPartnerIndex
-      : 2;
+      : 3;
     const options = [
       { val: 2, label: `Player 2 (${names[1]})` },
       { val: 3, label: `Player 3 (${names[2]})` },
@@ -2600,7 +2671,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     // Preserve selection if still valid
     const current = [2, 3, 4].includes(state.spadesPartnerIndex)
       ? state.spadesPartnerIndex
-      : 2;
+      : 3;
 
     const optName = (i) => (names[i] ? names[i] : `Player ${i + 1}`);
     const options = [
@@ -2618,7 +2689,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
     // Sync state with the actual select value
     const partnerVal = Number(els.spadesPartner.value) || current;
-    state.spadesPartnerIndex = [2, 3, 4].includes(partnerVal) ? partnerVal : 2;
+    state.spadesPartnerIndex = [2, 3, 4].includes(partnerVal) ? partnerVal : 3;
 
     // Compute teams based on selection
     const partnerIdx = state.spadesPartnerIndex - 1;
@@ -2674,6 +2745,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundSpadesTeamBids = {};
+    state.currentRoundSpadesTeamTricks = {};
     clearWinnerLifecycle();
     state.currentSessionId = null;
     state.selectedSessionId = "";
@@ -3048,6 +3121,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
       }
     }
 
+    const spadesStatsReason = spadesRoundStatsBlockReason();
+    if (spadesStatsReason) return spadesStatsReason;
+
     return "";
   }
 
@@ -3065,6 +3141,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     const phase10CompletedByPlayerId = isPhase10()
       ? roundEntry.readPhase10Completions()
       : null;
+    const spadesTeamStats =
+      state.presetKey === "spades" && state.teams?.length
+        ? roundEntry.readSpadesTeamStats()
+        : null;
     const blockReason = addRoundBlockReason(scores);
     if (blockReason) {
       showMsg(els.roundMsg, blockReason);
@@ -3127,6 +3207,14 @@ import { createScoreboardController } from "./js/scoreboard.js";
         state.presetKey === "skyjo"
           ? state.skyjoCurrentRoundWentOutPlayerId || null
           : null,
+      spadesTeamBidsByTeamId:
+        state.presetKey === "spades" && spadesTeamStats
+          ? spadesTeamStats.bids
+          : null,
+      spadesTeamTricksByTeamId:
+        state.presetKey === "spades" && spadesTeamStats
+          ? spadesTeamStats.tricks
+          : null,
     };
     state.rounds.push(round);
     state.lastRoundScores = scores;
@@ -3136,6 +3224,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundSpadesTeamBids = {};
+    state.currentRoundSpadesTeamTricks = {};
+    state.currentRoundSpadesTeamBids = {};
+    state.currentRoundSpadesTeamTricks = {};
     state.historyEditingRoundN = null;
     state.activeRoundHelper = null;
     state.skyjoCurrentRoundWentOutPlayerId = null;
@@ -3412,7 +3504,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       ) {
         return;
       }
-      state.spadesPartnerIndex = Number(els.preRoundSpadesPartner.value) || 2;
+      state.spadesPartnerIndex = Number(els.preRoundSpadesPartner.value) || 3;
       syncTeamsForCurrentPreset();
       renderAll();
       save();
@@ -3796,7 +3888,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   });
 
   els.spadesPartner.addEventListener("change", () => {
-    state.spadesPartnerIndex = Number(els.spadesPartner.value) || 2;
+    state.spadesPartnerIndex = Number(els.spadesPartner.value) || 3;
     syncTeamsForCurrentPreset();
     maybeRenderTeamPreview();
     renderAll();

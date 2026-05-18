@@ -328,7 +328,7 @@
       sortByTotal: Boolean(options.sortByTotal),
       historySortDir: options.historySortDir || "desc",
       showHistoryTotals: options.showHistoryTotals !== false,
-      spadesPartnerIndex: options.spadesPartnerIndex ?? 2,
+      spadesPartnerIndex: options.spadesPartnerIndex ?? 3,
       presetNote: options.presetNote || "",
       skyjoCurrentRoundWentOutPlayerId: options.skyjoCurrentRoundWentOutPlayerId ?? null,
       rummikubCurrentRoundWinnerId: options.rummikubCurrentRoundWinnerId ?? null,

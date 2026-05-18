@@ -59,7 +59,10 @@ export const PRESETS = {
     target: 500,
     winMode: "high",
     teams: true,
-    notes: "Partnership game. Scores are tracked per-player and summed by team.",
+    defaultPlayers: 4,
+    minPlayers: 4,
+    maxPlayers: 4,
+    notes: "Partnership game. Enter one hand score per team.",
   },
   crazy8s: {
     label: "Crazy 8s",

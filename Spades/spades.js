@@ -942,6 +942,20 @@ function scoreKeeperPayload(snapshot) {
       n: Number(entry.handNumber) || index + 1,
       ts: entry.ts,
       extra: {
+        spadesTeamBidsByTeamId: Object.fromEntries((entry.teams || []).map((team) => [
+          team.id,
+          (team.members || []).reduce((sum, playerId) => {
+            const player = (entry.players || []).find((entryPlayer) => entryPlayer.id === playerId);
+            return sum + (Number(player?.bid) || 0);
+          }, 0),
+        ])),
+        spadesTeamTricksByTeamId: Object.fromEntries((entry.teams || []).map((team) => [
+          team.id,
+          (team.members || []).reduce((sum, playerId) => {
+            const player = (entry.players || []).find((entryPlayer) => entryPlayer.id === playerId);
+            return sum + (Number(player?.tricks) || 0);
+          }, 0),
+        ])),
         spadesBids: Object.fromEntries((entry.players || []).map((player) => [player.id, player.bid])),
         spadesTricks: Object.fromEntries((entry.players || []).map((player) => [player.id, player.tricks])),
       },
