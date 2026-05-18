@@ -412,6 +412,66 @@ button {
   font-size: 0.78rem;
 }
 
+@keyframes flowBannerIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes flowTitlePop {
+  0% {
+    opacity: 0.3;
+    transform: translateY(8px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes flowBannerShimmer {
+  0% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes flowBannerSparkles {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  35% {
+    opacity: 0.85;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes flowBannerGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 14px 28px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(251, 191, 36, 0.08) inset;
+  }
+  50% {
+    box-shadow:
+      0 16px 38px rgba(251, 191, 36, 0.16),
+      0 0 0 1px rgba(251, 191, 36, 0.16) inset;
+  }
+}
+
 .felt-panel {
   min-height: 33rem;
 }
@@ -806,10 +866,76 @@ button {
 }
 
 .game-flow-banner {
-  padding: 0.9rem;
-  border: 1px solid rgba(134, 239, 172, 0.42);
-  border-radius: 1.25rem;
-  background: rgba(34, 197, 94, 0.13);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  position: sticky;
+  top: 0.75rem;
+  z-index: 8;
+  overflow: hidden;
+  isolation: isolate;
+  transform-origin: top center;
+  padding: 0.72rem 0.85rem;
+  border: 1px solid rgba(251, 191, 36, 0.56);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at left, rgba(251, 191, 36, 0.28), transparent 50%),
+    linear-gradient(180deg, rgba(96, 165, 250, 0.2), rgba(4, 16, 28, 0.2)),
+    rgba(4, 16, 28, 0.86);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(251, 191, 36, 0.08) inset;
+}
+
+.game-flow-banner::before,
+.game-flow-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.game-flow-banner::before {
+  background:
+    linear-gradient(
+      110deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 38%,
+      rgba(255, 255, 255, 0.24) 50%,
+      rgba(255, 255, 255, 0.1) 62%,
+      transparent 100%
+    );
+  transform: translateX(-130%);
+}
+
+.game-flow-banner::after {
+  background-image:
+    radial-gradient(circle at 12% 28%, rgba(255, 255, 255, 0.62) 0 2px, transparent 3px),
+    radial-gradient(circle at 28% 70%, rgba(251, 191, 36, 0.72) 0 2px, transparent 3px),
+    radial-gradient(circle at 58% 24%, rgba(255, 255, 255, 0.58) 0 2px, transparent 3px),
+    radial-gradient(circle at 76% 66%, rgba(96, 165, 250, 0.68) 0 2px, transparent 3px),
+    radial-gradient(circle at 90% 36%, rgba(255, 255, 255, 0.58) 0 2px, transparent 3px);
+  opacity: 0;
+}
+
+.game-flow-banner > * {
+  position: relative;
+  z-index: 1;
+}
+
+.game-flow-banner:not([hidden]) {
+  animation:
+    flowBannerIn 0.42s ease-out both,
+    flowBannerGlow 2.8s ease-in-out 0.2s infinite;
+}
+
+.game-flow-banner:not([hidden])::before {
+  animation: flowBannerShimmer 1.35s ease-out 0.08s 1;
+}
+
+.game-flow-banner:not([hidden])::after {
+  animation: flowBannerSparkles 1.65s ease-in-out 0.12s 1;
 }
 
 .game-flow-banner span,
@@ -817,8 +943,27 @@ button {
   display: block;
 }
 
-.starter-kicker {
+.game-flow-banner strong {
   color: var(--accent-strong);
+  font-size: clamp(1.18rem, 1.8vw, 1.7rem);
+  line-height: 1.05;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14),
+    0 8px 22px rgba(251, 191, 36, 0.16);
+  animation: flowTitlePop 0.48s cubic-bezier(0.16, 0.86, 0.36, 1.24) 0.08s both;
+}
+
+.game-flow-banner span {
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 0.94rem;
+}
+
+.starter-kicker {
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--accent-strong);
+  padding: 0.18rem 0.52rem;
   font-size: 0.74rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1076,6 +1221,15 @@ button {
   100% {
     opacity: 0;
     transform: translateX(10rem) scale(0.72) rotate(8deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-flow-banner:not([hidden]),
+  .game-flow-banner strong,
+  .game-flow-banner:not([hidden])::before,
+  .game-flow-banner:not([hidden])::after {
+    animation: none;
   }
 }
 
