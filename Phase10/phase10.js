@@ -1603,6 +1603,8 @@ function humanLayPhase() {
     const didConfirmLay = layPhaseForPlayer(player, { presetMeld: previewMeld });
     if (!didConfirmLay) {
       appendLog(`${player.name} could not complete Phase ${player.phaseIndex + 1} yet.`);
+    } else {
+      autoSelectHumanDiscard(player);
     }
     render();
     return;
@@ -1619,6 +1621,8 @@ function humanLayPhase() {
   const didLay = layPhaseForPlayer(player);
   if (!didLay) {
     appendLog(`${player.name} could not complete Phase ${player.phaseIndex + 1} yet.`);
+  } else {
+    autoSelectHumanDiscard(player);
   }
   render();
 }
@@ -1664,14 +1668,14 @@ function humanPlaySelectedCardToGroup(groupId) {
     targetGroupId: target.id,
   });
   sortHands();
-  autoSelectHumanDiscardAfterExtraPlay(player);
+  autoSelectHumanDiscard(player);
 
   const owner = state.players.find((entry) => entry.id === target.ownerId);
   appendLog(`${player.name} played ${cardLabel(card)} onto ${owner?.name ?? "another player"}'s ${target.label}.`);
   render();
 }
 
-function autoSelectHumanDiscardAfterExtraPlay(player) {
+function autoSelectHumanDiscard(player) {
   if (!player?.isHuman || !player.laidGroups.length || state.turnStage !== "main") return;
   if (state.selectedCardId || !player.hand.length) return;
 
