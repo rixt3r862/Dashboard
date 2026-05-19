@@ -453,15 +453,24 @@ function completeHand() {
   state.handHistory.unshift({
     handNumber: state.handNumber,
     ts: Date.now(),
-    teams: state.teams.map((team) => ({
-      id: team.id,
-      name: team.name,
-      score: team.score,
-      bags: team.bags,
-      roundScore: roundScores[team.id],
-      bid: teamBid(team),
-      tricks: teamTricks(team),
-    })),
+    teams: state.teams.map((team) => {
+      const result = teamResults.find((entry) => entry.teamId === team.id) || {};
+      return {
+        id: team.id,
+        name: team.name,
+        members: team.members.slice(),
+        score: team.score,
+        bags: team.bags,
+        roundScore: roundScores[team.id],
+        bid: result.regularBid ?? teamBid(team),
+        tricks: result.regularTricks ?? teamTricks(team),
+        takenPoints: result.bidScore ?? 0,
+        bagsWon: result.bagsWon ?? 0,
+        bagPoints: result.bagPoints ?? 0,
+        bagPenalty: result.bagPenalty ?? 0,
+        nilScore: result.nilScore ?? 0,
+      };
+    }),
     players: state.players.map((player) => ({
       id: player.id,
       name: player.name,
@@ -495,7 +504,12 @@ function scoreTeamHand(team) {
     teamId: team.id,
     score: bidScore + bagsWon + nilScore,
     bagsWon,
+    bagPoints: bagsWon,
+    bidScore,
     madeBid,
+    regularBid,
+    regularTricks,
+    nilScore,
     nilResults,
     bagPenalty: 0,
   };
@@ -1222,11 +1236,49 @@ function renderHistory() {
   els.historyWrap.innerHTML = `${header}${history.map((entry) => `
     <div class="history-row">
       <strong>${entry.handNumber}</strong>
-      ${(entry.teams || []).map((team) => `
-        <span>${Number(team.roundScore) || 0} <b class="history-marker">Bid ${Number(team.bid) || 0}, ${Number(team.tricks) || 0} tricks</b></span>
-      `).join("")}
+      ${state.teams.map((team) => {
+        const historyTeam = (entry.teams || []).find((entryTeam) => entryTeam.id === team.id) || {};
+        return `<span class="history-score-line">${spadesHistoryScoreLine(historyTeam)}</span>`;
+      }).join("")}
     </div>
   `).join("")}`;
+}
+
+function spadesHistoryScoreLine(team) {
+  const bid = numericHistoryValue(team.bid);
+  const taken = numericHistoryValue(team.tricks);
+  const takenPoints = numericHistoryValue(team.takenPoints, fallbackTakenPoints(bid, taken));
+  const bags = numericHistoryValue(team.bagsWon, fallbackBagsWon(bid, taken));
+  const bagPoints = numericHistoryValue(team.bagPoints, bags);
+  const bagPenalty = numericHistoryValue(team.bagPenalty);
+  const nilScore = numericHistoryValue(team.nilScore);
+  const total = numericHistoryValue(team.roundScore, takenPoints + bagPoints + nilScore - bagPenalty);
+  const parts = [
+    `Bid: ${bid}`,
+    `Taken: ${taken}`,
+    `Taken Points: ${takenPoints}`,
+    `Bags: ${bags}`,
+    `Bag Points: ${bagPoints}`,
+  ];
+  if (nilScore) parts.push(`Nil: ${nilScore}`);
+  if (bagPenalty) parts.push(`Bag Penalty: -${bagPenalty}`);
+  parts.push(`Total: ${total}`);
+  return parts.join(", ");
+}
+
+function numericHistoryValue(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function fallbackTakenPoints(bid, taken) {
+  if (!bid) return 0;
+  return taken >= bid ? bid * 10 : bid * -10;
+}
+
+function fallbackBagsWon(bid, taken) {
+  if (!bid || taken < bid) return 0;
+  return Math.max(0, taken - bid);
 }
 
 function renderSessionControls(selectedId = els.savedSessionSelect.value) {
