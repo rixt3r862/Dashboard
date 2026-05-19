@@ -10,6 +10,9 @@ import {
   phase10CompletionMap,
   phase10ProgressByPlayerId,
   rummikubWinsByPlayerId,
+  applySpadesRoundScores,
+  scoreSpadesHand,
+  scoreSpadesTeamHand,
   totalsByPlayerId,
   totalsByTeamId,
   validateRoundScores,
@@ -342,4 +345,79 @@ test("SkyJo went-out player doubles only when another player is lower or equal",
     skyjoWentOutPlayerId: "a",
   });
   assert.deepEqual(noDoubleWhenNonPositive, { a: -2, b: 1, c: 7 });
+});
+
+test("Spades hand scoring includes bags and bag penalties", () => {
+  assert.deepEqual(scoreSpadesHand({ bid: 5, tricks: 7, priorBags: 0 }), {
+    bid: 5,
+    tricks: 7,
+    takenPoints: 50,
+    bags: 2,
+    bagPoints: 2,
+    priorBags: 0,
+    bagPenalty: 0,
+    bagsAfter: 2,
+    nilScore: 0,
+    total: 52,
+    madeBid: true,
+  });
+  assert.equal(
+    scoreSpadesHand({ bid: 5, tricks: 8, priorBags: 8 }).total,
+    -47,
+  );
+  assert.equal(
+    scoreSpadesHand({ bid: 3, tricks: 4, nilScore: -100 }).total,
+    -69,
+  );
+  assert.equal(
+    scoreSpadesTeamHand({
+      team: { id: "A", members: ["p1", "p3"] },
+      playerBids: { p1: 3, p3: 0 },
+      playerTricks: { p1: 4, p3: 1 },
+    }).total,
+    -69,
+  );
+});
+
+test("Spades preset scores are recalculated with running bag penalties", () => {
+  const players = [
+    { id: "p1", name: "P1" },
+    { id: "p2", name: "P2" },
+    { id: "p3", name: "P3" },
+    { id: "p4", name: "P4" },
+  ];
+  const teams = [
+    { id: "A", members: ["p1", "p3"] },
+    { id: "B", members: ["p2", "p4"] },
+  ];
+  const rounds = applySpadesRoundScores(players, teams, [
+    {
+      n: 1,
+      scores: {},
+      spadesBids: { p1: 3, p2: 2, p3: 2, p4: 2 },
+      spadesTricks: { p1: 4, p2: 3, p3: 4, p4: 2 },
+    },
+    {
+      n: 2,
+      scores: {},
+      spadesBids: { p1: 3, p2: 2, p3: 2, p4: 2 },
+      spadesTricks: { p1: 4, p2: 3, p3: 4, p4: 2 },
+    },
+    {
+      n: 3,
+      scores: {},
+      spadesBids: { p1: 3, p2: 2, p3: 2, p4: 2 },
+      spadesTricks: { p1: 4, p2: 3, p3: 4, p4: 2 },
+    },
+    {
+      n: 4,
+      scores: {},
+      spadesBids: { p1: 3, p2: 2, p3: 2, p4: 2 },
+      spadesTricks: { p1: 4, p2: 3, p3: 4, p4: 2 },
+    },
+  ]);
+
+  assert.equal(rounds[3].scores.p1, -47);
+  assert.equal(rounds[3].spadesTeamBagPenaltyByTeamId.A, 100);
+  assert.equal(rounds[3].spadesTeamBagsAfterByTeamId.A, 2);
 });

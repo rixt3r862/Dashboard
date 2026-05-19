@@ -9,6 +9,8 @@ import {
   phase10ProgressByPlayerId,
   rummikubRackTotalsByPlayerId,
   rummikubWinsByPlayerId,
+  applySpadesRoundScores,
+  spadesTeamBreakdownForRound,
 } from "./rules.mjs";
 
 export function createHistoryController(deps) {
@@ -52,6 +54,10 @@ export function createHistoryController(deps) {
 
   function isQuiz() {
     return state.presetKey === "quiz";
+  }
+
+  function usesSpadesTeamHistory() {
+    return state.presetKey === "spades" && Array.isArray(state.teams) && state.teams.length;
   }
 
   function inactiveRangesForPlayer(playerId) {
@@ -216,6 +222,9 @@ export function createHistoryController(deps) {
     state.rounds.forEach((r, i) => {
       r.n = i + 1;
     });
+    if (usesSpadesTeamHistory()) {
+      state.rounds = applySpadesRoundScores(state.players, state.teams, state.rounds);
+    }
     state.lastRoundScores = state.rounds.length
       ? state.rounds[state.rounds.length - 1].scores || {}
       : {};
@@ -2063,6 +2072,36 @@ export function createHistoryController(deps) {
     return scores;
   }
 
+  function readHistoryEditSpadesTeamStats(roundN) {
+    const bids = {};
+    const tricks = {};
+    for (const player of state.players || []) {
+      for (const stat of ["bid", "tricks"]) {
+        const selector =
+          `[data-history-edit-round="${roundN}"]` +
+          `[data-history-edit-spades-stat="${stat}"]` +
+          `[data-player-id="${player.id}"]`;
+        const input =
+          els.historyTable.querySelector(selector) ||
+          els.historyCards?.querySelector(selector) ||
+          null;
+        if (!(input instanceof HTMLInputElement)) return null;
+        const raw = String(input.value ?? "").trim();
+        const value = raw === "" ? 0 : Number.parseInt(raw, 10);
+        if (!Number.isInteger(value) || value < 0 || value > 13) return null;
+        if (stat === "bid") bids[player.id] = value;
+        if (stat === "tricks") tricks[player.id] = value;
+      }
+    }
+    const trickTotal = Object.values(tricks).reduce((sum, value) => sum + value, 0);
+    if (trickTotal !== 13) {
+      return {
+        error: `Spades: tricks taken must total 13 for the hand (currently ${trickTotal}).`,
+      };
+    }
+    return { bids, tricks };
+  }
+
   function readHistoryEditPhase10Completions(roundN) {
     const completions = Object.fromEntries(state.players.map((p) => [p.id, 0]));
     for (const p of state.players) {
@@ -2106,6 +2145,20 @@ export function createHistoryController(deps) {
   function saveHistoryEdit(roundN) {
     const idx = state.rounds.findIndex((r) => r.n === roundN);
     if (idx < 0) return;
+
+    if (usesSpadesTeamHistory()) {
+      const spadesStats = readHistoryEditSpadesTeamStats(roundN);
+      if (!spadesStats || spadesStats.error) {
+        showMsg(els.roundMsg, spadesStats?.error || "Spades bids and tricks must be whole numbers from 0 to 13.");
+        return;
+      }
+      state.rounds[idx].spadesBids = spadesStats.bids;
+      state.rounds[idx].spadesTricks = spadesStats.tricks;
+      state.rounds[idx].ts = Date.now();
+      showMsg(els.roundMsg, "");
+      recalcAfterHistoryChange(`Round ${roundN} updated.`);
+      return;
+    }
 
     let scores = readHistoryEditScores(roundN);
     if (!scores) {
@@ -2185,7 +2238,56 @@ export function createHistoryController(deps) {
     ).matches;
   }
 
+  function spadesTeamRoundScore(round, team) {
+    return (team?.members || []).reduce(
+      (sum, playerId) => sum + Number(round?.scores?.[playerId] ?? 0),
+      0,
+    );
+  }
+
+  function buildSpadesHistoryRows() {
+    const runningTotalsByTeamId = Object.fromEntries(
+      (state.teams || []).map((team) => [team.id, 0]),
+    );
+    const runningBagsByTeamId = Object.fromEntries(
+      (state.teams || []).map((team) => [team.id, 0]),
+    );
+    const rows = [];
+
+    for (const round of state.rounds) {
+      const cells = (state.teams || []).map((team) => {
+        const breakdown = spadesTeamBreakdownForRound(
+          team,
+          round,
+          runningBagsByTeamId[team.id] ?? 0,
+        );
+        runningBagsByTeamId[team.id] = breakdown.bagsAfter;
+        const displayV = spadesTeamRoundScore(round, team);
+        runningTotalsByTeamId[team.id] += Number.isFinite(displayV) ? displayV : 0;
+        return {
+          pid: team.id,
+          rawV: displayV,
+          displayV,
+          retired: false,
+          totalAfterRound: Number(runningTotalsByTeamId[team.id] ?? 0),
+          playerName: team.name || "Team",
+          spadesBreakdown: breakdown,
+        };
+      });
+
+      rows.push({
+        roundN: round.n,
+        editing: state.historyEditingRoundN === round.n,
+        cells,
+      });
+    }
+
+    return rows;
+  }
+
   function buildHistoryRows(cols) {
+    if (usesSpadesTeamHistory()) return buildSpadesHistoryRows();
+
     const phaseCompletionsById = isPhase10()
       ? Object.fromEntries(cols.map((pid) => [pid, 0]))
       : null;
@@ -2301,7 +2403,63 @@ export function createHistoryController(deps) {
 
   function buildEditControl(roundN, cell) {
     let input;
-    if (isPhase10()) {
+    if (usesSpadesTeamHistory()) {
+      input = document.createElement("div");
+      input.className = "history-edit-spades";
+      const playerNameById = new Map(state.players.map((player) => [player.id, player.name || "Player"]));
+      const team = (state.teams || []).find((entry) => entry.id === cell.pid);
+      const playerStats = cell.spadesBreakdown?.playerStats?.length
+        ? cell.spadesBreakdown.playerStats
+        : (team?.members || []).map((playerId) => ({
+            playerId,
+            bid: 0,
+            tricks: 0,
+          }));
+
+      for (const playerStat of playerStats) {
+        const row = document.createElement("div");
+        row.className = "history-edit-spades-player";
+
+        const name = document.createElement("span");
+        name.className = "history-edit-spades-name";
+        name.textContent = playerNameById.get(playerStat.playerId) || "Player";
+        row.appendChild(name);
+
+        const fields = [
+          { key: "bid", label: "Bid", value: playerStat.bid },
+          { key: "tricks", label: "Taken", value: playerStat.tricks },
+        ];
+
+        for (const field of fields) {
+          const label = document.createElement("label");
+          label.className = "history-edit-spades-field";
+
+          const labelText = document.createElement("span");
+          labelText.textContent = field.label;
+          label.appendChild(labelText);
+
+          const statInput = document.createElement("input");
+          statInput.type = "number";
+          statInput.name = `historyRound${roundN}Spades-${field.key}-${playerStat.playerId}`;
+          statInput.inputMode = "numeric";
+          statInput.min = "0";
+          statInput.max = "13";
+          statInput.className = "history-edit-input";
+          statInput.value = String(field.value);
+          statInput.setAttribute(
+            "aria-label",
+            `Round ${roundN} ${field.label.toLowerCase()} for ${name.textContent}`,
+          );
+          statInput.setAttribute("data-history-edit-round", String(roundN));
+          statInput.setAttribute("data-history-edit-spades-stat", field.key);
+          statInput.setAttribute("data-player-id", playerStat.playerId);
+          label.appendChild(statInput);
+          row.appendChild(label);
+        }
+        input.appendChild(row);
+      }
+      return input;
+    } else if (isPhase10()) {
       input = document.createElement("div");
       input.className = "history-edit-phase10";
 
@@ -2425,6 +2583,34 @@ export function createHistoryController(deps) {
     return input;
   }
 
+  function spadesHistoryScoreLines(cell) {
+    if (!cell.spadesBreakdown) {
+      return [{ kind: "stat", label: "Total", value: String(Number.isFinite(cell.displayV) ? cell.displayV : 0), total: true }];
+    }
+    const breakdown = cell.spadesBreakdown;
+    const total = Number.isFinite(cell.displayV) ? cell.displayV : breakdown.total;
+    const playerNameById = new Map(state.players.map((player) => [player.id, player.name || "Player"]));
+    const playerLines = (breakdown.playerStats || []).map((playerStat) => ({
+      kind: "player",
+      name: playerNameById.get(playerStat.playerId) || "Player",
+      bid: playerStat.bid,
+      taken: playerStat.tricks,
+      nilScore: playerStat.nilBid ? playerStat.nilScore : null,
+    }));
+    const lines = [
+      ...playerLines,
+      { kind: "stat", label: "Team Bid", value: String(breakdown.bid) },
+      { kind: "stat", label: "Team Taken", value: String(breakdown.tricks) },
+      { kind: "stat", label: "Taken Points", value: String(breakdown.takenPoints) },
+      { kind: "stat", label: "Bags", value: String(breakdown.bags) },
+      { kind: "stat", label: "Bag Points", value: String(breakdown.bagPoints) },
+    ];
+    if (breakdown.nilScore) lines.push({ kind: "stat", label: "Nil", value: String(breakdown.nilScore) });
+    if (breakdown.bagPenalty) lines.push({ kind: "stat", label: "Bag Penalty", value: `-${breakdown.bagPenalty}` });
+    lines.push({ kind: "stat", label: "Total", value: String(total), total: true });
+    return lines;
+  }
+
   function appendReadOnlyScore(parent, cell, classTarget) {
     if (cell.retired) {
       const valueText = document.createElement("span");
@@ -2436,6 +2622,80 @@ export function createHistoryController(deps) {
       retiredBadge.className = "history-score-badge retired";
       retiredBadge.textContent = "RET";
       parent.appendChild(retiredBadge);
+      return;
+    }
+
+    if (cell.spadesBreakdown) {
+      classTarget.classList.add("history-score-spades");
+      const stack = document.createElement("span");
+      stack.className = "history-spades-score-stack";
+      for (const line of spadesHistoryScoreLines(cell)) {
+        if (line.kind === "player") {
+          const row = document.createElement("span");
+          row.className = `history-spades-player-row${line.nilScore !== null ? " has-nil" : ""}`;
+
+          const name = document.createElement("span");
+          name.className = "history-spades-player-name";
+          name.textContent = line.name;
+          row.appendChild(name);
+
+          const bidLabel = document.createElement("span");
+          bidLabel.className = "history-spades-mini-label";
+          bidLabel.textContent = "Bid";
+          row.appendChild(bidLabel);
+
+          const bidValue = document.createElement("span");
+          bidValue.className = "history-spades-num";
+          bidValue.textContent = String(line.bid);
+          row.appendChild(bidValue);
+
+          const takenLabel = document.createElement("span");
+          takenLabel.className = "history-spades-mini-label";
+          takenLabel.textContent = "Taken";
+          row.appendChild(takenLabel);
+
+          const takenValue = document.createElement("span");
+          takenValue.className = "history-spades-num";
+          takenValue.textContent = String(line.taken);
+          row.appendChild(takenValue);
+
+          if (line.nilScore !== null) {
+            const nilLabel = document.createElement("span");
+            nilLabel.className = "history-spades-mini-label";
+            nilLabel.textContent = "Nil";
+            row.appendChild(nilLabel);
+
+            const nilValue = document.createElement("span");
+            nilValue.className = "history-spades-num";
+            nilValue.textContent = String(line.nilScore);
+            row.appendChild(nilValue);
+          }
+          stack.appendChild(row);
+        } else {
+          const row = document.createElement("span");
+          row.className = `history-spades-score-line${line.total ? " total" : ""}`;
+
+          const label = document.createElement("span");
+          label.className = "history-spades-score-label";
+          label.textContent = `${line.label}:`;
+          row.appendChild(label);
+
+          const value = document.createElement("span");
+          value.className = "history-spades-score-value";
+          value.textContent = line.value;
+          row.appendChild(value);
+
+          stack.appendChild(row);
+        }
+      }
+      parent.appendChild(stack);
+
+      if (state.showHistoryTotals) {
+        const totalText = document.createElement("span");
+        totalText.className = "history-score-total";
+        totalText.textContent = `Running Total: ${formatStatValue(cell.totalAfterRound)}`;
+        parent.appendChild(totalText);
+      }
       return;
     }
 
@@ -2534,7 +2794,9 @@ export function createHistoryController(deps) {
   }
 
   function renderHistoryTable() {
-    const cols = state.players.map((p) => p.id);
+    const cols = usesSpadesTeamHistory()
+      ? state.teams.map((team) => team.id)
+      : state.players.map((p) => p.id);
     const tbl = els.historyTable;
     const cards = els.historyCards;
     const useCards = shouldUseHistoryCards();
@@ -2626,7 +2888,9 @@ export function createHistoryController(deps) {
       for (const pid of cols) {
         const th = document.createElement("th");
         const playerName =
-          state.players.find((p) => p.id === pid)?.name ?? "Player";
+          usesSpadesTeamHistory()
+            ? state.teams.find((team) => team.id === pid)?.name ?? "Team"
+            : state.players.find((p) => p.id === pid)?.name ?? "Player";
         if (isPhase10() && phase10Progress) {
           const wrapper = document.createElement("div");
           wrapper.className = "history-player-head";

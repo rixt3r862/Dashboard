@@ -14,6 +14,7 @@ import {
   determineWinnerFromTotals as resolveWinnerFromTotals,
   normalizeHeartsShootMoonScores,
   normalizeRummikubRoundScores,
+  applySpadesRoundScores,
   rummikubWinsByPlayerId,
   totalsByPlayerId as sumTotalsByPlayerId,
   totalsByTeamId as sumTotalsByTeamId,
@@ -215,8 +216,10 @@ import { createScoreboardController } from "./js/scoreboard.js";
     lastRoundScores: {}, // for display only
     currentRoundScores: {}, // in-progress round entry values
     currentRoundPhase10Completed: {}, // in-progress Phase 10 completion flags
-    currentRoundSpadesTeamBids: {}, // in-progress Spades team bids
-    currentRoundSpadesTeamTricks: {}, // in-progress Spades team tricks taken
+    currentRoundSpadesBids: {}, // in-progress Spades player bids
+    currentRoundSpadesTricks: {}, // in-progress Spades player tricks taken
+    currentRoundSpadesTeamBids: {}, // legacy/derived Spades team bids
+    currentRoundSpadesTeamTricks: {}, // legacy/derived Spades team tricks taken
     roundEntryOrder: [], // player ids for round-entry display only
     playerInactiveRanges: {}, // { [playerId]: [{ startRound, endRound|null }] }
     winnerId: null, // playerId or teamId (depending on mode)
@@ -1563,6 +1566,15 @@ import { createScoreboardController } from "./js/scoreboard.js";
                 ]),
               )
             : null,
+        spadesTeamNilScoreByTeamId:
+          r.spadesTeamNilScoreByTeamId && typeof r.spadesTeamNilScoreByTeamId === "object"
+            ? Object.fromEntries(
+                Object.entries(r.spadesTeamNilScoreByTeamId).map(([id, value]) => [
+                  String(id),
+                  Math.trunc(Number(value) || 0),
+                ]),
+              )
+            : null,
         spadesBids:
           r.spadesBids && typeof r.spadesBids === "object"
             ? Object.fromEntries(
@@ -1624,6 +1636,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.currentRoundPhase10Completed = Object.fromEntries(
         state.players.map((p) => [p.id, 0]),
       );
+      state.currentRoundSpadesBids = {};
+      state.currentRoundSpadesTricks = {};
       state.currentRoundSpadesTeamBids = {};
       state.currentRoundSpadesTeamTricks = {};
       state.bannerDismissed = false;
@@ -2035,6 +2049,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.lastRoundScores = {};
     state.currentRoundScores = {};
     state.currentRoundPhase10Completed = {};
+    state.currentRoundSpadesBids = {};
+    state.currentRoundSpadesTricks = {};
     state.currentRoundSpadesTeamBids = {};
     state.currentRoundSpadesTeamTricks = {};
     clearWinnerLifecycle();
@@ -2112,6 +2128,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundSpadesBids = {};
+    state.currentRoundSpadesTricks = {};
     state.currentRoundSpadesTeamBids = {};
     state.currentRoundSpadesTeamTricks = {};
     clearWinnerLifecycle();
@@ -2251,7 +2269,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
 
   function spadesTeamStatsForCurrentRound() {
     if (state.presetKey !== "spades" || !state.teams?.length) {
-      return { bids: {}, tricks: {} };
+      return { bids: {}, tricks: {}, teamBids: {}, teamTricks: {}, teamNilScores: {} };
     }
     return roundEntry.readSpadesTeamStats();
   }
@@ -2259,9 +2277,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function spadesRoundStatsBlockReason(stats = spadesTeamStatsForCurrentRound()) {
     if (state.presetKey !== "spades" || !state.teams?.length) return "";
     let trickTotal = 0;
-    for (const team of state.teams) {
-      const bid = Number(stats.bids?.[team.id] ?? 0);
-      const tricks = Number(stats.tricks?.[team.id] ?? 0);
+    for (const player of activePlayers()) {
+      const bid = Number(stats.bids?.[player.id] ?? 0);
+      const tricks = Number(stats.tricks?.[player.id] ?? 0);
       if (!Number.isInteger(bid) || bid < 0 || bid > 13) {
         return "Spades: bids must be whole numbers from 0 to 13.";
       }
@@ -2343,6 +2361,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
     els.scoreboardCard.classList.toggle("hearts-mode", state.presetKey === "hearts");
     els.scoreboardCard.classList.toggle("uno-mode", state.presetKey === "uno");
     els.scoreboardCard.classList.toggle("skyjo-mode", state.presetKey === "skyjo");
+    els.scoreboardCard.classList.toggle("spades-mode", state.presetKey === "spades");
     const isRummikub = state.presetKey === "rummikub";
     const isQuiz = state.presetKey === "quiz";
 
@@ -2745,6 +2764,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
+    state.currentRoundSpadesBids = {};
+    state.currentRoundSpadesTricks = {};
     state.currentRoundSpadesTeamBids = {};
     state.currentRoundSpadesTeamTricks = {};
     clearWinnerLifecycle();
@@ -3145,6 +3166,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
       state.presetKey === "spades" && state.teams?.length
         ? roundEntry.readSpadesTeamStats()
         : null;
+    if (spadesTeamStats) {
+      scores = roundEntry.readRoundScores();
+    }
     const blockReason = addRoundBlockReason(scores);
     if (blockReason) {
       showMsg(els.roundMsg, blockReason);
@@ -3185,7 +3209,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
       if (!proceed) return;
     }
     const nextN = state.rounds.length + 1;
-    const round = {
+    let round = {
       n: nextN,
       scores,
       ts: Date.now(),
@@ -3209,13 +3233,32 @@ import { createScoreboardController } from "./js/scoreboard.js";
           : null,
       spadesTeamBidsByTeamId:
         state.presetKey === "spades" && spadesTeamStats
-          ? spadesTeamStats.bids
+          ? spadesTeamStats.teamBids
           : null,
       spadesTeamTricksByTeamId:
+        state.presetKey === "spades" && spadesTeamStats
+          ? spadesTeamStats.teamTricks
+          : null,
+      spadesTeamNilScoreByTeamId:
+        state.presetKey === "spades" && spadesTeamStats
+          ? spadesTeamStats.teamNilScores
+          : null,
+      spadesBids:
+        state.presetKey === "spades" && spadesTeamStats
+          ? spadesTeamStats.bids
+          : null,
+      spadesTricks:
         state.presetKey === "spades" && spadesTeamStats
           ? spadesTeamStats.tricks
           : null,
     };
+    if (state.presetKey === "spades" && state.teams?.length && spadesTeamStats) {
+      round = applySpadesRoundScores(state.players, state.teams, [
+        ...state.rounds,
+        round,
+      ]).at(-1);
+      scores = round.scores;
+    }
     state.rounds.push(round);
     state.lastRoundScores = scores;
     state.currentRoundScores = Object.fromEntries(
@@ -3224,8 +3267,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
-    state.currentRoundSpadesTeamBids = {};
-    state.currentRoundSpadesTeamTricks = {};
+    state.currentRoundSpadesBids = {};
+    state.currentRoundSpadesTricks = {};
     state.currentRoundSpadesTeamBids = {};
     state.currentRoundSpadesTeamTricks = {};
     state.historyEditingRoundN = null;

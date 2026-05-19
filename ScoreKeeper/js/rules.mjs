@@ -20,6 +20,195 @@ export function heartsRoundPenaltyTotal(deckCount = 1) {
   return 26 * normalizeDeckCount(deckCount);
 }
 
+function normalizeSpadesCount(value) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) ? Math.max(0, parsed) : 0;
+}
+
+export function scoreSpadesHand({ bid = 0, tricks = 0, priorBags = 0, nilScore = 0 } = {}) {
+  const normalizedBid = normalizeSpadesCount(bid);
+  const normalizedTricks = normalizeSpadesCount(tricks);
+  const normalizedPriorBags = normalizeSpadesCount(priorBags);
+  const normalizedNilScore = Math.trunc(Number(nilScore) || 0);
+  const madeBid = normalizedTricks >= normalizedBid;
+  const takenPoints = normalizedBid === 0
+    ? 0
+    : madeBid
+    ? normalizedBid * 10
+    : normalizedBid * -10;
+  const bags = madeBid ? Math.max(0, normalizedTricks - normalizedBid) : 0;
+  const bagPoints = bags;
+  const totalBags = normalizedPriorBags + bags;
+  const bagPenalty = Math.floor(totalBags / 10) * 100;
+  const bagsAfter = totalBags % 10;
+  const total = takenPoints + bagPoints + normalizedNilScore - bagPenalty;
+
+  return {
+    bid: normalizedBid,
+    tricks: normalizedTricks,
+    takenPoints,
+    bags,
+    bagPoints,
+    priorBags: normalizedPriorBags,
+    bagPenalty,
+    bagsAfter,
+    nilScore: normalizedNilScore,
+    total,
+    madeBid,
+  };
+}
+
+export function scoreSpadesTeamHand({
+  team = null,
+  playerBids = null,
+  playerTricks = null,
+  bid = 0,
+  tricks = 0,
+  priorBags = 0,
+  nilScore = 0,
+} = {}) {
+  const members = Array.isArray(team?.members) ? team.members : [];
+  const hasPlayerStats =
+    members.length > 0 &&
+    playerBids &&
+    playerTricks &&
+    members.some((playerId) =>
+      Object.prototype.hasOwnProperty.call(playerBids, playerId) ||
+      Object.prototype.hasOwnProperty.call(playerTricks, playerId),
+    );
+
+  if (!hasPlayerStats) {
+    return {
+      ...scoreSpadesHand({ bid, tricks, priorBags, nilScore }),
+      totalTricks: normalizeSpadesCount(tricks),
+      playerStats: [],
+    };
+  }
+
+  let regularBid = 0;
+  let regularTricks = 0;
+  let totalTricks = 0;
+  let teamNilScore = 0;
+  const playerStats = members.map((playerId) => {
+    const playerBid = normalizeSpadesCount(playerBids?.[playerId] ?? 0);
+    const playerTaken = normalizeSpadesCount(playerTricks?.[playerId] ?? 0);
+    const nilBid = playerBid === 0;
+    const playerNilScore = nilBid ? (playerTaken === 0 ? 100 : -100) : 0;
+    if (nilBid) {
+      teamNilScore += playerNilScore;
+    } else {
+      regularBid += playerBid;
+      regularTricks += playerTaken;
+    }
+    totalTricks += playerTaken;
+    return {
+      playerId,
+      bid: playerBid,
+      tricks: playerTaken,
+      nilBid,
+      nilScore: playerNilScore,
+    };
+  });
+
+  return {
+    ...scoreSpadesHand({
+      bid: regularBid,
+      tricks: regularTricks,
+      priorBags,
+      nilScore: teamNilScore,
+    }),
+    totalTricks,
+    playerStats,
+  };
+}
+
+export function spadesTeamBreakdownForRound(team, round, priorBags = 0) {
+  const hasPlayerStats =
+    round?.spadesBids &&
+    round?.spadesTricks &&
+    (team?.members || []).some((playerId) =>
+      Object.prototype.hasOwnProperty.call(round.spadesBids, playerId) ||
+      Object.prototype.hasOwnProperty.call(round.spadesTricks, playerId),
+    );
+  if (hasPlayerStats) {
+    return scoreSpadesTeamHand({
+      team,
+      playerBids: round.spadesBids,
+      playerTricks: round.spadesTricks,
+      priorBags,
+    });
+  }
+  return scoreSpadesTeamHand({
+    team,
+    bid: round?.spadesTeamBidsByTeamId?.[team.id] ?? 0,
+    tricks: round?.spadesTeamTricksByTeamId?.[team.id] ?? 0,
+    priorBags,
+    nilScore: round?.spadesTeamNilScoreByTeamId?.[team.id] ?? 0,
+  });
+}
+
+export function spadesBagsByTeamId(teams = [], rounds = []) {
+  const bagsByTeamId = Object.fromEntries((teams || []).map((team) => [team.id, 0]));
+  for (const round of rounds || []) {
+    for (const team of teams || []) {
+      const breakdown = spadesTeamBreakdownForRound(
+        team,
+        round,
+        bagsByTeamId[team.id] ?? 0,
+      );
+      bagsByTeamId[team.id] = breakdown.bagsAfter;
+    }
+  }
+  return bagsByTeamId;
+}
+
+export function applySpadesRoundScores(players = [], teams = [], rounds = []) {
+  const bagsByTeamId = Object.fromEntries((teams || []).map((team) => [team.id, 0]));
+  return (rounds || []).map((round) => {
+    const scores = Object.fromEntries((players || []).map((player) => [player.id, 0]));
+    const spadesTeamBagsWonByTeamId = {};
+    const spadesTeamBagPenaltyByTeamId = {};
+    const spadesTeamBagsAfterByTeamId = {};
+    const spadesTeamTakenPointsByTeamId = {};
+    const spadesTeamBagPointsByTeamId = {};
+    const spadesTeamBidsByTeamId = {};
+    const spadesTeamTricksByTeamId = {};
+    const spadesTeamNilScoreByTeamId = {};
+
+    for (const team of teams || []) {
+      const breakdown = spadesTeamBreakdownForRound(
+        team,
+        round,
+        bagsByTeamId[team.id] ?? 0,
+      );
+      const scoreOwnerId = team.members?.[0];
+      if (scoreOwnerId) scores[scoreOwnerId] = breakdown.total;
+      bagsByTeamId[team.id] = breakdown.bagsAfter;
+      spadesTeamBidsByTeamId[team.id] = breakdown.bid;
+      spadesTeamTricksByTeamId[team.id] = breakdown.tricks;
+      spadesTeamNilScoreByTeamId[team.id] = breakdown.nilScore;
+      spadesTeamBagsWonByTeamId[team.id] = breakdown.bags;
+      spadesTeamBagPenaltyByTeamId[team.id] = breakdown.bagPenalty;
+      spadesTeamBagsAfterByTeamId[team.id] = breakdown.bagsAfter;
+      spadesTeamTakenPointsByTeamId[team.id] = breakdown.takenPoints;
+      spadesTeamBagPointsByTeamId[team.id] = breakdown.bagPoints;
+    }
+
+    return {
+      ...round,
+      scores,
+      spadesTeamBidsByTeamId,
+      spadesTeamTricksByTeamId,
+      spadesTeamNilScoreByTeamId,
+      spadesTeamBagsWonByTeamId,
+      spadesTeamBagPenaltyByTeamId,
+      spadesTeamBagsAfterByTeamId,
+      spadesTeamTakenPointsByTeamId,
+      spadesTeamBagPointsByTeamId,
+    };
+  });
+}
+
 export function rummikubRackTotalsByPlayerId(players, round) {
   const ids = Array.isArray(players) ? players.map((p) => p.id) : [];
   const explicit = round?.rummikubRackTotalsByPlayerId;

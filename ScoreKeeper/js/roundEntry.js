@@ -3,6 +3,8 @@ import {
   heartsRoundPenaltyTotal,
   phase10CompletionMap,
   phase10ProgressByPlayerId,
+  scoreSpadesTeamHand,
+  spadesBagsByTeamId,
 } from "./rules.mjs";
 
 export function createRoundEntryController(deps) {
@@ -104,20 +106,20 @@ export function createRoundEntryController(deps) {
   }
 
   function ensureCurrentSpadesTeamStats() {
-    if (!state.currentRoundSpadesTeamBids || typeof state.currentRoundSpadesTeamBids !== "object") {
-      state.currentRoundSpadesTeamBids = {};
+    if (!state.currentRoundSpadesBids || typeof state.currentRoundSpadesBids !== "object") {
+      state.currentRoundSpadesBids = {};
     }
-    if (!state.currentRoundSpadesTeamTricks || typeof state.currentRoundSpadesTeamTricks !== "object") {
-      state.currentRoundSpadesTeamTricks = {};
+    if (!state.currentRoundSpadesTricks || typeof state.currentRoundSpadesTricks !== "object") {
+      state.currentRoundSpadesTricks = {};
     }
-    for (const team of state.teams || []) {
-      state.currentRoundSpadesTeamBids[team.id] = Math.max(
+    for (const player of activePlayers()) {
+      state.currentRoundSpadesBids[player.id] = Math.max(
         0,
-        Math.trunc(Number(state.currentRoundSpadesTeamBids[team.id] ?? 0) || 0),
+        Math.trunc(Number(state.currentRoundSpadesBids[player.id] ?? 0) || 0),
       );
-      state.currentRoundSpadesTeamTricks[team.id] = Math.max(
+      state.currentRoundSpadesTricks[player.id] = Math.max(
         0,
-        Math.trunc(Number(state.currentRoundSpadesTeamTricks[team.id] ?? 0) || 0),
+        Math.trunc(Number(state.currentRoundSpadesTricks[player.id] ?? 0) || 0),
       );
     }
   }
@@ -135,20 +137,26 @@ export function createRoundEntryController(deps) {
   function readSpadesTeamStats() {
     ensureCurrentSpadesTeamStats();
     els.roundPreviewBody
-      ?.querySelectorAll('input[data-preview-action="spades-stat"][data-team-id][data-spades-stat]')
+      ?.querySelectorAll('input[data-preview-action="spades-stat"][data-player-id][data-spades-stat]')
       .forEach((input) => {
         if (!(input instanceof HTMLInputElement)) return;
-        const teamId = input.getAttribute("data-team-id");
+        const playerId = input.getAttribute("data-player-id");
         const stat = input.getAttribute("data-spades-stat");
-        if (!teamId || !stat) return;
+        if (!playerId || !stat) return;
         const value = Math.max(0, Math.trunc(Number.parseInt(input.value, 10) || 0));
-        if (stat === "bid") state.currentRoundSpadesTeamBids[teamId] = value;
-        if (stat === "tricks") state.currentRoundSpadesTeamTricks[teamId] = value;
-        syncSpadesTeamScore(teamId);
+        if (stat === "bid") state.currentRoundSpadesBids[playerId] = value;
+        if (stat === "tricks") state.currentRoundSpadesTricks[playerId] = value;
       });
+    for (const team of state.teams || []) {
+      syncSpadesTeamScore(team.id);
+    }
+    const teamStats = spadesTeamStatsFromCurrentRound();
     return {
-      bids: { ...state.currentRoundSpadesTeamBids },
-      tricks: { ...state.currentRoundSpadesTeamTricks },
+      bids: { ...state.currentRoundSpadesBids },
+      tricks: { ...state.currentRoundSpadesTricks },
+      teamBids: teamStats.teamBids,
+      teamTricks: teamStats.teamTricks,
+      teamNilScores: teamStats.teamNilScores,
     };
   }
 
@@ -197,12 +205,34 @@ export function createRoundEntryController(deps) {
     return state.presetKey === "spades" && Array.isArray(state.teams) && state.teams.length;
   }
 
-  function spadesHandScore(bid, tricks) {
-    const normalizedBid = Math.max(0, Math.trunc(Number(bid) || 0));
-    const normalizedTricks = Math.max(0, Math.trunc(Number(tricks) || 0));
-    return normalizedTricks >= normalizedBid
-      ? normalizedBid * 10 + (normalizedTricks - normalizedBid)
-      : normalizedBid * -10;
+  function spadesHandBreakdown(teamId) {
+    const team = state.teams?.find((entry) => entry.id === teamId);
+    return scoreSpadesTeamHand({
+      team,
+      playerBids: state.currentRoundSpadesBids || {},
+      playerTricks: state.currentRoundSpadesTricks || {},
+      priorBags: spadesBagsByTeamId(state.teams || [], state.rounds || [])?.[teamId] ?? 0,
+    });
+  }
+
+  function spadesTeamStatsFromCurrentRound() {
+    const teamBids = {};
+    const teamTricks = {};
+    const teamNilScores = {};
+    for (const team of state.teams || []) {
+      const breakdown = spadesHandBreakdown(team.id);
+      teamBids[team.id] = breakdown.bid;
+      teamTricks[team.id] = breakdown.tricks;
+      teamNilScores[team.id] = breakdown.nilScore;
+    }
+    return { teamBids, teamTricks, teamNilScores };
+  }
+
+  function spadesScoreNote(breakdown) {
+    const parts = [`Bags ${breakdown.bags}`];
+    if (breakdown.bagPenalty) parts.push(`Penalty -${breakdown.bagPenalty}`);
+    parts.push(`Carry ${breakdown.bagsAfter}`);
+    return parts.join(" · ");
   }
 
   function teamRoundScore(team, scores = state.currentRoundScores) {
@@ -217,35 +247,39 @@ export function createRoundEntryController(deps) {
     if (!team?.members?.length) return;
     ensureCurrentRoundScores();
     ensureCurrentSpadesTeamStats();
-    const score = spadesHandScore(
-      state.currentRoundSpadesTeamBids[teamId],
-      state.currentRoundSpadesTeamTricks[teamId],
-    );
+    const score = spadesHandBreakdown(teamId).total;
     team.members.forEach((playerId, index) => {
       state.currentRoundScores[playerId] = index === 0 ? score : 0;
     });
   }
 
-  function setSpadesTeamStatValue(teamId, stat, value, opts = {}) {
-    const { silent = false } = opts;
-    if (!state.teams?.some((entry) => entry.id === teamId)) return;
-    ensureCurrentSpadesTeamStats();
-    const n = Number.parseInt(value, 10);
-    const normalized = Math.max(0, Number.isNaN(n) ? 0 : n);
-    if (stat === "bid") state.currentRoundSpadesTeamBids[teamId] = normalized;
-    if (stat === "tricks") state.currentRoundSpadesTeamTricks[teamId] = normalized;
-    syncSpadesTeamScore(teamId);
+  function updateSpadesTeamScoreDisplay(teamId) {
     const row = els.roundPreviewBody?.querySelector(
       `[data-preview-row="${CSS.escape(teamId)}"]`,
     );
     const scoreText = row?.querySelector(".round-preview-spades-score strong");
+    const scoreNote = row?.querySelector(".round-preview-spades-score .round-preview-score-note");
+    const breakdown = spadesHandBreakdown(teamId);
     if (scoreText) {
-      scoreText.textContent = String(
-        spadesHandScore(
-          state.currentRoundSpadesTeamBids[teamId],
-          state.currentRoundSpadesTeamTricks[teamId],
-        ),
-      );
+      scoreText.textContent = String(breakdown.total);
+    }
+    if (scoreNote) {
+      scoreNote.textContent = spadesScoreNote(breakdown);
+    }
+  }
+
+  function setSpadesPlayerStatValue(playerId, stat, value, opts = {}) {
+    const { silent = false } = opts;
+    if (!activePlayers().some((player) => player.id === playerId)) return;
+    ensureCurrentSpadesTeamStats();
+    const n = Number.parseInt(value, 10);
+    const normalized = Math.max(0, Number.isNaN(n) ? 0 : n);
+    if (stat === "bid") state.currentRoundSpadesBids[playerId] = normalized;
+    if (stat === "tricks") state.currentRoundSpadesTricks[playerId] = normalized;
+    for (const team of state.teams || []) {
+      if (!(team.members || []).includes(playerId)) continue;
+      syncSpadesTeamScore(team.id);
+      updateSpadesTeamScoreDisplay(team.id);
     }
     if (!silent) {
       showMsg(els.roundMsg, "");
@@ -447,15 +481,17 @@ export function createRoundEntryController(deps) {
     }
     if (usesSpadesTeamEntry()) {
       ensureCurrentSpadesTeamStats();
-      for (const team of state.teams) {
-        state.currentRoundSpadesTeamBids[team.id] = n;
-        state.currentRoundSpadesTeamTricks[team.id] = n;
+      for (const player of activePlayers()) {
+        state.currentRoundSpadesBids[player.id] = n;
+        state.currentRoundSpadesTricks[player.id] = n;
+      }
+      for (const team of state.teams || []) {
         syncSpadesTeamScore(team.id);
       }
       renderRoundPreview();
       closeRoundHelperForm();
       showMsg(els.roundMsg, "");
-      setLive("Applied bid and tricks to all teams.");
+      setLive("Applied bid and tricks to all Spades players.");
       return;
     }
     const scores = Object.fromEntries(activePlayers().map((p) => [p.id, n]));
@@ -737,9 +773,27 @@ export function createRoundEntryController(deps) {
             .filter(Boolean)
             .join(" + ");
           const membersLabel = memberNames ? `<span class="round-preview-note">${escapeHtml(memberNames)}</span>` : "";
-          const bid = Number(state.currentRoundSpadesTeamBids[team.id] ?? 0);
-          const tricks = Number(state.currentRoundSpadesTeamTricks[team.id] ?? 0);
-          const val = spadesHandScore(bid, tricks);
+          const breakdown = spadesHandBreakdown(team.id);
+          const playerFields = (team.members || [])
+            .map((playerId) => {
+              const playerName = playerById.get(playerId)?.name || "Player";
+              const bid = Number(state.currentRoundSpadesBids[playerId] ?? 0);
+              const tricks = Number(state.currentRoundSpadesTricks[playerId] ?? 0);
+              return `
+                <span class="round-preview-spades-player">
+                  <span class="round-preview-spades-player-name">${escapeHtml(playerName)}</span>
+                  <span class="round-preview-spades-field">
+                    <span class="round-preview-note">Bid</span>
+                    <input type="number" name="spadesBid-${escapeHtml(playerId)}" inputmode="numeric" autocomplete="off" class="round-preview-input" data-preview-action="spades-stat" data-spades-stat="bid" data-player-id="${escapeHtml(playerId)}" min="0" max="13" value="${bid}" aria-label="Bid for ${escapeHtml(playerName)}" />
+                  </span>
+                  <span class="round-preview-spades-field">
+                    <span class="round-preview-note">Taken</span>
+                    <input type="number" name="spadesTricks-${escapeHtml(playerId)}" inputmode="numeric" autocomplete="off" class="round-preview-input" data-preview-action="spades-stat" data-spades-stat="tricks" data-player-id="${escapeHtml(playerId)}" min="0" max="13" value="${tricks}" aria-label="Tricks taken by ${escapeHtml(playerName)}" />
+                  </span>
+                </span>
+              `;
+            })
+            .join("");
           syncSpadesTeamScore(team.id);
           return `
             <div class="round-preview-item spades-team" data-preview-row="${escapeHtml(team.id)}">
@@ -748,17 +802,13 @@ export function createRoundEntryController(deps) {
                 ${membersLabel}
               </span>
               <span class="round-preview-right">
-                <span class="round-preview-spades-field">
-                  <span class="round-preview-note">Bid</span>
-                  <input type="number" name="spadesBid-${escapeHtml(team.id)}" inputmode="numeric" autocomplete="off" class="round-preview-input" data-preview-action="spades-stat" data-spades-stat="bid" data-team-id="${escapeHtml(team.id)}" min="0" max="13" value="${bid}" aria-label="Bid for ${teamName}" />
-                </span>
-                <span class="round-preview-spades-field">
-                  <span class="round-preview-note">Tricks</span>
-                  <input type="number" name="spadesTricks-${escapeHtml(team.id)}" inputmode="numeric" autocomplete="off" class="round-preview-input" data-preview-action="spades-stat" data-spades-stat="tricks" data-team-id="${escapeHtml(team.id)}" min="0" max="13" value="${tricks}" aria-label="Tricks taken by ${teamName}" />
+                <span class="round-preview-spades-players">
+                  ${playerFields}
                 </span>
                 <span class="round-preview-spades-score" aria-label="Calculated score for ${teamName}">
                   <span class="round-preview-note">Score</span>
-                  <strong>${val}</strong>
+                  <strong>${breakdown.total}</strong>
+                  <span class="round-preview-note round-preview-score-note">${escapeHtml(spadesScoreNote(breakdown))}</span>
                 </span>
               </span>
             </div>
@@ -768,7 +818,7 @@ export function createRoundEntryController(deps) {
       els.roundPreviewBody.innerHTML = `
         <div class="round-preview-cols">
           <span>Team</span>
-          <span>Bid / Tricks / ${valueLabel}</span>
+          <span>Player Bids / Tricks / ${valueLabel}</span>
         </div>
         ${rows}
       `;
@@ -947,8 +997,8 @@ export function createRoundEntryController(deps) {
     state.currentRoundPhase10Completed = Object.fromEntries(
       state.players.map((p) => [p.id, 0]),
     );
-    state.currentRoundSpadesTeamBids = {};
-    state.currentRoundSpadesTeamTricks = {};
+    state.currentRoundSpadesBids = {};
+    state.currentRoundSpadesTricks = {};
     renderRoundPreview();
     syncRenderedScoreInputs();
   }
@@ -1015,10 +1065,10 @@ export function createRoundEntryController(deps) {
         return;
       }
       if (previewAction === "spades-stat") {
-        const teamId = target.getAttribute("data-team-id");
+        const playerId = target.getAttribute("data-player-id");
         const stat = target.getAttribute("data-spades-stat");
-        if (!teamId || !stat) return;
-        setSpadesTeamStatValue(teamId, stat, target.value, { silent: true });
+        if (!playerId || !stat) return;
+        setSpadesPlayerStatValue(playerId, stat, target.value, { silent: true });
         onRoundInputsChanged?.();
         return;
       }
@@ -1040,10 +1090,10 @@ export function createRoundEntryController(deps) {
       if (!(target instanceof HTMLInputElement)) return;
       const previewAction = target.getAttribute("data-preview-action");
       if (previewAction === "spades-stat") {
-        const teamId = target.getAttribute("data-team-id");
+        const playerId = target.getAttribute("data-player-id");
         const stat = target.getAttribute("data-spades-stat");
-        if (!teamId || !stat) return;
-        setSpadesTeamStatValue(teamId, stat, target.value, { silent: true });
+        if (!playerId || !stat) return;
+        setSpadesPlayerStatValue(playerId, stat, target.value, { silent: true });
         onRoundInputsChanged?.();
         return;
       }
@@ -1093,9 +1143,9 @@ export function createRoundEntryController(deps) {
 
       const playerId = target.getAttribute("data-player-id");
       const teamId = target.getAttribute("data-team-id");
-      if (previewAction === "spades-stat" && teamId) {
+      if (previewAction === "spades-stat" && playerId) {
         const stat = target.getAttribute("data-spades-stat");
-        if (stat) setSpadesTeamStatValue(teamId, stat, target.value, { silent: true });
+        if (stat) setSpadesPlayerStatValue(playerId, stat, target.value, { silent: true });
       } else if (teamId) {
         setTeamRoundScoreInputValue(teamId, target.value, { silent: true });
       } else if (playerId) {
