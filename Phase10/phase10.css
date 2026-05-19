@@ -1487,10 +1487,6 @@ body.game-active .deck-card-badge {
   font-size: 0.86rem;
 }
 
-.round-history-mobile-result .round-history-phase-note {
-  grid-column: 1 / -1;
-}
-
 .round-history-table {
   width: 100%;
   border-collapse: collapse;
@@ -1559,8 +1555,7 @@ body.game-active .deck-card-badge {
 }
 
 .round-history-cell {
-  display: grid;
-  gap: 0.16rem;
+  display: block;
 }
 
 .round-history-cell strong {
@@ -1568,10 +1563,17 @@ body.game-active .deck-card-badge {
   color: var(--text);
 }
 
-.round-history-cell span,
-.round-history-out {
+.round-history-cell span {
   color: var(--muted);
   font-size: 0.76rem;
+}
+
+.round-history-score-line {
+  white-space: nowrap;
+}
+
+.round-history-mobile-score {
+  text-align: right;
 }
 
 .round-history-phase-note.is-complete {
@@ -1580,6 +1582,11 @@ body.game-active .deck-card-badge {
 
 .round-history-phase-note.is-empty {
   color: #f28b82;
+}
+
+.round-history-marker {
+  color: var(--accent-strong);
+  font-size: 0.76rem;
 }
 
 .players-board {

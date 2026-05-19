@@ -1109,6 +1109,12 @@ button {
   text-transform: none;
 }
 
+.history-marker {
+  color: var(--accent-strong);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .empty-board {
   display: grid;
   place-items: center;

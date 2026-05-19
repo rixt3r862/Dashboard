@@ -3783,23 +3783,11 @@ function renderRoundHistory() {
 
   const rows = orderedHistory
     .map((entry) => {
-      const outPlayerName = state.players.find((player) => player.id === entry.outPlayerId)?.name ?? "Unknown";
       const playerCells = state.players
         .map((player) => {
-          const result = entry.playerResults[player.id];
-          const points = result ? `+${result.points}` : "-";
-          const phaseNote = result?.completedPhaseNumber
-            ? `Phase ${result.completedPhaseNumber}`
-            : "No phase";
-          const phaseNoteClass = result?.completedPhaseNumber
-            ? "round-history-phase-note is-complete"
-            : "round-history-phase-note is-empty";
           return `
             <td>
-              <div class="round-history-cell">
-                <strong>${escapeHtml(points)}</strong>
-                <span class="${phaseNoteClass}">${escapeHtml(phaseNote)}</span>
-              </div>
+              <div class="round-history-cell">${roundHistoryResultMarkup(entry, player)}</div>
             </td>
           `;
         })
@@ -3807,9 +3795,8 @@ function renderRoundHistory() {
 
       return `
         <tr>
-          <th scope="row">R${entry.roundNumber}</th>
+          <th scope="row">${entry.roundNumber}</th>
           ${playerCells}
-          <td class="round-history-out">${escapeHtml(outPlayerName)}</td>
         </tr>
       `;
     })
@@ -3817,23 +3804,12 @@ function renderRoundHistory() {
 
   const mobileCards = orderedHistory
     .map((entry) => {
-      const outPlayerName =
-        state.players.find((player) => player.id === entry.outPlayerId)?.name ?? "Unknown";
       const resultRows = state.players
         .map((player) => {
-          const result = entry.playerResults[player.id];
-          const points = result ? `+${result.points}` : "-";
-          const phaseNote = result?.completedPhaseNumber
-            ? `Phase ${result.completedPhaseNumber}`
-            : "No phase";
-          const phaseNoteClass = result?.completedPhaseNumber
-            ? "round-history-phase-note is-complete"
-            : "round-history-phase-note is-empty";
           return `
             <div class="round-history-mobile-result">
               <span class="round-history-mobile-player">${escapeHtml(player.name)}</span>
-              <strong>${escapeHtml(points)}</strong>
-              <span class="${phaseNoteClass}">${escapeHtml(phaseNote)}</span>
+              <span class="round-history-mobile-score">${roundHistoryResultMarkup(entry, player)}</span>
             </div>
           `;
         })
@@ -3843,7 +3819,6 @@ function renderRoundHistory() {
         <article class="round-history-mobile-card">
           <div class="round-history-mobile-head">
             <strong>Round ${entry.roundNumber}</strong>
-            <span class="round-history-out">Went out: ${escapeHtml(outPlayerName)}</span>
           </div>
           <div class="round-history-mobile-results">${resultRows}</div>
         </article>
@@ -3877,12 +3852,28 @@ function renderRoundHistory() {
         <tr>
           <th scope="col">Round</th>
           ${headCells}
-          <th scope="col">Went Out</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
   `;
+}
+
+function roundHistoryResultMarkup(entry, player) {
+  const result = entry.playerResults[player.id];
+  if (!result) {
+    return `<span class="round-history-score-line"><strong>-</strong>${player.id === entry.outPlayerId ? ` - <b class="round-history-marker">Out</b>` : ""}</span>`;
+  }
+  const phaseNote = result.completedPhaseNumber
+    ? `Phase ${result.completedPhaseNumber}`
+    : "No phase";
+  const phaseNoteClass = result.completedPhaseNumber
+    ? "round-history-phase-note is-complete"
+    : "round-history-phase-note is-empty";
+  const outMarker = player.id === entry.outPlayerId
+    ? ` - <b class="round-history-marker">Out</b>`
+    : "";
+  return `<span class="round-history-score-line"><strong>${escapeHtml(result.points)}</strong> - <span class="${phaseNoteClass}">${escapeHtml(phaseNote)}</span>${outMarker}</span>`;
 }
 
 function renderMeldStack(player, targetIds, selectedCard, options = {}) {

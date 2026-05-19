@@ -1253,7 +1253,6 @@ function renderHistory() {
         <tr>
           <th scope="col">Round</th>
           ${headCells}
-          <th scope="col">Out</th>
         </tr>
       </thead>
       <tbody>
@@ -1264,23 +1263,26 @@ function renderHistory() {
 }
 
 function historyRowMarkup(round) {
-  const trigger = state.players.find((player) => player.id === round.triggerId);
   return `
     <tr>
-      <th>R${round.roundNumber}</th>
-      ${state.players.map((player) => {
-        const result = round.results[player.id];
-        const doubled = player.id === round.triggerId && round.triggerDoubled;
-        const scoreText = result
-          ? doubled
-            ? `(${result.raw}) x2 ${result.points}`
-            : String(result.points)
-          : "-";
-        return `<td>${escapeHtml(scoreText)}</td>`;
-      }).join("")}
-      <td>${escapeHtml(trigger?.name ?? "-")}</td>
+      <th>${round.roundNumber}</th>
+      ${state.players.map((player) => `<td>${historyScoreMarkup(round, player)}</td>`).join("")}
     </tr>
   `;
+}
+
+function historyScoreMarkup(round, player) {
+  const result = round.results[player.id];
+  const doubled = player.id === round.triggerId && round.triggerDoubled;
+  const scoreText = result
+    ? doubled
+      ? `(${result.raw}) x2 ${result.points}`
+      : String(result.points)
+    : "-";
+  const marker = player.id === round.triggerId
+    ? ` <b class="history-marker">- Out</b>`
+    : "";
+  return `${escapeHtml(scoreText)}${marker}`;
 }
 
 function cardMarkup(card, options = {}) {
