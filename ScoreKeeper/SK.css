@@ -1593,6 +1593,11 @@ summary::-webkit-details-marker{ display:none; }
   color: #fecaca;
   border-color: rgba(248,113,113,.6);
 }
+#scoreboardCard.phase10-mode .history-score-total{
+  color: rgba(248,250,252,.88);
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(15,23,42,.28);
+}
 #scoreboardCard.phase10-mode .history-edit-input{
   background: rgba(15,23,42,.45);
   color: #f8fafc;
