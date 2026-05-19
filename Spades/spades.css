@@ -853,7 +853,7 @@ button {
 
 .hand-controls {
   display: flex;
-  justify-content: end;
+  justify-content: center;
   margin-bottom: 0.6rem;
 }
 
