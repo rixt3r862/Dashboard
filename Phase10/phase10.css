@@ -1,27 +1,33 @@
 :root {
   color-scheme: dark;
-  --bg: #08271d;
-  --bg-deep: #03130d;
-  --panel: rgba(8, 36, 27, 0.78);
-  --panel-strong: rgba(13, 50, 38, 0.92);
-  --line: rgba(182, 220, 193, 0.18);
-  --text: #f5f2e8;
-  --muted: #bdd0c3;
-  --accent: #f0b64f;
-  --accent-strong: #ffd67f;
+  --bg: #1b24c9;
+  --bg-deep: #060942;
+  --panel: rgba(9, 14, 81, 0.84);
+  --panel-strong: rgba(13, 20, 111, 0.92);
+  --line: rgba(255, 242, 61, 0.24);
+  --text: #fffdf4;
+  --muted: #cbd5ff;
+  --accent: #fff23d;
+  --accent-strong: #fff85a;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-  --red: #d94b4b;
-  --blue: #3e86d1;
-  --green: #36a56c;
-  --yellow: #d8a329;
+  --red: #f02618;
+  --blue: #2631e8;
+  --green: #21a85c;
+  --yellow: #f7df2f;
+  --phase-red-rgb: 240, 38, 24;
+  --phase-blue-rgb: 38, 49, 232;
+  --phase-yellow-rgb: 255, 242, 61;
+  --phase-navy-rgb: 7, 19, 89;
+  --phase-panel-rgb: 9, 14, 81;
+  --phase-paper-rgb: 255, 253, 244;
   --game-btn-padding: 0.75rem 0.9rem;
   --game-btn-radius: 1rem;
-  --game-btn-bg: rgba(250, 246, 232, 0.08);
+  --game-btn-bg: rgba(var(--phase-paper-rgb), 0.08);
   --game-btn-hover-transform: translateY(-1px);
   --game-btn-disabled-opacity: 0.45;
-  --game-btn-primary-border: rgba(255, 214, 127, 0.5);
-  --game-btn-primary-bg: linear-gradient(135deg, #f0b64f, #e28c31);
-  --game-btn-primary-color: #2c1804;
+  --game-btn-primary-border: rgba(var(--phase-yellow-rgb), 0.62);
+  --game-btn-primary-bg: linear-gradient(135deg, #fff23d 0%, #ffcd34 42%, #f02618 100%);
+  --game-btn-primary-color: #081257;
   --game-btn-danger-border: rgba(217, 75, 75, 0.35);
   --game-btn-danger-bg: rgba(217, 75, 75, 0.12);
   --game-btn-danger-hover-bg: rgba(217, 75, 75, 0.18);
@@ -31,8 +37,8 @@
   --game-panel-copy-line-height: 1.4;
   --game-field-gap: 0.35rem;
   --game-field-label-size: 0.82rem;
-  --game-field-border: rgba(240, 242, 233, 0.16);
-  --game-field-bg: rgba(250, 246, 232, 0.08);
+  --game-field-border: rgba(var(--phase-yellow-rgb), 0.18);
+  --game-field-bg: rgba(var(--phase-paper-rgb), 0.08);
   --game-field-radius: 0.95rem;
   --game-field-padding: 0.75rem 0.9rem;
 }
@@ -53,9 +59,11 @@ body {
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(255, 214, 127, 0.1), transparent 24rem),
-    radial-gradient(circle at bottom right, rgba(62, 134, 209, 0.14), transparent 26rem),
-    linear-gradient(180deg, #114b39, var(--bg-deep));
+    linear-gradient(132deg, transparent 0 14%, rgba(var(--phase-red-rgb), 0.18) 14% 15.4%, rgba(var(--phase-yellow-rgb), 0.2) 15.4% 16.1%, transparent 16.1% 100%),
+    linear-gradient(148deg, transparent 0 83%, rgba(var(--phase-yellow-rgb), 0.16) 83% 83.8%, rgba(var(--phase-red-rgb), 0.16) 83.8% 85.4%, transparent 85.4% 100%),
+    radial-gradient(circle at top left, rgba(var(--phase-yellow-rgb), 0.16), transparent 24rem),
+    radial-gradient(circle at bottom right, rgba(var(--phase-red-rgb), 0.2), transparent 28rem),
+    linear-gradient(180deg, #2733ed 0%, var(--bg) 42%, var(--bg-deep) 100%);
 }
 
 button,
@@ -108,8 +116,8 @@ select {
   margin: 0.45rem 0 0;
   padding: 0.58rem 0.72rem;
   border-radius: 0.95rem;
-  border: 1px solid rgba(255, 214, 127, 0.24);
-  background: rgba(6, 24, 18, 0.56);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.24);
+  background: rgba(var(--phase-panel-rgb), 0.56);
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.35;
@@ -150,8 +158,8 @@ select {
   gap: 0.18rem;
   padding: 0.48rem 0.52rem;
   border-radius: 0.95rem;
-  border: 1px solid rgba(250, 246, 232, 0.08);
-  background: rgba(6, 24, 18, 0.56);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
+  background: rgba(var(--phase-panel-rgb), 0.56);
   min-width: 0;
 }
 
@@ -182,8 +190,8 @@ select {
 }
 
 .mobile-view-tab.is-active {
-  background: rgba(240, 182, 79, 0.18);
-  border-color: rgba(255, 214, 127, 0.44);
+  background: rgba(var(--phase-red-rgb), 0.2);
+  border-color: rgba(var(--phase-yellow-rgb), 0.44);
   color: var(--accent-strong);
 }
 
@@ -197,15 +205,15 @@ select {
   gap: 0.18rem;
   padding: 0.46rem 0.5rem;
   border-radius: 0.92rem;
-  border: 1px solid rgba(250, 246, 232, 0.08);
-  background: rgba(6, 24, 18, 0.56);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
+  background: rgba(var(--phase-panel-rgb), 0.56);
   min-width: 0;
 }
 
 .mobile-opponent-chip.current,
 .mobile-opponent-chip.round-out {
-  border-color: rgba(255, 214, 127, 0.42);
-  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.12) inset;
+  border-color: rgba(var(--phase-yellow-rgb), 0.42);
+  box-shadow: 0 0 0 1px rgba(var(--phase-yellow-rgb), 0.12) inset;
 }
 
 .mobile-opponent-head {
@@ -263,13 +271,13 @@ select {
   100% {
     box-shadow:
       0 14px 28px rgba(0, 0, 0, 0.18),
-      0 0 0 1px rgba(255, 214, 127, 0.08) inset;
+      0 0 0 1px rgba(var(--phase-yellow-rgb), 0.08) inset;
   }
   50% {
     box-shadow:
       0 14px 28px rgba(0, 0, 0, 0.18),
-      0 0 0 1px rgba(255, 214, 127, 0.14) inset,
-      0 0 1.35rem rgba(255, 214, 127, 0.16);
+      0 0 0 1px rgba(var(--phase-yellow-rgb), 0.14) inset,
+      0 0 1.35rem rgba(var(--phase-yellow-rgb), 0.16);
   }
 }
 
@@ -282,11 +290,12 @@ select {
 .panel::after {
   content: "";
   position: absolute;
-  inset: auto -10% -65% auto;
-  width: 13rem;
-  height: 13rem;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(240, 182, 79, 0.1), transparent 65%);
+  inset: auto 0 0 auto;
+  width: 9rem;
+  height: 9rem;
+  background:
+    linear-gradient(134deg, transparent 0 52%, rgba(var(--phase-red-rgb), 0.1) 52% 64%, rgba(var(--phase-yellow-rgb), 0.12) 64% 68%, transparent 68% 100%);
+  opacity: 0.8;
   pointer-events: none;
 }
 
@@ -302,14 +311,15 @@ select {
   transform-origin: top center;
   padding: 0.72rem 0.85rem;
   border-radius: 1rem;
-  border: 1px solid rgba(255, 214, 127, 0.6);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.6);
   background:
-    radial-gradient(circle at left, rgba(255, 214, 127, 0.3), transparent 50%),
-    linear-gradient(180deg, rgba(139, 235, 104, 0.2), rgba(8, 36, 27, 0.18)),
-    rgba(8, 36, 27, 0.84);
+    linear-gradient(132deg, rgba(var(--phase-red-rgb), 0.24), transparent 38%),
+    radial-gradient(circle at left, rgba(var(--phase-yellow-rgb), 0.3), transparent 50%),
+    linear-gradient(180deg, rgba(var(--phase-blue-rgb), 0.22), rgba(var(--phase-panel-rgb), 0.18)),
+    rgba(var(--phase-panel-rgb), 0.88);
   box-shadow:
     0 14px 28px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(255, 214, 127, 0.08) inset;
+    0 0 0 1px rgba(var(--phase-yellow-rgb), 0.08) inset;
 }
 
 .game-flow-banner::before {
@@ -355,18 +365,18 @@ select {
   line-height: 1.05;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.16),
-    0 8px 22px rgba(255, 214, 127, 0.14);
+    0 8px 22px rgba(var(--phase-yellow-rgb), 0.14);
 }
 
 .game-flow-banner span {
-  color: rgba(250, 246, 232, 0.82);
+  color: rgba(var(--phase-paper-rgb), 0.82);
   font-size: 0.94rem;
 }
 
 .game-flow-banner .starter-kicker {
   border-radius: 999px;
-  border: 1px solid rgba(255, 214, 127, 0.3);
-  background: rgba(255, 214, 127, 0.1);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.3);
+  background: rgba(var(--phase-yellow-rgb), 0.1);
   color: var(--accent-strong);
   padding: 0.18rem 0.52rem;
   font-size: 0.7rem;
@@ -450,22 +460,23 @@ select {
   margin-top: 0.75rem;
   padding: 0.7rem 0.85rem;
   border-radius: 1rem;
-  border: 1px solid rgba(255, 214, 127, 0.4);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.4);
   background:
-    radial-gradient(circle at top left, rgba(255, 214, 127, 0.14), transparent 45%),
-    linear-gradient(135deg, rgba(61, 37, 8, 0.92), rgba(118, 64, 18, 0.84));
-  color: #f7e6bd;
+    linear-gradient(128deg, rgba(var(--phase-red-rgb), 0.28), transparent 42%),
+    radial-gradient(circle at top left, rgba(var(--phase-yellow-rgb), 0.16), transparent 45%),
+    linear-gradient(135deg, rgba(9, 14, 81, 0.94), rgba(52, 22, 93, 0.84));
+  color: #fff4b2;
   font-size: 0.92rem;
   line-height: 1.4;
   box-shadow:
     0 12px 28px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(255, 214, 127, 0.08) inset;
+    0 0 0 1px rgba(var(--phase-yellow-rgb), 0.08) inset;
   animation: round-banner-enter 220ms ease;
   min-height: 3.2rem;
 }
 
 .table-notice strong {
-  color: #ffe49d;
+  color: var(--accent-strong);
 }
 
 .table-notice[hidden] {
@@ -516,8 +527,8 @@ select {
   gap: 0.7rem;
   padding: 0.58rem 0.68rem;
   border-radius: 0.9rem;
-  border: 1px solid rgba(250, 246, 232, 0.08);
-  background: rgba(250, 246, 232, 0.04);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
+  background: rgba(var(--phase-paper-rgb), 0.04);
 }
 
 .checkbox-field input {
@@ -612,32 +623,32 @@ select {
 }
 
 #layPhaseBtn {
-  background: rgba(250, 246, 232, 0.08);
-  border-color: rgba(255, 214, 127, 0.5);
+  background: rgba(var(--phase-paper-rgb), 0.08);
+  border-color: rgba(var(--phase-yellow-rgb), 0.5);
   color: var(--text);
   font-weight: 600;
 }
 
 @media (hover: hover) {
   #layPhaseBtn:hover:not(:disabled) {
-    background: linear-gradient(135deg, #f0b64f, #e28c31);
-    border-color: rgba(255, 214, 127, 0.5);
-    color: #2c1804;
+    background: var(--game-btn-primary-bg);
+    border-color: rgba(var(--phase-yellow-rgb), 0.58);
+    color: var(--game-btn-primary-color);
   }
 }
 
 @media (hover: none) {
   #layPhaseBtn:not(:disabled) {
-    background: linear-gradient(135deg, #f0b64f, #e28c31);
-    border-color: rgba(255, 214, 127, 0.5);
-    color: #2c1804;
+    background: var(--game-btn-primary-bg);
+    border-color: rgba(var(--phase-yellow-rgb), 0.58);
+    color: var(--game-btn-primary-color);
     font-weight: 700;
   }
 
   #layPhaseBtn:not(:disabled):active {
-    background: linear-gradient(135deg, #dca247, #cb7a2d);
-    border-color: rgba(245, 198, 101, 0.58);
-    color: #2c1804;
+    background: linear-gradient(135deg, #e6da36, #df2a18);
+    border-color: rgba(var(--phase-yellow-rgb), 0.58);
+    color: var(--game-btn-primary-color);
     transform: translateY(0);
   }
 }
@@ -840,8 +851,8 @@ body.game-active .deck-card-badge {
 }
 
 .status-chip {
-  background: rgba(250, 246, 232, 0.06);
-  border: 1px solid rgba(250, 246, 232, 0.08);
+  background: rgba(var(--phase-paper-rgb), 0.06);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
   border-radius: 1rem;
   padding: 0.62rem 0.75rem;
   display: grid;
@@ -905,10 +916,10 @@ body.game-active .deck-card-badge {
   min-width: 4.1rem;
   aspect-ratio: 3 / 5;
   border-radius: 0.95rem;
-  border: 1px solid rgba(255, 214, 127, 0.35);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.52);
   background:
-    linear-gradient(135deg, rgba(255, 214, 127, 0.22), rgba(240, 182, 79, 0.06)),
-    linear-gradient(180deg, rgba(250, 246, 232, 0.1), rgba(8, 36, 27, 0.28));
+    linear-gradient(130deg, transparent 0 38%, rgba(var(--phase-red-rgb), 0.86) 38% 58%, rgba(var(--phase-yellow-rgb), 0.9) 58% 62%, transparent 62% 100%),
+    linear-gradient(180deg, rgba(var(--phase-blue-rgb), 0.9), rgba(var(--phase-navy-rgb), 0.94));
   box-shadow: 0 14px 22px rgba(0, 0, 0, 0.28);
   overflow: hidden;
 }
@@ -922,17 +933,17 @@ body.game-active .deck-card-badge {
 }
 
 .deck-card::before {
-  border: 1px solid rgba(255, 214, 127, 0.28);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.38);
   background:
-    linear-gradient(45deg, rgba(255, 214, 127, 0.06) 25%, transparent 25%, transparent 50%, rgba(255, 214, 127, 0.06) 50%, rgba(255, 214, 127, 0.06) 75%, transparent 75%, transparent),
-    linear-gradient(-45deg, rgba(54, 165, 108, 0.2), rgba(62, 134, 209, 0.1));
+    linear-gradient(45deg, rgba(var(--phase-yellow-rgb), 0.08) 25%, transparent 25%, transparent 50%, rgba(var(--phase-yellow-rgb), 0.08) 50%, rgba(var(--phase-yellow-rgb), 0.08) 75%, transparent 75%, transparent),
+    linear-gradient(-45deg, rgba(var(--phase-red-rgb), 0.28), rgba(var(--phase-blue-rgb), 0.12));
   background-size: 1rem 1rem, 100% 100%;
 }
 
 .deck-card::after {
   inset: 1.3rem;
-  border: 1px solid rgba(250, 246, 232, 0.22);
-  background: radial-gradient(circle, rgba(250, 246, 232, 0.12), transparent 72%);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.22);
+  background: radial-gradient(circle, rgba(var(--phase-paper-rgb), 0.12), transparent 72%);
 }
 
 .deck-card-badge {
@@ -991,8 +1002,8 @@ body.game-active .deck-card-badge {
   min-width: 4.1rem;
   aspect-ratio: 3 / 5;
   border-radius: 0.95rem;
-  border: 1px dashed rgba(250, 246, 232, 0.18);
-  background: rgba(250, 246, 232, 0.04);
+  border: 1px dashed rgba(var(--phase-paper-rgb), 0.18);
+  background: rgba(var(--phase-paper-rgb), 0.04);
 }
 
 .pile-label {
@@ -1009,7 +1020,7 @@ body.game-active .deck-card-badge {
 .selection-card {
   padding: 0.7rem 0.75rem;
   border-radius: 1rem;
-  background: rgba(250, 246, 232, 0.06);
+  background: rgba(var(--phase-paper-rgb), 0.06);
   display: grid;
   gap: 0.35rem;
   min-height: 6.1rem;
@@ -1035,9 +1046,26 @@ body.game-active .deck-card-badge {
 }
 
 .hand-panel {
+  isolation: isolate;
   background:
-    radial-gradient(circle at top right, rgba(255, 214, 127, 0.08), transparent 45%),
+    linear-gradient(132deg, rgba(var(--phase-red-rgb), 0.11), transparent 32%),
+    radial-gradient(circle at top right, rgba(var(--phase-yellow-rgb), 0.1), transparent 45%),
     var(--panel);
+}
+
+.hand-panel::before {
+  content: "";
+  position: absolute;
+  inset: 3.2rem 16rem 0.9rem 1rem;
+  z-index: 0;
+  background: url("../ScoreKeeper/img/Phase%2010.png") center / contain no-repeat;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.hand-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .human-action-panel--embedded {
@@ -1045,9 +1073,11 @@ body.game-active .deck-card-badge {
   width: 100%;
   padding: 0.65rem;
   border-radius: 1rem;
-  border: 1px solid rgba(250, 246, 232, 0.08);
-  background: rgba(6, 24, 18, 0.34);
-  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.06) inset;
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
+  background:
+    linear-gradient(140deg, rgba(var(--phase-red-rgb), 0.1), transparent 44%),
+    rgba(var(--phase-panel-rgb), 0.48);
+  box-shadow: 0 0 0 1px rgba(var(--phase-yellow-rgb), 0.06) inset;
   min-height: 0;
 }
 
@@ -1106,14 +1136,14 @@ body.game-active .deck-card-badge {
 .human-action-panel--embedded .btn {
   padding: 0.62rem 0.68rem;
   border-radius: 0.85rem;
-  background: rgba(250, 246, 232, 0.07);
+  background: rgba(var(--phase-paper-rgb), 0.07);
   color: var(--text);
   font-size: 0.8rem;
 }
 
 .human-action-panel--embedded .btn-primary {
-  border-color: rgba(255, 214, 127, 0.46);
-  background: rgba(240, 182, 79, 0.2);
+  border-color: rgba(var(--phase-yellow-rgb), 0.54);
+  background: rgba(var(--phase-yellow-rgb), 0.16);
   color: var(--accent-strong);
 }
 
@@ -1121,12 +1151,12 @@ body.game-active .deck-card-badge {
   position: relative;
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid rgba(250, 246, 232, 0.14);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.14);
   border-radius: 0.85rem;
   overflow: hidden;
   padding: 0.62rem 0.68rem;
   min-height: 2.65rem;
-  background: rgba(250, 246, 232, 0.07);
+  background: rgba(var(--phase-paper-rgb), 0.07);
   color: var(--text);
   font: inherit;
   font-size: 0.75rem;
@@ -1186,14 +1216,14 @@ body.game-active .deck-card-badge {
 
 .mini-pile-action--deck {
   background:
-    linear-gradient(135deg, rgba(255, 214, 127, 0.22), rgba(240, 182, 79, 0.08)),
-    linear-gradient(180deg, rgba(54, 165, 108, 0.22), rgba(8, 36, 27, 0.34));
+    linear-gradient(135deg, rgba(var(--phase-yellow-rgb), 0.24), rgba(var(--phase-red-rgb), 0.1)),
+    linear-gradient(180deg, rgba(var(--phase-blue-rgb), 0.3), rgba(var(--phase-panel-rgb), 0.5));
   color: var(--accent-strong);
 }
 
 .mini-pile-action--discard {
   background:
-    linear-gradient(135deg, rgba(62, 134, 209, 0.18), rgba(250, 246, 232, 0.06)),
+    linear-gradient(135deg, rgba(var(--phase-blue-rgb), 0.2), rgba(var(--phase-paper-rgb), 0.06)),
     linear-gradient(180deg, rgba(17, 24, 39, 0.88), rgba(55, 65, 81, 0.82));
 }
 
@@ -1226,26 +1256,26 @@ body.game-active .deck-card-badge {
 }
 
 .hand-panel.current {
-  border-color: rgba(255, 214, 127, 0.44);
-  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.2) inset;
+  border-color: rgba(var(--phase-yellow-rgb), 0.44);
+  box-shadow: 0 0 0 1px rgba(var(--phase-yellow-rgb), 0.2) inset;
 }
 
 .hand-panel.round-out,
 .player-card.round-out {
-  border-color: rgba(255, 214, 127, 0.42);
+  border-color: rgba(var(--phase-yellow-rgb), 0.42);
   background:
-    radial-gradient(circle at top left, rgba(255, 214, 127, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(54, 34, 10, 0.92), rgba(110, 57, 19, 0.82));
+    radial-gradient(circle at top left, rgba(var(--phase-yellow-rgb), 0.16), transparent 32%),
+    linear-gradient(135deg, rgba(9, 14, 81, 0.94), rgba(128, 27, 31, 0.82));
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(255, 214, 127, 0.12) inset;
+    0 0 0 1px rgba(var(--phase-yellow-rgb), 0.12) inset;
   animation: round-banner-enter 220ms ease;
 }
 
 .hand-panel.round-out .human-phase-inline,
 .player-card.round-out .player-name,
 .player-card.round-out .player-card-target-note {
-  color: #f7e6bd;
+  color: #fff4b2;
 }
 
 .hand-panel.round-out .badge,
@@ -1254,8 +1284,8 @@ body.game-active .deck-card-badge {
 .player-card.round-out .badge,
 .player-card.round-out .stat-pill,
 .player-card.round-out .group-chip {
-  background: rgba(250, 246, 232, 0.14);
-  border-color: rgba(255, 214, 127, 0.18);
+  background: rgba(var(--phase-paper-rgb), 0.14);
+  border-color: rgba(var(--phase-yellow-rgb), 0.18);
 }
 
 .human-seat-summary {
@@ -1304,10 +1334,10 @@ body.game-active .deck-card-badge {
   gap: 0.4rem;
   padding: 0.58rem 0.62rem;
   border-radius: 0.9rem;
-  border: 1px solid rgba(255, 214, 127, 0.28);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.28);
   background:
-    radial-gradient(circle at top right, rgba(255, 214, 127, 0.12), transparent 58%),
-    rgba(250, 246, 232, 0.05);
+    radial-gradient(circle at top right, rgba(var(--phase-yellow-rgb), 0.12), transparent 58%),
+    rgba(var(--phase-paper-rgb), 0.05);
 }
 
 .phase-preview-head {
@@ -1407,9 +1437,9 @@ body.game-active .deck-card-badge {
 }
 
 .round-history-mobile-card {
-  border: 1px solid rgba(250, 246, 232, 0.08);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
   border-radius: 1rem;
-  background: rgba(4, 20, 15, 0.32);
+  background: rgba(var(--phase-panel-rgb), 0.36);
   padding: 0.68rem;
   display: grid;
   gap: 0.55rem;
@@ -1436,7 +1466,7 @@ body.game-active .deck-card-badge {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.14rem 0.5rem;
   padding-top: 0.36rem;
-  border-top: 1px solid rgba(250, 246, 232, 0.08);
+  border-top: 1px solid rgba(var(--phase-paper-rgb), 0.08);
 }
 
 .round-history-mobile-result:first-child {
@@ -1465,8 +1495,8 @@ body.game-active .deck-card-badge {
   width: 100%;
   border-collapse: collapse;
   min-width: 540px;
-  background: rgba(4, 20, 15, 0.28);
-  border: 1px solid rgba(250, 246, 232, 0.08);
+  background: rgba(var(--phase-panel-rgb), 0.32);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
   border-radius: 1rem;
   overflow: hidden;
 }
@@ -1474,7 +1504,7 @@ body.game-active .deck-card-badge {
 .round-history-table th,
 .round-history-table td {
   padding: 0.68rem 0.72rem;
-  border-bottom: 1px solid rgba(250, 246, 232, 0.08);
+  border-bottom: 1px solid rgba(var(--phase-paper-rgb), 0.08);
   text-align: left;
   vertical-align: top;
 }
@@ -1484,7 +1514,7 @@ body.game-active .deck-card-badge {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--accent-strong);
-  background: rgba(250, 246, 232, 0.06);
+  background: rgba(var(--phase-paper-rgb), 0.06);
 }
 
 .round-history-player-head {
@@ -1513,7 +1543,7 @@ body.game-active .deck-card-badge {
   letter-spacing: 0.02em;
   text-transform: none;
   color: var(--accent-strong);
-  background: rgba(240, 182, 79, 0.18);
+  background: rgba(var(--phase-yellow-rgb), 0.18);
   white-space: nowrap;
 }
 
@@ -1559,11 +1589,25 @@ body.game-active .deck-card-badge {
   margin-top: 0.75rem;
 }
 
+.board {
+  isolation: isolate;
+  background:
+    linear-gradient(128deg, rgba(var(--phase-red-rgb), 0.08), transparent 28%),
+    radial-gradient(circle at 82% 42%, rgba(var(--phase-yellow-rgb), 0.12), transparent 34%),
+    rgba(var(--phase-panel-rgb), 0.82);
+}
+
+.board::before {
+  content: none;
+}
+
 .player-card {
-  border: 1px solid rgba(250, 246, 232, 0.08);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
   border-radius: 1.15rem;
   padding: 0.8rem;
-  background: rgba(4, 20, 15, 0.36);
+  background:
+    linear-gradient(145deg, rgba(var(--phase-red-rgb), 0.08), transparent 38%),
+    rgba(var(--phase-panel-rgb), 0.46);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -1571,33 +1615,33 @@ body.game-active .deck-card-badge {
 }
 
 .player-card.current {
-  border-color: rgba(255, 214, 127, 0.44);
-  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.2) inset;
+  border-color: rgba(var(--phase-yellow-rgb), 0.44);
+  box-shadow: 0 0 0 1px rgba(var(--phase-yellow-rgb), 0.2) inset;
 }
 
 .player-card.skip-target {
   cursor: pointer;
-  border-color: rgba(255, 214, 127, 0.52);
+  border-color: rgba(var(--phase-yellow-rgb), 0.52);
   background:
-    radial-gradient(circle at top right, rgba(255, 214, 127, 0.12), transparent 55%),
-    rgba(250, 246, 232, 0.08);
-  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.14) inset;
+    radial-gradient(circle at top right, rgba(var(--phase-yellow-rgb), 0.12), transparent 55%),
+    rgba(var(--phase-paper-rgb), 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--phase-yellow-rgb), 0.14) inset;
 }
 
 .player-card.skip-target:hover,
 .player-card.skip-target:focus-visible {
   outline: none;
   transform: translateY(-2px);
-  border-color: rgba(255, 214, 127, 0.7);
+  border-color: rgba(var(--phase-yellow-rgb), 0.7);
   box-shadow:
     0 14px 18px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(255, 214, 127, 0.22) inset;
+    0 0 0 1px rgba(var(--phase-yellow-rgb), 0.22) inset;
 }
 
 .player-card.skip-target-selected {
-  border-color: rgba(255, 214, 127, 0.76);
+  border-color: rgba(var(--phase-yellow-rgb), 0.76);
   box-shadow:
-    0 0 0 2px rgba(255, 214, 127, 0.16) inset,
+    0 0 0 2px rgba(var(--phase-yellow-rgb), 0.16) inset,
     0 14px 18px rgba(0, 0, 0, 0.18);
 }
 
@@ -1611,8 +1655,9 @@ body.game-active .deck-card-badge {
 
 .player-card.human {
   background:
-    radial-gradient(circle at top right, rgba(255, 214, 127, 0.1), transparent 45%),
-    rgba(4, 20, 15, 0.46);
+    linear-gradient(145deg, rgba(var(--phase-red-rgb), 0.12), transparent 42%),
+    radial-gradient(circle at top right, rgba(var(--phase-yellow-rgb), 0.12), transparent 45%),
+    rgba(var(--phase-panel-rgb), 0.52);
 }
 
 .player-head,
@@ -1667,14 +1712,14 @@ body.game-active .deck-card-badge {
   border-radius: 999px;
   padding: 0.24rem 0.52rem;
   font-size: 0.72rem;
-  background: rgba(250, 246, 232, 0.08);
+  background: rgba(var(--phase-paper-rgb), 0.08);
   color: var(--text);
 }
 
 .sort-pill {
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid rgba(255, 214, 127, 0.28);
+  border: 1px solid rgba(var(--phase-yellow-rgb), 0.28);
   cursor: pointer;
   font: inherit;
   transition:
@@ -1685,13 +1730,13 @@ body.game-active .deck-card-badge {
 
 .sort-pill:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 214, 127, 0.48);
-  background: rgba(240, 182, 79, 0.14);
+  border-color: rgba(var(--phase-yellow-rgb), 0.48);
+  background: rgba(var(--phase-yellow-rgb), 0.14);
 }
 
 .badge.gold,
 .stat-pill.gold {
-  background: rgba(240, 182, 79, 0.18);
+  background: rgba(var(--phase-yellow-rgb), 0.18);
   color: var(--accent-strong);
 }
 
@@ -1733,8 +1778,8 @@ body.game-active .deck-card-badge {
   color: inherit;
   font: inherit;
   border-radius: 0.95rem;
-  border: 1px solid rgba(250, 246, 232, 0.08);
-  background: rgba(250, 246, 232, 0.05);
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.08);
+  background: rgba(var(--phase-paper-rgb), 0.05);
   padding: 0.58rem;
   display: grid;
   gap: 0.42rem;
@@ -1752,21 +1797,21 @@ body.game-active .deck-card-badge {
 
 .meld-card.hit-target {
   cursor: pointer;
-  border-color: rgba(255, 214, 127, 0.52);
+  border-color: rgba(var(--phase-yellow-rgb), 0.52);
   background:
-    radial-gradient(circle at top right, rgba(255, 214, 127, 0.12), transparent 55%),
-    rgba(250, 246, 232, 0.08);
-  box-shadow: 0 0 0 1px rgba(255, 214, 127, 0.14) inset;
+    radial-gradient(circle at top right, rgba(var(--phase-yellow-rgb), 0.12), transparent 55%),
+    rgba(var(--phase-paper-rgb), 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--phase-yellow-rgb), 0.14) inset;
 }
 
 .meld-card.hit-target:hover,
 .meld-card.hit-target:focus-visible {
   outline: none;
   transform: translateY(-2px);
-  border-color: rgba(255, 214, 127, 0.7);
+  border-color: rgba(var(--phase-yellow-rgb), 0.7);
   box-shadow:
     0 14px 18px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(255, 214, 127, 0.22) inset;
+    0 0 0 1px rgba(var(--phase-yellow-rgb), 0.22) inset;
 }
 
 .meld-card.just-laid {
@@ -1843,14 +1888,14 @@ body.game-active .deck-card-badge {
   cursor: pointer;
   box-shadow:
     0 12px 20px rgba(0, 0, 0, 0.18),
-    0 0 0 2px rgba(255, 214, 127, 0.28);
+    0 0 0 2px rgba(var(--phase-yellow-rgb), 0.28);
   transform: translateY(-1px);
 }
 
 .mini-card.undoable:hover {
   box-shadow:
     0 14px 22px rgba(0, 0, 0, 0.2),
-    0 0 0 2px rgba(255, 214, 127, 0.44);
+    0 0 0 2px rgba(var(--phase-yellow-rgb), 0.44);
 }
 
 .mini-card.flashed {
@@ -1890,13 +1935,13 @@ body.game-active .deck-card-badge {
 
 .hand-card.selected {
   transform: translateY(-4px);
-  border-color: rgba(255, 214, 127, 0.8);
-  box-shadow: 0 0 0 2px rgba(255, 214, 127, 0.24);
+  border-color: rgba(var(--phase-yellow-rgb), 0.8);
+  box-shadow: 0 0 0 2px rgba(var(--phase-yellow-rgb), 0.24);
 }
 
 .hand-card.previewed:not(.selected):not(.just-drew) {
-  border-color: rgba(255, 214, 127, 0.78);
-  box-shadow: 0 0 0 2px rgba(255, 214, 127, 0.18);
+  border-color: rgba(var(--phase-yellow-rgb), 0.78);
+  box-shadow: 0 0 0 2px rgba(var(--phase-yellow-rgb), 0.18);
 }
 
 .hand-card.dealt {
@@ -1905,9 +1950,9 @@ body.game-active .deck-card-badge {
 }
 
 .hand-card.just-drew {
-  border-color: rgba(255, 214, 127, 0.92);
+  border-color: rgba(var(--phase-yellow-rgb), 0.92);
   box-shadow:
-    0 0 0 2px rgba(255, 214, 127, 0.28),
+    0 0 0 2px rgba(var(--phase-yellow-rgb), 0.28),
     0 12px 24px rgba(0, 0, 0, 0.2);
 }
 
@@ -2028,7 +2073,7 @@ body.game-active .deck-card-badge {
 }
 
 .special-stripe.yellow {
-  background: #f0d130;
+  background: var(--yellow);
 }
 
 .card-special-word,
@@ -2127,13 +2172,13 @@ body.game-active .hero-copy {
   100% {
     transform: translateY(0);
     box-shadow:
-      0 0 0 2px rgba(255, 214, 127, 0.22),
+      0 0 0 2px rgba(var(--phase-yellow-rgb), 0.22),
       0 12px 20px rgba(0, 0, 0, 0.18);
   }
   50% {
     transform: translateY(-3px);
     box-shadow:
-      0 0 0 3px rgba(255, 214, 127, 0.34),
+      0 0 0 3px rgba(var(--phase-yellow-rgb), 0.34),
       0 16px 26px rgba(0, 0, 0, 0.22);
   }
 }
@@ -2162,7 +2207,7 @@ body.game-active .hero-copy {
     transform: translateY(-3px) scale(1.02);
     box-shadow:
       0 20px 28px rgba(0, 0, 0, 0.32),
-      0 0 0 3px rgba(255, 214, 127, 0.22);
+      0 0 0 3px rgba(var(--phase-yellow-rgb), 0.22);
   }
   100% {
     transform: translateY(0) scale(1);
@@ -2189,17 +2234,17 @@ body.game-active .hero-copy {
   0% {
     box-shadow:
       0 12px 20px rgba(0, 0, 0, 0.18),
-      0 0 0 0 rgba(255, 214, 127, 0);
+      0 0 0 0 rgba(var(--phase-yellow-rgb), 0);
   }
   35% {
     box-shadow:
       0 14px 22px rgba(0, 0, 0, 0.2),
-      0 0 0 3px rgba(255, 214, 127, 0.42);
+      0 0 0 3px rgba(var(--phase-yellow-rgb), 0.42);
   }
   100% {
     box-shadow:
       0 12px 20px rgba(0, 0, 0, 0.18),
-      0 0 0 0 rgba(255, 214, 127, 0);
+      0 0 0 0 rgba(var(--phase-yellow-rgb), 0);
   }
 }
 
@@ -2255,7 +2300,7 @@ body.game-active .hero-copy {
 
 .mini-card.yellow,
 .hand-card.card-type-number.yellow {
-  --color: #f0d130;
+  --color: var(--yellow);
 }
 
 .log-list {
@@ -2275,7 +2320,7 @@ body.game-active .hero-copy {
   border-radius: 1rem;
   text-align: center;
   color: var(--muted);
-  border: 1px dashed rgba(250, 246, 232, 0.18);
+  border: 1px dashed rgba(var(--phase-paper-rgb), 0.18);
 }
 
 @media (max-width: 1024px) {
@@ -2297,6 +2342,11 @@ body.game-active .hero-copy {
       "summary"
       "actions"
       "hand";
+  }
+
+  .hand-panel::before {
+    inset: 3.2rem 1rem 1rem;
+    opacity: 0.13;
   }
 
   .player-card {
