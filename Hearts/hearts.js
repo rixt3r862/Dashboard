@@ -11,6 +11,7 @@ const MOON_BURST_MS = 3600;
 const TRICK_PAUSE_MS = 1800;
 const TRICK_COLLECT_MS = 720;
 const TRAM_PAUSE_MS = 1250;
+const TRAM_COLLECT_MS = 880;
 const PASS_DIRECTIONS = ["left", "right", "across", "hold"];
 const STORAGE_SESSIONS_KEY = "dashboard.hearts.sessions";
 const SESSION_EXPORT_VERSION = 1;
@@ -67,6 +68,8 @@ const state = {
   sessionExpanded: true,
   tramBadgePlayerId: "",
   tramPlayerId: "",
+  tramCollectingPlayerId: "",
+  tramFlyingCards: [],
   winnerId: null,
   notice: "",
 };
@@ -273,6 +276,8 @@ function resetState() {
   state.sessionExpanded = true;
   state.tramBadgePlayerId = "";
   state.tramPlayerId = "";
+  state.tramCollectingPlayerId = "";
+  state.tramFlyingCards = [];
   state.winnerId = null;
   state.notice = "";
   if (els.sessionStatus) {
@@ -409,6 +414,8 @@ function dealHand() {
   state.selectedPassIds = [];
   state.passedToHumanIds = [];
   state.tramBadgePlayerId = "";
+  state.tramCollectingPlayerId = "";
+  state.tramFlyingCards = [];
   state.winnerId = null;
   const direction = currentPassDirection();
   state.stage = direction === "hold" ? "playing" : "passing";
@@ -798,9 +805,10 @@ function clearTrickCollectTimer() {
 }
 
 function clearTramClaimTimer() {
-  if (!state.tramClaimTimer) return;
-  window.clearTimeout(state.tramClaimTimer);
+  if (state.tramClaimTimer) window.clearTimeout(state.tramClaimTimer);
   state.tramClaimTimer = null;
+  state.tramCollectingPlayerId = "";
+  state.tramFlyingCards = [];
 }
 
 function markCardPlayingToTable(cardId) {
@@ -1080,7 +1088,25 @@ function beginTramClaim(player) {
   state.tramPlayerId = player.id;
   state.notice = `${player.name} claims the rest of the tricks.`;
   render();
-  state.tramClaimTimer = window.setTimeout(() => completeTramClaim(player.id), TRAM_PAUSE_MS);
+  state.tramClaimTimer = window.setTimeout(() => beginTramCollectAnimation(player.id), TRAM_PAUSE_MS);
+}
+
+function beginTramCollectAnimation(playerId) {
+  state.tramClaimTimer = null;
+  const player = state.players.find((entry) => entry.id === playerId);
+  if (!player || state.stage !== "playing") {
+    state.busy = false;
+    state.tramCollectingPlayerId = "";
+    state.tramFlyingCards = [];
+    render();
+    return;
+  }
+  const remainingCards = state.players.flatMap((entry) => entry.hand);
+  state.tramCollectingPlayerId = player.id;
+  state.tramFlyingCards = remainingCards;
+  state.notice = `${player.name} is taking the rest of the tricks.`;
+  render();
+  state.tramClaimTimer = window.setTimeout(() => completeTramClaim(player.id), TRAM_COLLECT_MS);
 }
 
 function completeTramClaim(playerId) {
@@ -1088,6 +1114,8 @@ function completeTramClaim(playerId) {
   const player = state.players.find((entry) => entry.id === playerId);
   if (!player || state.stage !== "playing") {
     state.busy = false;
+    state.tramCollectingPlayerId = "";
+    state.tramFlyingCards = [];
     render();
     return;
   }
@@ -1099,6 +1127,8 @@ function completeTramClaim(playerId) {
   state.trick = [];
   state.tramBadgePlayerId = player.id;
   state.tramPlayerId = player.id;
+  state.tramCollectingPlayerId = "";
+  state.tramFlyingCards = [];
   state.notice = `${player.name} claimed the rest of the tricks.`;
   state.busy = false;
   completeHand();
@@ -1185,6 +1215,8 @@ function restoreSessionSnapshot(snapshot) {
     dealAnimationTimer: null,
     dealAnimationActive: false,
     tramClaimTimer: null,
+    tramCollectingPlayerId: "",
+    tramFlyingCards: [],
     passAnimationTimer: null,
     passingOutIds: [],
     passingOutDirection: "",
@@ -1852,14 +1884,23 @@ function renderTrick() {
       `<span style="--burst-index: ${index}; --burst-delay: ${entry.delay}; --burst-distance: ${entry.distance}rem;">${entry.symbol}</span>`
     )).join("")
     : "";
-  els.trickCards.innerHTML = state.trick.length
-    ? state.trick.map((play) => `
+  const tramCollectorIndex = state.players.findIndex((player) => player.id === state.tramCollectingPlayerId);
+  const isTramCollecting = state.tramFlyingCards.length && tramCollectorIndex >= 0;
+  els.trickCards.className = isTramCollecting ? "trick-cards tram-flight-cards" : "trick-cards";
+  els.trickCards.innerHTML = isTramCollecting
+    ? state.tramFlyingCards.map((card, index) => `
+      <div class="tram-flight-card collect-to-${seatDirection(tramCollectorIndex)}" style="--tram-index: ${index}; --tram-delay: ${Math.min(index, 18) * 18}ms;">
+        ${renderCardBack()}
+      </div>
+    `).join("")
+    : state.trick.length
+      ? state.trick.map((play) => `
       <div class="trick-play ${state.playingToTableIds.includes(play.card.id) ? `play-from-${seatDirection(play.playerIndex)}` : ""} ${state.stage === "trick-collecting" ? `collect-to-${seatDirection(state.pendingTrickWinnerIndex)}` : ""}">
         ${renderCard(play.card)}
         <span class="trick-player">${escapeHtml(state.players[play.playerIndex].name)}</span>
       </div>
     `).join("")
-    : "";
+      : "";
 }
 
 function renderMoonBurst() {

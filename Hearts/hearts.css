@@ -1071,6 +1071,45 @@ button {
   animation: hearts-collect-right 0.72s cubic-bezier(0.44, 0, 0.5, 1) both;
 }
 
+.trick-cards.tram-flight-cards {
+  position: relative;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: center;
+  min-height: 8.8rem;
+  padding: 0.15rem;
+  isolation: isolate;
+}
+
+.tram-flight-card {
+  display: grid;
+  place-items: center;
+  animation-duration: 0.88s;
+  animation-timing-function: cubic-bezier(0.44, 0, 0.5, 1);
+  animation-fill-mode: both;
+  animation-delay: var(--tram-delay, 0ms);
+  filter: drop-shadow(0 0.35rem 0.6rem rgba(0, 0, 0, 0.22));
+}
+
+.tram-flight-card .playing-card {
+  width: 2.9rem;
+}
+
+.tram-flight-card.collect-to-bottom {
+  animation-name: hearts-tram-collect-bottom;
+}
+
+.tram-flight-card.collect-to-left {
+  animation-name: hearts-tram-collect-left;
+}
+
+.tram-flight-card.collect-to-top {
+  animation-name: hearts-tram-collect-top;
+}
+
+.tram-flight-card.collect-to-right {
+  animation-name: hearts-tram-collect-right;
+}
+
 .trick-player {
   max-width: 100%;
   color: var(--muted);
@@ -1479,6 +1518,66 @@ button {
   }
 }
 
+@keyframes hearts-tram-collect-bottom {
+  0% {
+    opacity: 0;
+    transform: translateY(-1.4rem) scale(0.76) rotate(calc((var(--tram-index, 0) - 8) * 1.5deg));
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(0.92) rotate(calc((var(--tram-index, 0) - 8) * 0.8deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(11rem) scale(0.45) rotate(9deg);
+  }
+}
+
+@keyframes hearts-tram-collect-left {
+  0% {
+    opacity: 0;
+    transform: translateX(1.8rem) scale(0.76) rotate(calc((var(--tram-index, 0) - 8) * 1.5deg));
+  }
+  18% {
+    opacity: 1;
+    transform: translateX(0) scale(0.92) rotate(calc((var(--tram-index, 0) - 8) * 0.8deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-14rem) scale(0.45) rotate(-12deg);
+  }
+}
+
+@keyframes hearts-tram-collect-top {
+  0% {
+    opacity: 0;
+    transform: translateY(1.4rem) scale(0.76) rotate(calc((var(--tram-index, 0) - 8) * 1.5deg));
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(0.92) rotate(calc((var(--tram-index, 0) - 8) * 0.8deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-11rem) scale(0.45) rotate(-9deg);
+  }
+}
+
+@keyframes hearts-tram-collect-right {
+  0% {
+    opacity: 0;
+    transform: translateX(-1.8rem) scale(0.76) rotate(calc((var(--tram-index, 0) - 8) * 1.5deg));
+  }
+  18% {
+    opacity: 1;
+    transform: translateX(0) scale(0.92) rotate(calc((var(--tram-index, 0) - 8) * 0.8deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(14rem) scale(0.45) rotate(12deg);
+  }
+}
+
 @keyframes hearts-break-glow {
   0% {
     opacity: 0;
@@ -1626,6 +1725,7 @@ button {
   .card-button.passing-out,
   .playing-card.dealt,
   .trick-play,
+  .tram-flight-card,
   .break-burst::before,
   .break-burst span,
   .moon-burst::before,
