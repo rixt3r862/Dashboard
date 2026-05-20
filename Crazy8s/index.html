@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Hearts Table</title>
+    <title>Crazy 8s Table</title>
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
     <link rel="stylesheet" href="../shared/game-room.css?v=20260517a" />
-    <link rel="stylesheet" href="./hearts.css?v=20260520a" />
+    <link rel="stylesheet" href="./crazy8s.css?v=20260520d" />
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23b30818%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2256%22 fill=%22%2322e6d6%22>♥</text></svg>"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%230079c8%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2258%22 fill=%22%23ffd84a%22>8</text></svg>"
     />
     <link
       rel="apple-touch-icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23b30818%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2256%22 fill=%22%2322e6d6%22>♥</text></svg>"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%230079c8%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2258%22 fill=%22%23ffd84a%22>8</text></svg>"
     />
   </head>
   <body>
@@ -22,9 +22,9 @@
       <header class="hero">
         <div>
           <p class="eyebrow">Card Table</p>
-          <h1>Hearts <span>-</span> <small>A single-device Hearts table for one human player and three bots. Pass three, dodge points, and try not to eat the queen.</small></h1>
+          <h1>Crazy 8s <span>-</span> <small>A bright single-device Crazy 8s table for one human player and up to three bots.</small></h1>
           <p class="phone-support-note">
-            Best experience on tablet or desktop. Phone view keeps the full hand playable.
+            Best experience on tablet or desktop. Phone view keeps the full hand and draw controls playable.
           </p>
         </div>
       </header>
@@ -34,33 +34,28 @@
           <section class="panel setup-panel">
             <div class="panel-head">
               <h2>New Table</h2>
-              <p>Set your name and deal a standard four-player Hearts game.</p>
+              <p>Set your table size, names, and deal a classic wild-8 game.</p>
             </div>
             <form id="setupForm" class="setup-form">
               <div id="setupFields" class="setup-fields">
                 <label class="field">
                   <span>Human player</span>
-                  <input
-                    id="humanName"
-                    type="text"
-                    maxlength="24"
-                    autocomplete="off"
-                    placeholder="Player 1"
-                    value="Rick"
-                  />
+                  <input id="humanName" type="text" maxlength="24" autocomplete="off" placeholder="Player 1" value="Rick" />
                 </label>
-                <label class="field">
-                  <span>Target score</span>
-                  <input
-                    id="targetScore"
-                    type="number"
-                    min="25"
-                    max="500"
-                    step="5"
-                    inputmode="numeric"
-                    value="100"
-                  />
-                </label>
+                <div class="setup-two">
+                  <label class="field">
+                    <span>Players</span>
+                    <select id="playerCount">
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4" selected>4</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Target score</span>
+                    <input id="targetScore" type="number" min="25" max="500" step="5" inputmode="numeric" value="100" />
+                  </label>
+                </div>
                 <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
                 <button id="shuffleBotNamesBtn" class="btn" type="button">Shuffle Names</button>
                 <button id="startGameBtn" class="btn btn-primary" type="submit">Start Game</button>
@@ -84,7 +79,7 @@
             <div id="sessionTools" class="session-tools">
               <label class="field">
                 <span>Saved sessions</span>
-                <select id="savedSessionSelect" aria-label="Saved Hearts sessions">
+                <select id="savedSessionSelect" aria-label="Saved Crazy 8s sessions">
                   <option value="">Saved sessions on this device</option>
                 </select>
               </label>
@@ -102,12 +97,12 @@
 
           <section class="panel status-panel">
             <div class="panel-head">
-              <h2>Hand Status</h2>
+              <h2>Round Status</h2>
               <p id="statusText">Deal a table to begin.</p>
             </div>
             <div class="status-grid">
               <div class="status-chip">
-                <span class="chip-label">Hand</span>
+                <span class="chip-label">Round</span>
                 <strong id="roundValue">-</strong>
               </div>
               <div class="status-chip">
@@ -115,16 +110,12 @@
                 <strong id="turnValue">-</strong>
               </div>
               <div class="status-chip">
-                <span class="chip-label">Pass</span>
-                <strong id="passValue">-</strong>
+                <span class="chip-label">Current Suit</span>
+                <strong id="suitValue">-</strong>
               </div>
               <div class="status-chip">
-                <span class="chip-label">Lead Suit</span>
-                <strong id="leadSuitValue">-</strong>
-              </div>
-              <div class="status-chip">
-                <span class="chip-label">Hearts</span>
-                <strong id="heartsValue">-</strong>
+                <span class="chip-label">Draw Pile</span>
+                <strong id="drawValue">-</strong>
               </div>
             </div>
           </section>
@@ -134,21 +125,23 @@
               <h2>Actions</h2>
               <p id="actionHint">Your controls will appear once the game starts.</p>
             </div>
+            <div id="actionControls" class="action-controls"></div>
             <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
           </section>
 
           <section class="panel rules-panel">
             <div class="panel-head">
               <h2>Table Rules</h2>
-              <p>Standard 52-card Hearts.</p>
+              <p>Classic/simple first slice.</p>
             </div>
             <ul class="rule-list">
-              <li>2 of clubs leads the first trick.</li>
-              <li>Follow suit when possible.</li>
-              <li>No hearts or queen of spades on the first trick if avoidable.</li>
-              <li>Hearts cannot be led until broken.</li>
-              <li>Each heart is 1 point; queen of spades is 13.</li>
-              <li>Shooting the moon gives every opponent 26.</li>
+              <li>Five cards are dealt to every player.</li>
+              <li>Play by matching the current suit or rank.</li>
+              <li>8s are wild and declare the next suit.</li>
+              <li>If blocked, draw up to five cards until you can play.</li>
+              <li>Pass only after five draws or when the draw pile is exhausted.</li>
+              <li>The round ends when a player empties their hand.</li>
+              <li>The round winner scores all opponents' hand points.</li>
             </ul>
           </section>
         </aside>
@@ -158,7 +151,7 @@
 
           <section class="panel scoreboard-panel">
             <div class="panel-head board-head">
-              <h2>Scores <span>-</span> <small id="leaderText">Lowest score wins when someone reaches the target.</small></h2>
+              <h2>Scores <span>-</span> <small id="leaderText">Highest score wins when someone reaches the target.</small></h2>
             </div>
             <div id="scoreBoard" class="score-board"></div>
           </section>
@@ -168,10 +161,15 @@
               <div id="opponentTop" class="seat seat-top"></div>
               <div id="opponentLeft" class="seat seat-left"></div>
               <div id="opponentRight" class="seat seat-right"></div>
-              <div class="trick-zone">
-                <div id="trickCards" class="trick-cards"></div>
-                <div id="breakBurst" class="break-burst" hidden aria-hidden="true"></div>
-                <div id="moonBurst" class="moon-burst" hidden aria-hidden="true"></div>
+              <div class="trick-zone discard-zone">
+                <div class="pile-row">
+                  <button id="drawPileBtn" class="pile-button" type="button" aria-label="Draw a card">
+                    <span class="playing-card card-back"></span>
+                    <strong id="drawPileCount">0</strong>
+                  </button>
+                  <div id="discardPile" class="discard-pile"></div>
+                </div>
+                <div id="declaredSuit" class="declared-suit"></div>
               </div>
               <div id="humanSeat" class="seat seat-bottom"></div>
             </div>
@@ -183,17 +181,18 @@
                 <h2>Your Hand</h2>
                 <p id="handSummary">Start a game to see your cards.</p>
               </div>
-              <div id="passControls" class="pass-controls" hidden>
-                <div id="passSelectionText" class="selection-text">Choose 3 cards to pass.</div>
-                <button id="confirmPassBtn" class="btn btn-primary" type="button" disabled>
-                  Pass Selected
-                </button>
+              <div id="suitControls" class="suit-controls" hidden>
+                <span class="suit-control-label">Declare suit</span>
+                <button class="suit-btn clubs" type="button" data-suit="clubs">♣</button>
+                <button class="suit-btn diamonds" type="button" data-suit="diamonds">♦</button>
+                <button class="suit-btn spades" type="button" data-suit="spades">♠</button>
+                <button class="suit-btn hearts" type="button" data-suit="hearts">♥</button>
               </div>
             </div>
             <div class="hand-controls">
-              <button id="tramBtn" class="btn" type="button" hidden>TRAM</button>
-              <button id="nextHandBtn" class="btn btn-primary next-hand-btn" type="button" hidden>
-                Deal Next Hand
+              <button id="passTurnBtn" class="btn" type="button" hidden>Pass Turn</button>
+              <button id="nextRoundBtn" class="btn btn-primary next-hand-btn" type="button" hidden>
+                Deal Next Round
               </button>
             </div>
             <div id="humanHand" class="human-hand"></div>
@@ -202,8 +201,8 @@
           <section class="panel history-panel">
             <div class="panel-head history-head">
               <div>
-                <h2>Hand History</h2>
-                <p id="historySummary">Completed hands will appear here.</p>
+                <h2>Round History</h2>
+                <p id="historySummary">Completed rounds will appear here.</p>
               </div>
               <button id="historyOrderBtn" class="btn history-order-btn" type="button">Newest First</button>
             </div>
@@ -214,6 +213,6 @@
     </div>
 
     <script src="../shared/game-room.js?v=20260517a"></script>
-    <script src="./hearts.js?v=20260520b"></script>
+    <script src="./crazy8s.js?v=20260520f"></script>
   </body>
 </html>

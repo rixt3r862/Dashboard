@@ -2887,18 +2887,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
     return leaders.length > 1 ? leaders.map((entry) => entry.id) : [];
   }
 
-  function hasLowScoreTargetTie(entries) {
-    if (state.winMode !== "low" || !Array.isArray(entries) || !entries.length) {
-      return false;
-    }
-    const gameOver = entries.some((entry) => Number(entry.total ?? 0) >= state.target);
-    if (!gameOver) return false;
-    const eligible = entries.filter((entry) => !entry.retired);
-    if (!eligible.length) return false;
-    const bestTotal = Math.min(...eligible.map((entry) => Number(entry.total ?? 0)));
-    return eligible.filter((entry) => Number(entry.total ?? 0) === bestTotal).length > 1;
-  }
-
   function markRummikubWinnerForCurrentRound(playerId) {
     if (state.presetKey !== "rummikub" || state.mode !== "playing") return;
     if (!activePlayers().some((p) => p.id === playerId)) return;
@@ -3314,13 +3302,6 @@ import { createScoreboardController } from "./js/scoreboard.js";
       }
       if (quizTieIds.length) {
         const tieMessage = "Quiz complete. The game ended in a tie.";
-        showMsg(els.roundMsg, tieMessage);
-        setLive(tieMessage);
-      } else if (hasLowScoreTargetTie(entries)) {
-        const tieMessage =
-          state.presetKey === "hearts"
-            ? "Hearts target reached with a tie for lowest score. Play continues until the tie is broken."
-            : "Target reached with a tie for lowest score. Play continues until the tie is broken.";
         showMsg(els.roundMsg, tieMessage);
         setLive(tieMessage);
       } else if (state.presetKey === "skyjo" && round.skyjoWentOutPlayerId) {

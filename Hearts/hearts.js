@@ -71,6 +71,7 @@ const state = {
   tramCollectingPlayerId: "",
   tramFlyingCards: [],
   winnerId: null,
+  winnerIds: [],
   notice: "",
 };
 
@@ -279,6 +280,7 @@ function resetState() {
   state.tramCollectingPlayerId = "";
   state.tramFlyingCards = [];
   state.winnerId = null;
+  state.winnerIds = [];
   state.notice = "";
   if (els.sessionStatus) {
     els.sessionStatus.textContent = "";
@@ -417,6 +419,7 @@ function dealHand() {
   state.tramCollectingPlayerId = "";
   state.tramFlyingCards = [];
   state.winnerId = null;
+  state.winnerIds = [];
   const direction = currentPassDirection();
   state.stage = direction === "hold" ? "playing" : "passing";
   if (state.stage === "passing") {
@@ -930,19 +933,16 @@ function completeHand() {
     tramPlayerId: state.tramPlayerId,
   });
   state.tramPlayerId = "";
-  const atLimit = state.players.some((player) => player.score >= state.targetScore);
-  const winner = lowScoreWinnerAfterTarget(state.players, state.targetScore);
-  if (winner) {
-    state.winnerId = winner.id;
+  const winners = lowScoreWinnersAfterTarget(state.players, state.targetScore);
+  if (winners.length) {
+    state.winnerId = winners[0].id;
+    state.winnerIds = winners.map((winner) => winner.id);
     state.stage = "game-end";
     prepareNextGameSetupNames();
   } else {
     state.winnerId = null;
+    state.winnerIds = [];
     state.stage = "hand-end";
-    if (atLimit) {
-      const tieNotice = "Target reached, but the low score is tied. Deal another hand to break the tie.";
-      state.notice = state.notice ? `${state.notice} ${tieNotice}` : tieNotice;
-    }
   }
 }
 
@@ -976,11 +976,14 @@ function trickPointValue(cards) {
   return cards.reduce((sum, card) => sum + (card.suit === "hearts" ? 1 : 0) + (isQueenOfSpades(card) ? 13 : 0), 0);
 }
 
-function lowScoreWinnerAfterTarget(players, target) {
-  if (!players.some((player) => player.score >= target)) return null;
+function lowScoreWinnersAfterTarget(players, target) {
+  if (!players.some((player) => player.score >= target)) return [];
   const lowScore = Math.min(...players.map((player) => player.score));
-  const leaders = players.filter((player) => player.score === lowScore);
-  return leaders.length === 1 ? leaders[0] : null;
+  return players.filter((player) => player.score === lowScore);
+}
+
+function lowScoreWinnerAfterTarget(players, target) {
+  return lowScoreWinnersAfterTarget(players, target)[0] ?? null;
 }
 
 function isQueenOfSpades(card) {
@@ -1168,6 +1171,7 @@ function sessionSnapshot() {
     sessionExpanded: state.sessionExpanded,
     tramBadgePlayerId: state.tramBadgePlayerId,
     winnerId: state.winnerId,
+    winnerIds: state.winnerIds,
     notice: state.notice,
   };
 }
@@ -1195,9 +1199,11 @@ function restoreSessionSnapshot(snapshot) {
   }));
   const restoredTargetScore = Number(snapshot.targetScore) || DEFAULT_TARGET_SCORE;
   let restoredStage = normalizeStage(snapshot.stage);
-  let restoredWinnerId = snapshot.winnerId || null;
+  let restoredWinnerIds = Array.isArray(snapshot.winnerIds) ? snapshot.winnerIds : [];
+  let restoredWinnerId = snapshot.winnerId || restoredWinnerIds[0] || null;
   if (restoredStage === "game-end") {
-    restoredWinnerId = lowScoreWinnerAfterTarget(restoredPlayers, restoredTargetScore)?.id ?? null;
+    restoredWinnerIds = lowScoreWinnersAfterTarget(restoredPlayers, restoredTargetScore).map((winner) => winner.id);
+    restoredWinnerId = restoredWinnerIds[0] ?? null;
     if (!restoredWinnerId) restoredStage = "hand-end";
   }
   Object.assign(state, {
@@ -1242,6 +1248,7 @@ function restoreSessionSnapshot(snapshot) {
     tramBadgePlayerId: snapshot.tramBadgePlayerId || "",
     tramPlayerId: "",
     winnerId: restoredWinnerId,
+    winnerIds: restoredWinnerId ? (restoredWinnerIds.length ? restoredWinnerIds : [restoredWinnerId]) : [],
     notice: snapshot.notice || "Session loaded.",
     busy: false,
   });
@@ -1816,8 +1823,9 @@ function renderScoreBoard() {
   const lowScore = Math.min(...state.players.map((player) => player.score));
   const leader = state.players.find((player) => player.score === lowScore);
   els.leaderText.textContent = `Target ${state.targetScore}; low score ${leader.name} at ${lowScore}`;
+  const winnerIds = new Set(state.winnerIds.length ? state.winnerIds : state.winnerId ? [state.winnerId] : []);
   els.scoreBoard.innerHTML = state.players.map((player, index) => `
-    <div class="score-card ${index === state.currentPlayerIndex && state.stage === "playing" ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""} ${player.id === state.moonBurstPlayerId ? "moon-flash" : ""}">
+    <div class="score-card ${index === state.currentPlayerIndex && state.stage === "playing" ? "current" : ""} ${winnerIds.has(player.id) ? "winner" : ""} ${player.id === state.moonBurstPlayerId ? "moon-flash" : ""}">
       <strong>${escapeHtml(player.name)} · ${player.score}</strong>
       <span class="score-meta">
         ${escapeHtml(player.bot ? difficultyLabel(player.difficulty) : "Human")}
@@ -1826,16 +1834,28 @@ function renderScoreBoard() {
       </span>
     </div>
   `).join("");
-  const winner = state.players.find((player) => player.id === state.winnerId);
+  const winners = state.players.filter((player) => winnerIds.has(player.id));
   const targetHitPlayer = state.players.find((player) => player.score >= state.targetScore);
-  const scoreLabel = winner?.bot ? `${winner.name}'s Final Score` : "Your Final Score";
-  els.winnerBanner.hidden = !winner;
-  els.winnerBanner.innerHTML = winner
+  const winnerName = playerNameList(winners);
+  const scoreLabel = winners.length === 1
+    ? winners[0].bot ? `${winners[0].name}'s Final Score` : "Your Final Score"
+    : "Final low score";
+  const finalScore = winners[0]?.score ?? 0;
+  els.winnerBanner.hidden = !winners.length;
+  els.winnerBanner.innerHTML = winners.length
     ? winnerBannerMarkup({
-      winnerName: winner.name,
-      message: `${targetHitPlayer?.name ?? winner.name} hit ${state.targetScore}. ${scoreLabel}: ${winner.score} points.`,
+      winnerName,
+      message: winners.length > 1
+        ? `${targetHitPlayer?.name ?? winnerName} hit ${state.targetScore}. ${winnerName} tied at ${finalScore} points.`
+        : `${targetHitPlayer?.name ?? winnerName} hit ${state.targetScore}. ${scoreLabel}: ${finalScore} points.`,
     })
     : "";
+}
+
+function playerNameList(players) {
+  const names = players.map((player) => player.name);
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
 function renderSeats() {
