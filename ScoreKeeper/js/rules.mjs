@@ -466,8 +466,7 @@ export function determineWinnerFromTotals(entries, winMode, target) {
     const sorted = [...entries].sort((a, b) => (a.total ?? 0) - (b.total ?? 0));
     const bestTotal = sorted[0]?.total ?? null;
     if (bestTotal === null) return null;
-    const leaders = sorted.filter((entry) => (entry.total ?? 0) === bestTotal);
-    return leaders.length === 1 ? leaders[0]?.id ?? null : null;
+    return sorted[0]?.id ?? null;
   }
 
   // "High wins" games require crossing target and picking the highest eligible total.

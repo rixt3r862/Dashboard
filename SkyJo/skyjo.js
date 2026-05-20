@@ -49,6 +49,7 @@ const state = {
   dealAnimationCardIds: [],
   pendingRoundSummary: null,
   winnerId: null,
+  winnerIds: [],
   targetScore: DEFAULT_TARGET_SCORE,
   setupBotNames: randomBotNames(3),
   setupBotDifficulties: ["medium", "medium", "medium"],
@@ -291,6 +292,7 @@ function startNewGame() {
   state.roundHistorySortDir = "desc";
   state.pendingRoundSummary = null;
   state.winnerId = null;
+  state.winnerIds = [];
   state.currentSessionId = null;
   state.selectedSessionId = "";
   state.sessionStatusMessage = "";
@@ -321,6 +323,7 @@ function resetTable() {
   state.dealAnimationCardIds = [];
   state.pendingRoundSummary = null;
   state.winnerId = null;
+  state.winnerIds = [];
   state.currentSessionId = null;
   state.selectedSessionId = "";
   state.sessionStatusMessage = "";
@@ -692,7 +695,8 @@ function endRound() {
   }
 
   const eligible = state.players.filter((player) => player.score >= target);
-  const winner = lowScoreWinnerAfterTarget(state.players, target);
+  const winners = lowScoreWinnersAfterTarget(state.players, target);
+  const winner = winners[0] ?? null;
   const targetHitPlayer = crossedTargetIds.length
     ? [...state.players]
         .filter((player) => crossedTargetIds.includes(player.id))
@@ -708,7 +712,8 @@ function endRound() {
   };
   state.roundHistory.push(state.pendingRoundSummary);
   state.winnerId = winner?.id ?? null;
-  state.turnStage = winner ? "game-over" : "round-end";
+  state.winnerIds = winners.map((entry) => entry.id);
+  state.turnStage = winners.length ? "game-over" : "round-end";
   state.drawnCard = null;
   state.drawnSource = null;
   if (winner) syncSetupFromPlayers();
@@ -1085,20 +1090,24 @@ function renderFinalTurnBanner() {
 
 function renderWinnerBanner() {
   if (!els.winnerBanner) return;
-  const winnerPlayer = winner();
-  const show = state.gameStarted && state.turnStage === "game-over" && winnerPlayer;
+  const winnerPlayers = winners();
+  const show = state.gameStarted && state.turnStage === "game-over" && winnerPlayers.length;
   els.winnerBanner.hidden = !show;
   if (!show) {
     els.winnerBanner.innerHTML = "";
     return;
   }
-  const scoreLabel = winnerPlayer.bot
-    ? `${winnerPlayer.name}'s Final Score`
-    : "Your Final Score";
+  const winnerPlayer = winnerPlayers[0];
+  const winnerNames = playerNameList(winnerPlayers);
+  const scoreLabel = winnerPlayers.length === 1
+    ? winnerPlayer.bot ? `${winnerPlayer.name}'s Final Score` : "Your Final Score"
+    : "Final low score";
   const targetHitPlayer = targetHitter();
   els.winnerBanner.innerHTML = winnerBannerMarkup({
-    winnerName: winnerPlayer.name,
-    message: `${targetHitPlayer?.name ?? winnerPlayer.name} hit ${activeTargetScore()}. ${scoreLabel}: ${winnerPlayer.score} points.`,
+    winnerName: winnerNames,
+    message: winnerPlayers.length > 1
+      ? `${targetHitPlayer?.name ?? winnerNames} hit ${activeTargetScore()}. ${winnerNames} tied at ${winnerPlayer.score} points.`
+      : `${targetHitPlayer?.name ?? winnerNames} hit ${activeTargetScore()}. ${scoreLabel}: ${winnerPlayer.score} points.`,
   });
 }
 
@@ -1466,14 +1475,28 @@ function scoreLeader() {
 }
 
 function lowScoreWinnerAfterTarget(players, target) {
-  if (!players.some((player) => player.score >= target)) return null;
+  return lowScoreWinnersAfterTarget(players, target)[0] ?? null;
+}
+
+function lowScoreWinnersAfterTarget(players, target) {
+  if (!players.some((player) => player.score >= target)) return [];
   const lowScore = Math.min(...players.map((player) => player.score));
-  const leaders = players.filter((player) => player.score === lowScore);
-  return leaders.length === 1 ? leaders[0] : null;
+  return players.filter((player) => player.score === lowScore);
 }
 
 function winner() {
   return state.players.find((player) => player.id === state.winnerId) || null;
+}
+
+function winners() {
+  const ids = new Set(state.winnerIds.length ? state.winnerIds : state.winnerId ? [state.winnerId] : []);
+  return state.players.filter((player) => ids.has(player.id));
+}
+
+function playerNameList(players) {
+  const names = players.map((player) => player.name);
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
 function targetHitter() {
@@ -2210,9 +2233,13 @@ function normalizeLoadedState(payload, options = {}) {
   const drawnCard = normalizeLoadedCard(payload.drawnCard);
   const finalTurnTriggerId = normalizePlayerId(payload.finalTurnTriggerId, players);
   const turnStage = normalizeTurnStage(payload.turnStage);
-  let winnerId = normalizePlayerId(payload.winnerId, players);
+  let winnerIds = Array.isArray(payload.winnerIds)
+    ? normalizePlayerIds(payload.winnerIds, players)
+    : [];
+  let winnerId = normalizePlayerId(payload.winnerId, players) || winnerIds[0] || null;
   if (turnStage === "game-over") {
-    winnerId = lowScoreWinnerAfterTarget(players, targetScore)?.id ?? null;
+    winnerIds = lowScoreWinnersAfterTarget(players, targetScore).map((player) => player.id);
+    winnerId = winnerIds[0] ?? null;
   }
 
   return {
@@ -2237,6 +2264,7 @@ function normalizeLoadedState(payload, options = {}) {
     dealAnimationCardIds: [],
     pendingRoundSummary: normalizeRoundSummary(payload.pendingRoundSummary, players),
     winnerId,
+    winnerIds: winnerId ? (winnerIds.length ? winnerIds : [winnerId]) : [],
     targetScore,
     currentSessionId: normalizeOptionalId(options.currentSessionId ?? payload.currentSessionId),
     selectedSessionId: normalizeOptionalId(payload.selectedSessionId) ?? "",

@@ -44,14 +44,14 @@ test("low-score winner waits until someone reaches target, then picks lowest", (
   assert.equal(determineWinnerFromTotals(ended, "low", 100), "b");
 });
 
-test("low-score games do not declare a winner while the best total is tied", () => {
+test("low-score games end when target is hit even if the best total is tied", () => {
   const tiedAtEnd = [
     { id: "a", total: 104 },
     { id: "b", total: 88 },
     { id: "c", total: 88 },
   ];
 
-  assert.equal(determineWinnerFromTotals(tiedAtEnd, "low", 100), null);
+  assert.equal(determineWinnerFromTotals(tiedAtEnd, "low", 100), "b");
 });
 
 test("Phase 10 validation allows normal leftover hand points", () => {
