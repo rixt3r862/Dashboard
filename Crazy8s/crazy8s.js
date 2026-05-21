@@ -12,6 +12,7 @@ const STORAGE_SESSIONS_KEY = "dashboard.crazy8s.sessions";
 const SESSION_EXPORT_VERSION = 1;
 const SUITS = ["clubs", "diamonds", "spades", "hearts"];
 const SUIT_SYMBOLS = { clubs: "♣", diamonds: "♦", spades: "♠", hearts: "♥" };
+const SUIT_EMOJIS = { clubs: "♣️", diamonds: "♦️", spades: "♠️", hearts: "♥️" };
 const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 const RANK_VALUES = { A: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 50, 9: 9, 10: 10, J: 10, Q: 10, K: 10 };
 
@@ -629,7 +630,7 @@ function renderStatus() {
           : "Your turn. Play, draw up to five, or pass after the draw limit.";
   els.roundValue.textContent = state.gameStarted ? String(state.roundNumber) : "-";
   els.turnValue.textContent = player?.name || "-";
-  els.suitValue.textContent = state.currentSuit ? `${SUIT_SYMBOLS[state.currentSuit]} ${suitLabel(state.currentSuit)}` : "-";
+  els.suitValue.innerHTML = state.currentSuit ? `${suitEmojiMarkup(state.currentSuit)} ${escapeHtml(suitLabel(state.currentSuit))}` : "-";
   els.drawValue.textContent = state.gameStarted ? String(state.drawPile.length) : "-";
 }
 
@@ -717,7 +718,7 @@ function declaredPillMarkup() {
       : "";
   }
   return state.currentSuit
-    ? `<span class="declared-chip">${SUIT_SYMBOLS[state.currentSuit]} Current suit: ${suitLabel(state.currentSuit)}</span>`
+    ? `<span class="declared-chip">${suitEmojiMarkup(state.currentSuit)} Current suit: ${escapeHtml(suitLabel(state.currentSuit))}</span>`
     : "";
 }
 
@@ -1197,6 +1198,11 @@ function cardLabel(card) {
 
 function suitLabel(suit) {
   return suit ? suit.charAt(0).toUpperCase() + suit.slice(1) : "";
+}
+
+function suitEmojiMarkup(suit) {
+  if (!SUITS.includes(suit)) return "";
+  return `<span class="suit-emoji suit-emoji-${suit}" aria-hidden="true">${SUIT_EMOJIS[suit]}</span>`;
 }
 
 function cardPointValue(card) {
