@@ -413,6 +413,22 @@ button {
   box-shadow: 0 0 0 3px rgba(255, 216, 74, 0.1);
 }
 
+.seat.round-winner,
+.seat.game-winner {
+  border-color: rgba(66, 209, 122, 0.78);
+  background: rgba(6, 48, 44, 0.76);
+  box-shadow:
+    0 0 0 3px rgba(66, 209, 122, 0.14),
+    0 0 1.4rem rgba(66, 209, 122, 0.24);
+}
+
+.seat.game-winner {
+  border-color: rgba(255, 216, 74, 0.8);
+  box-shadow:
+    0 0 0 3px rgba(255, 216, 74, 0.16),
+    0 0 1.7rem rgba(255, 216, 74, 0.28);
+}
+
 .seat-bottom {
   left: 50%;
   bottom: 0.7rem;
@@ -587,6 +603,19 @@ button {
   background: rgba(255, 216, 74, 0.1);
   color: var(--accent-strong);
   font-weight: 700;
+}
+
+.declared-chip-round {
+  border-color: rgba(66, 209, 122, 0.42);
+  background: rgba(66, 209, 122, 0.14);
+  color: #a7ffc5;
+}
+
+.declared-chip-game {
+  border-color: rgba(255, 216, 74, 0.56);
+  background: rgba(255, 216, 74, 0.18);
+  color: #fff1a6;
+  box-shadow: 0 0 1rem rgba(255, 216, 74, 0.14);
 }
 
 .human-hand {

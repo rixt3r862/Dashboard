@@ -44,6 +44,8 @@ const state = {
   setupBotNames: [],
   setupBotDifficulties: [],
   sessionExpanded: true,
+  roundWinnerId: null,
+  roundWinnerScore: 0,
   winnerId: null,
   notice: "",
 };
@@ -223,6 +225,8 @@ function resetState() {
   state.roundHistory = [];
   state.historySortDir = "desc";
   state.sessionExpanded = true;
+  state.roundWinnerId = null;
+  state.roundWinnerScore = 0;
   state.winnerId = null;
   state.notice = "";
 }
@@ -271,6 +275,8 @@ function dealRound() {
   state.stage = "playing";
   state.drawsThisTurn = 0;
   state.pendingEightCardId = null;
+  state.roundWinnerId = null;
+  state.roundWinnerScore = 0;
   state.dealAnimationActive = true;
   state.discardAnimationCardId = "";
   state.discardAnimationDirection = "";
@@ -502,6 +508,8 @@ function finishRound(winner) {
   state.roundHistory.push(entry);
   state.stage = "roundOver";
   state.busy = false;
+  state.roundWinnerId = winner.id;
+  state.roundWinnerScore = winnerScore;
   const gameWinner = state.players
     .filter((player) => player.score >= state.targetScore)
     .sort((left, right) => right.score - left.score)[0];
@@ -647,6 +655,8 @@ function renderSeats() {
     if (!seat) return;
     seat.hidden = false;
     seat.classList.toggle("current", player.id === currentPlayer()?.id && state.stage === "playing");
+    seat.classList.toggle("round-winner", player.id === state.roundWinnerId && state.stage === "roundOver");
+    seat.classList.toggle("game-winner", player.id === state.winnerId && state.stage === "gameOver");
     seat.innerHTML = `
       <div class="seat-name">${escapeHtml(player.name)}</div>
       <div class="seat-details">${player.hand.length} cards • ${player.score} pts</div>
@@ -690,7 +700,23 @@ function renderPiles() {
   els.discardPile.innerHTML = top
     ? `<div class="${discardMotionClass}">${renderCard(top)}</div><span class="seat-details">Discard</span>`
     : `<span class="seat-details">No discard</span>`;
-  els.declaredSuit.innerHTML = state.currentSuit
+  els.declaredSuit.innerHTML = declaredPillMarkup();
+}
+
+function declaredPillMarkup() {
+  if (state.stage === "gameOver") {
+    const winner = state.players.find((player) => player.id === state.winnerId);
+    return winner
+      ? `<span class="declared-chip declared-chip-game">Game winner: ${escapeHtml(winner.name)} • ${winner.score} pts</span>`
+      : "";
+  }
+  if (state.stage === "roundOver") {
+    const winner = state.players.find((player) => player.id === state.roundWinnerId);
+    return winner
+      ? `<span class="declared-chip declared-chip-round">Round winner: ${escapeHtml(winner.name)} +${state.roundWinnerScore}</span>`
+      : "";
+  }
+  return state.currentSuit
     ? `<span class="declared-chip">${SUIT_SYMBOLS[state.currentSuit]} Current suit: ${suitLabel(state.currentSuit)}</span>`
     : "";
 }
@@ -947,6 +973,8 @@ function sessionSnapshot() {
     historySortDir: state.historySortDir,
     setupBotNames: state.setupBotNames,
     setupBotDifficulties: state.setupBotDifficulties,
+    roundWinnerId: state.roundWinnerId,
+    roundWinnerScore: state.roundWinnerScore,
     winnerId: state.winnerId,
     notice: state.notice,
   });
@@ -983,6 +1011,14 @@ function restoreSessionSnapshot(snapshot) {
   state.historySortDir = snapshot.historySortDir === "asc" ? "asc" : "desc";
   state.setupBotNames = Array.isArray(snapshot.setupBotNames) ? snapshot.setupBotNames : [];
   state.setupBotDifficulties = Array.isArray(snapshot.setupBotDifficulties) ? snapshot.setupBotDifficulties : [];
+  const latestRound = state.roundHistory[state.roundHistory.length - 1] || null;
+  state.roundWinnerId = snapshot.roundWinnerId || (state.stage === "roundOver" ? latestRound?.winnerId : null) || null;
+  state.roundWinnerScore = clampInteger(
+    snapshot.roundWinnerScore ?? (state.stage === "roundOver" ? latestRound?.winnerScore : 0),
+    0,
+    9999,
+    0,
+  );
   state.winnerId = snapshot.winnerId || null;
   state.notice = snapshot.notice || "";
   state.sessionExpanded = false;
