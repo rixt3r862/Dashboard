@@ -529,12 +529,39 @@ button {
 
 .pile-button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
 }
 
 .pile-button strong {
   color: var(--accent-strong);
   font-size: 0.78rem;
+}
+
+.pile-button > .playing-card.card-back {
+  min-height: 7.75rem;
+  padding: 0.2rem;
+  border: 2px solid #f7f2e9;
+}
+
+.pile-button > .card-back::before {
+  inset: 0.2rem;
+  background:
+    radial-gradient(circle, #ffd84a 0 0.11rem, transparent 0.12rem),
+    radial-gradient(circle, #42d17a 0 0.1rem, transparent 0.112rem),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.34) 0 1px, transparent 1px 1.16rem),
+    repeating-linear-gradient(-45deg, rgba(255, 216, 74, 0.18) 0 1px, transparent 1px 1.16rem),
+    linear-gradient(145deg, #078ed3, #06437d);
+  background-position:
+    0.16rem 0.16rem,
+    0.74rem 0.74rem,
+    0 0,
+    0 0,
+    0 0;
+  background-size:
+    1.16rem 1.16rem,
+    1.16rem 1.16rem,
+    auto,
+    auto,
+    auto;
 }
 
 .discard-pile {
