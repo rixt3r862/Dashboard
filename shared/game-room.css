@@ -45,3 +45,56 @@
   --game-session-status-size: 0.79rem;
   --game-session-status-line-height: 1.4;
 }
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.game-room-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  padding: 0.38rem 0.58rem;
+  border: 1px solid rgba(250, 246, 232, 0.12);
+  border-radius: 999px;
+  background: rgba(250, 246, 232, 0.045);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  opacity: 0.72;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.game-room-link:hover,
+.game-room-link:focus-visible {
+  border-color: rgba(250, 246, 232, 0.28);
+  background: rgba(250, 246, 232, 0.09);
+  color: var(--text);
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 680px) {
+  .hero {
+    flex-wrap: wrap;
+  }
+
+  .game-room-link {
+    order: -1;
+    margin-bottom: 0.25rem;
+  }
+}

@@ -131,6 +131,40 @@ h1{
   column-gap: 8px;
   row-gap: 6px;
 }
+.game-room-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:7px 10px;
+  border:1px solid rgba(15,23,42,.12);
+  border-radius:999px;
+  background:rgba(255,255,255,.46);
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.08em;
+  line-height:1;
+  text-decoration:none;
+  text-transform:uppercase;
+  opacity:.72;
+  transition:background .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease, transform .15s ease;
+}
+:root[data-theme="dark"] .game-room-link{
+  border-color:rgba(226,232,240,.14);
+  background:rgba(15,23,42,.46);
+}
+.game-room-link:hover,
+.game-room-link:focus-visible{
+  border-color:rgba(59,130,246,.34);
+  background:rgba(255,255,255,.72);
+  color:var(--text);
+  opacity:1;
+  transform:translateY(-1px);
+}
+:root[data-theme="dark"] .game-room-link:hover,
+:root[data-theme="dark"] .game-room-link:focus-visible{
+  background:rgba(30,41,59,.72);
+}
 .session-browser-trigger{
   display: inline-flex;
   align-items: center;
