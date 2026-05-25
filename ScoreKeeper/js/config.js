@@ -72,6 +72,14 @@ export const PRESETS = {
     notes:
       "Winner-only scoring: enter opponents' hand points and set winner to 0. App totals opponents into winner points.",
   },
+  fivecrowns: {
+    label: "5 Crowns",
+    target: 11,
+    winMode: "low",
+    teams: false,
+    notes:
+      "Fixed 11-round session. Enter each player's remaining deadwood points; lowest total score wins.",
+  },
 };
 
 export const PRESET_BACKGROUNDS = {
@@ -79,6 +87,7 @@ export const PRESET_BACKGROUNDS = {
   rummikub: "./img/Rummikub.jpg",
   phase10: "./img/Phase 10.png",
   crazy8s: "./img/Crazy8s.png",
+  fivecrowns: "./img/5 Crowns.png",
   skyjo: "./img/SkyJo.png",
   hearts: "./img/Hearts.png",
   spades: "./img/Spades.png",

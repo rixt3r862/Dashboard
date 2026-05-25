@@ -606,6 +606,7 @@ test("standalone game pages include the shared HTML head checklist", () => {
     "Hearts/index.html",
     "SkyJo/index.html",
     "Phase10/index.html",
+    "FiveCrowns/index.html",
   ];
 
   for (const htmlPath of pages) {
@@ -623,6 +624,7 @@ test("each game loads shared utilities before its game script", () => {
     { gameScript: "./hearts.js", htmlPath: "Hearts/index.html", sharedScript: "../shared/game-room.js" },
     { gameScript: "./skyjo.js", htmlPath: "SkyJo/index.html", sharedScript: "../shared/game-room.js" },
     { gameScript: "./phase10.js", htmlPath: "Phase10/index.html", sharedScript: "../shared/game-room.js" },
+    { gameScript: "./fivecrowns.js", htmlPath: "FiveCrowns/index.html", sharedScript: "../shared/game-room.js" },
   ];
 
   for (const page of pages) {
@@ -641,6 +643,7 @@ test("each standalone game loads shared CSS tokens before local CSS", () => {
     { htmlPath: "Hearts/index.html", localCss: "./hearts.css", sharedCss: "../shared/game-room.css" },
     { htmlPath: "SkyJo/index.html", localCss: "./skyjo.css", sharedCss: "../shared/game-room.css" },
     { htmlPath: "Phase10/index.html", localCss: "./phase10.css", sharedCss: "../shared/game-room.css" },
+    { htmlPath: "FiveCrowns/index.html", localCss: "./fivecrowns.css", sharedCss: "../shared/game-room.css" },
   ];
 
   for (const page of pages) {

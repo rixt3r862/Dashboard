@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>5 Crowns Table</title>
+    <link rel="manifest" href="../app.webmanifest" />
+    <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <link rel="stylesheet" href="../shared/game-room.css?v=20260522a" />
+    <link rel="stylesheet" href="./fivecrowns.css?v=20260524b" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%236b3190%22/><text x=%2250%22 y=%2267%22 text-anchor=%22middle%22 font-size=%2252%22 fill=%22%23fbc33f%22>5</text></svg>"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%236b3190%22/><text x=%2250%22 y=%2267%22 text-anchor=%22middle%22 font-size=%2252%22 fill=%22%23fbc33f%22>5</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Card Table</p>
+          <h1>5 Crowns</h1>
+          <p class="hero-copy">
+            A single-device rummy table focused on your hand, deadwood, wild ranks, and the eleven-round climb from 3s to kings.
+          </p>
+          <p class="phone-support-note">
+            Best experience on tablet or desktop. Phone view keeps the hand, draw controls, and history reachable.
+          </p>
+        </div>
+        <a class="game-room-link" href="../Games/index.html" aria-label="Back to Game Room">Game Room</a>
+      </header>
+
+      <section id="mobileSummaryBar" class="mobile-summary-bar">
+        <div class="mobile-summary-strip">
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Round</span>
+            <strong id="mobileRoundValue">-</strong>
+          </div>
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Turn</span>
+            <strong id="mobileTurnValue">-</strong>
+          </div>
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Wild</span>
+            <strong id="mobileWildValue">-</strong>
+          </div>
+          <div class="mobile-summary-chip">
+            <span class="mobile-summary-label">Stock</span>
+            <strong id="mobileDeckValue">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="panel setup-panel">
+            <div class="panel-head">
+              <h2>New Table</h2>
+              <p>Set your name, choose table size, and deal a fresh 5 Crowns game.</p>
+            </div>
+            <form id="setupForm" class="setup-form">
+              <div id="setupFields" class="setup-fields">
+                <label class="field">
+                  <span>Human player</span>
+                  <input id="humanName" type="text" maxlength="24" autocomplete="off" placeholder="Player 1" value="Rick" />
+                </label>
+                <div class="setup-two">
+                  <label class="field">
+                    <span>Players</span>
+                    <select id="playerCount">
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4" selected>4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Rounds</span>
+                    <input id="roundCount" type="number" min="11" max="11" step="1" inputmode="numeric" value="11" disabled />
+                  </label>
+                </div>
+                <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
+                <button id="shuffleBotNamesBtn" class="btn" type="button">Shuffle Names</button>
+                <button id="startGameBtn" class="btn btn-primary" type="submit">Start Game</button>
+              </div>
+              <button id="samePlayersBtn" class="btn same-players-btn" type="button" hidden>
+                Start Game with Same Players
+              </button>
+              <div id="setupSummary" class="setup-summary" hidden></div>
+              <button id="resetTableBtn" class="btn" type="button">Reset</button>
+            </form>
+          </section>
+
+          <section class="panel status-panel">
+            <div class="panel-head">
+              <h2>Round Status</h2>
+              <p id="statusText">Deal a table to begin.</p>
+            </div>
+            <div class="status-grid">
+              <div class="status-chip">
+                <span class="chip-label">Round</span>
+                <strong id="roundValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Turn</span>
+                <strong id="turnValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Wild Rank</span>
+                <strong id="wildValue">-</strong>
+              </div>
+              <div class="status-chip">
+                <span class="chip-label">Stock</span>
+                <strong id="drawValue">-</strong>
+              </div>
+            </div>
+            <div class="pile-row">
+              <button id="drawPileBtn" class="pile-button deck-button" type="button" aria-label="Draw from stock">
+                <span class="playing-card card-back"></span>
+                <strong id="drawPileCount">0</strong>
+              </button>
+              <button id="discardPileBtn" class="discard-pile-button" type="button" aria-label="Draw from discard">
+                <div id="discardPile" class="discard-pile"></div>
+              </button>
+            </div>
+            <div id="roundBadge" class="round-badge"></div>
+          </section>
+
+          <section id="sessionPanel" class="panel session-panel">
+            <div class="panel-head session-head">
+              <div>
+                <h2>Sessions</h2>
+                <p id="sessionStatus">No saved sessions yet. Save on this device or download a JSON backup copy.</p>
+              </div>
+              <button id="sessionToggleBtn" class="btn session-toggle-btn" type="button" aria-expanded="true">Hide Sessions</button>
+            </div>
+            <div id="sessionTools" class="session-tools">
+              <label class="field">
+                <span>Saved sessions</span>
+                <select id="savedSessionSelect" aria-label="Saved 5 Crowns sessions">
+                  <option value="">Saved sessions on this device</option>
+                </select>
+              </label>
+              <div class="session-tool-grid">
+                <button id="saveSessionBtn" class="btn session-tool-wide" type="button">Save Session</button>
+                <button id="loadSessionBtn" class="btn" type="button">Load Saved</button>
+                <button id="deleteSessionBtn" class="btn btn-danger" type="button">Delete Saved</button>
+                <button id="downloadSessionBtn" class="btn" type="button">Download JSON</button>
+                <button id="importSessionBtn" class="btn" type="button">Import JSON</button>
+                <button id="exportScoreKeeperBtn" class="btn session-tool-wide" type="button">Export to ScoreKeeper</button>
+              </div>
+              <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
+            </div>
+          </section>
+
+          <section class="panel rules-panel">
+            <div class="panel-head">
+              <h2>Table Rules</h2>
+              <p>Automatic meld scoring first slice.</p>
+            </div>
+            <ul class="rule-list">
+              <li>Eleven rounds are dealt from 3 cards through 13 cards.</li>
+              <li>The wild rank matches the hand size for the round.</li>
+              <li>Draw from the stock or discard pile, then discard one card.</li>
+              <li>Books and runs need at least three cards.</li>
+              <li>Going out gives every other player one final turn.</li>
+              <li>Lowest total score wins after the king round.</li>
+            </ul>
+          </section>
+        </aside>
+
+        <section class="table-area">
+          <section id="winnerBanner" class="game-flow-banner winner-banner" hidden></section>
+
+          <section class="panel board-panel">
+            <div class="panel-head">
+              <h2>Players</h2>
+              <p id="leaderText">Scores, hand sizes, and round status will appear here.</p>
+            </div>
+            <div id="scoreBoard" class="players-board"></div>
+          </section>
+
+          <section class="panel hand-panel">
+            <div class="hand-panel-shell">
+              <div class="human-main-column">
+                <div class="panel-head hand-head">
+                  <div>
+                    <h2 id="handPanelTitle">Your Hand</h2>
+                    <p id="handSummary">Start a game to see your cards.</p>
+                  </div>
+                  <div id="deadwoodPreview" class="deadwood-preview" hidden></div>
+                </div>
+                <div id="humanSeatSummary" class="human-seat-summary"></div>
+              </div>
+              <div class="human-action-panel">
+                <div class="panel-head compact">
+                  <h2>Actions</h2>
+                  <p id="actionHint">Your controls will appear once the game starts.</p>
+                </div>
+                <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
+                <div id="actionControls" class="action-controls">
+                  <button id="drawStockActionBtn" class="btn btn-primary" type="button">Draw Stock</button>
+                  <button id="drawDiscardActionBtn" class="btn" type="button">Draw Discard</button>
+                  <button id="discardActionBtn" class="btn" type="button" disabled>Waiting to Discard</button>
+                </div>
+                <div class="hand-controls">
+                  <button id="sortHandBtn" class="btn" type="button">Sort Hand</button>
+                  <button id="nextRoundBtn" class="btn btn-primary next-hand-btn" type="button">
+                    Deal Next Round
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div id="humanHand" class="human-hand"></div>
+          </section>
+
+          <section class="panel history-panel">
+            <div class="panel-head history-head">
+              <div>
+                <h2>Round History</h2>
+                <p id="historySummary">Completed rounds will appear here.</p>
+              </div>
+              <button id="historyOrderBtn" class="btn history-order-btn" type="button">Newest First</button>
+            </div>
+            <div id="historyWrap" class="history-wrap"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="../shared/game-room.js?v=20260517a"></script>
+    <script src="./fivecrowns.js?v=20260524b"></script>
+  </body>
+</html>

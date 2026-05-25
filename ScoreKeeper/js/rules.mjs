@@ -469,6 +469,19 @@ export function determineWinnerFromTotals(entries, winMode, target) {
     return sorted[0]?.id ?? null;
   }
 
+  if (winMode === "fixed-low") {
+    const roundsPlayed = Math.max(
+      0,
+      ...entries.map((entry) => Number(entry.roundsPlayed ?? 0)),
+    );
+    if (roundsPlayed < target) return null;
+    const sorted = [...entries].sort((a, b) => (a.total ?? 0) - (b.total ?? 0));
+    const bestTotal = sorted[0]?.total ?? null;
+    if (bestTotal === null) return null;
+    const leaders = sorted.filter((entry) => (entry.total ?? 0) === bestTotal);
+    return leaders.length === 1 ? leaders[0]?.id ?? null : null;
+  }
+
   // "High wins" games require crossing target and picking the highest eligible total.
   const eligible = entries.filter((x) => (x.total ?? 0) >= target);
   if (!eligible.length) return null;

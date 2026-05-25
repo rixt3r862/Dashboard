@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v105";
+const VERSION = "dashboard-v106";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -36,6 +36,9 @@ const CORE_ASSETS = [
   "./Crazy8s/index.html",
   "./Crazy8s/crazy8s.css",
   "./Crazy8s/crazy8s.js",
+  "./FiveCrowns/index.html",
+  "./FiveCrowns/fivecrowns.css",
+  "./FiveCrowns/fivecrowns.js",
   "./ScoreKeeper/index.html",
   "./ScoreKeeper/SK.css",
   "./ScoreKeeper/SK.js",
@@ -46,6 +49,7 @@ const CORE_ASSETS = [
   "./ScoreKeeper/js/rules.mjs",
   "./ScoreKeeper/js/scoreboard.js",
   "./ScoreKeeper/img/Crazy8s.png",
+  "./ScoreKeeper/img/5%20Crowns.png",
   "./ScoreKeeper/img/Hearts.png",
   "./ScoreKeeper/img/Phase%2010.png",
   "./ScoreKeeper/img/Rummikub.jpg",

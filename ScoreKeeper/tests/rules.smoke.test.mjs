@@ -54,6 +54,28 @@ test("low-score games end when target is hit even if the best total is tied", ()
   assert.equal(determineWinnerFromTotals(tiedAtEnd, "low", 100), "b");
 });
 
+test("fixed-low winner waits for the configured round count", () => {
+  const beforeFinalRound = [
+    { id: "a", total: 26, roundsPlayed: 10 },
+    { id: "b", total: 18, roundsPlayed: 10 },
+    { id: "c", total: 31, roundsPlayed: 10 },
+  ];
+  assert.equal(determineWinnerFromTotals(beforeFinalRound, "fixed-low", 11), null);
+
+  const finalRound = [
+    { id: "a", total: 26, roundsPlayed: 11 },
+    { id: "b", total: 18, roundsPlayed: 11 },
+    { id: "c", total: 31, roundsPlayed: 11 },
+  ];
+  assert.equal(determineWinnerFromTotals(finalRound, "fixed-low", 11), "b");
+
+  const tie = [
+    { id: "a", total: 18, roundsPlayed: 11 },
+    { id: "b", total: 18, roundsPlayed: 11 },
+  ];
+  assert.equal(determineWinnerFromTotals(tie, "fixed-low", 11), null);
+});
+
 test("Phase 10 validation allows normal leftover hand points", () => {
   const players = [
     { id: "p1", name: "A" },

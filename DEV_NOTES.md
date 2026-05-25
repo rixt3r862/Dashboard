@@ -53,6 +53,54 @@ Design direction:
 - Use the preset art as a branded table or human-area watermark rather than full-page wallpaper, then tune after screenshot review.
 - Keep controls compact and game-table-like, with clear suit-color affordances and a prominent current-suit indicator after an 8 is played.
 
+## 5 Crowns Standalone Game Plan
+
+Future goal: add a standalone 5 Crowns table alongside Phase 10, SkyJo, Hearts, Spades, and Crazy 8s. Use the Crazy 8s standalone plan as the blueprint: build a narrow playable table first, then layer in history, session tools, animation, and scoring polish.
+
+Current assumptions:
+
+- Keep the app single-device: one human player plus one to four bots, with a default of four total players unless we decide the table feels better at three.
+- Use the existing `ScoreKeeper/img/5 Crowns.png` preset art as the visual anchor.
+- Treat 5 Crowns as a true sibling to the existing standalone card tables, not as an extension of ScoreKeeper only.
+- Use Phase 10 as the primary layout/gameplay model: sidebar setup/status/piles, a player board, a large human hand workspace, embedded actions, and round history. Do not use the Crazy 8s table-seat/felt layout except as a source for card face/back sizing.
+- Reuse shared resources before creating local one-offs: `shared/game-room.js`, `shared/game-room.css`, session/export helpers, shared bot-name and difficulty helpers, shared history sort controls, shared PWA/error logging, and established ScoreKeeper export patterns.
+- Add a ScoreKeeper `fivecrowns` preset if one does not exist when implementation starts. Scoring should be low-score-wins, fixed 11-round session, with round scores equal to each player's remaining hand value after the round ends. Wire `ScoreKeeper/img/5 Crowns.png` into the preset background map at the same time.
+- Export/import should follow the existing standalone game pattern and produce ScoreKeeper-compatible payloads.
+- Use the official 5 Crowns rhythm as the default: 11 hands from 3 cards through 13 cards, with the wild rank matching the hand size each round.
+- Model the 5-suit deck directly instead of trying to squeeze it into standard 4-suit card helpers.
+
+Rules to confirm before implementation:
+
+- Deck composition: confirm the exact local table convention for two 5-suit decks plus jokers, ranks 3 through king, no aces or twos.
+- Wild values: likely current-round wild rank scores `20` points and jokers score `50`, while 3 through 10 score face value and jack/queen/king score `11`/`12`/`13`.
+- Meld rules: confirm books require three or more cards of the same rank, runs require three or more sequential cards of the same suit, and wilds/jokers can fill either meld type.
+- Going out: likely a player must arrange their full hand into valid books/runs and discard one card; after that, every other player gets one final turn before scoring.
+- Turn flow: draw from stock or discard pile, optionally rearrange meld candidates, then discard. Confirm whether drawing the top discard is always allowed.
+- Round start: deal hand size equal to the wild rank, reveal one discard, and advance dealer each round.
+- Stock exhaustion: decide whether to reshuffle the discard pile under the top discard, end the round, or use another house rule.
+- Bot information: bots should only use their own hands plus visible discard/round state; avoid omniscient meld decisions based on hidden hands.
+- End condition: fixed 11 rounds, then lowest total score wins. Confirm whether ties remain ties or use a final-hand/lowest-round tiebreak.
+
+Suggested build phases:
+
+1. Scaffold `FiveCrowns/` with `index.html`, `fivecrowns.css`, and `fivecrowns.js`; start from the Phase 10 operational layout and shared helpers, then add it to the Games page, dashboard links, service-worker core assets, ScoreKeeper preset list, and standalone head checklist.
+2. Implement core state: players, 5-suit deck, jokers, dealer, round number, hand size, wild rank, stock pile, discard pile, current player, turn stage, round scores, full-game totals, sessions, and ScoreKeeper export.
+3. Build the first playable loop without clever meld assistance: deal, draw, discard, detect a manual go-out attempt, validate full-hand melds, give other players one final turn, score remaining cards, and advance rounds.
+4. Add meld UX: selectable cards, suggested books/runs, staged meld groups, invalid-group feedback, remaining-card score preview, go-out availability, and compact rearrangement controls that work on mobile. Keep all card face/back components on the Crazy 8s `.playing-card` footprint so meld controls do not create a new card shape.
+5. Add table polish: draw/discard pile animation, wild-rank indicator, dealer marker, final-turn banner, bot status, round history, session tools, and a distinct 5 Crowns theme.
+6. Add bot strategy after the loop works: prefer draws that reduce deadwood, value wilds/jokers highly, build toward near-complete books/runs, discard high deadwood, and become more aggressive late in a round.
+7. Add tests for deck construction, round wilds, card scoring, meld validation, go-out legality, final-turn behavior, round advancement, fixed-session winner logic, export payloads, and saved-session normalization.
+
+Design direction:
+
+- The 5 Crowns table should feel richer and more regal than Crazy 8s, but still like a working game surface rather than a decorative landing page.
+- Build from the logo palette: royal purple field (`#6b3190`), deep violet lettering (`#492983`), crown orange/gold (`#e17f26`, `#f79824`, `#fbce3f`, `#fdd56a`), white border/trim, and suit accents in red (`#eb2027`), green (`#1ba650`), blue (`#1472ba`), yellow (`#fbce3f`), and near-black (`#070708`).
+- Use the preset art as a branded table or setup-panel mark, not a full-page wallpaper. Let the purple and crown-gold tones carry the table surface, buttons, winner states, and wild-rank badge.
+- Match Crazy 8s card proportions exactly for both faces and backs: `aspect-ratio: 5 / 7`, default width `4.35rem`, mobile width `3.7rem`, mini-card width around `2.8rem` to `3.1rem`, rounded `0.55rem` face corners, and the same border/inner-shadow feel. Only the 5 Crowns suits, colors, typography, and back pattern should differ.
+- Build the identity around five clear suit colors, crown/star motifs used sparingly, a prominent wild-rank badge, and clean meld zones.
+- Prioritize hand organization. This game will live or die by how pleasant it feels to sort, group, ungroup, and understand leftover card value.
+- Keep the first version readable over flashy: compact controls, stable card dimensions, obvious selected/playable states, and no layout shifts when hands grow to 13 cards.
+
 ## Client-Side Error Logging
 
 Production pages load a lightweight client-side error logger from `shared/pwa.js`. It stores the latest browser errors in `localStorage` under `dashboard.clientErrors.v1` and exposes `window.DashboardErrorLog` in DevTools with `list()`, `clear()`, `record(entry)`, and `download()` helpers. Known extension-origin noise such as `Unchecked runtime.lastError: The message port closed before a response was received` is filtered before storage.

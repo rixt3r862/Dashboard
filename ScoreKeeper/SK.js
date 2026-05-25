@@ -400,6 +400,7 @@ import { createScoreboardController } from "./js/scoreboard.js";
   function sourceGameLabel(sourceGame) {
     if (sourceGame === "skyjo-table") return "SkyJo";
     if (sourceGame === "phase10-table") return "Phase 10";
+    if (sourceGame === "fivecrowns-table") return "5 Crowns";
     return "";
   }
 
@@ -1110,6 +1111,13 @@ import { createScoreboardController } from "./js/scoreboard.js";
         id: p.id,
         total: playerTotals[p.id] ?? 0,
         phaseCompleted: progress[p.id]?.completedPhases ?? 0,
+      }));
+    }
+    if (state.presetKey === "fivecrowns") {
+      return eligiblePlayers.map((p) => ({
+        id: p.id,
+        total: playerTotals[p.id] ?? 0,
+        roundsPlayed: state.rounds.length,
       }));
     }
     if (state.teams) {
@@ -1970,7 +1978,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
       typeof json.session?.name === "string" && json.session.name.trim()
         ? json.session.name.trim()
         : typeof json.sourceGame === "string" &&
-            (json.sourceGame === "skyjo-table" || json.sourceGame === "phase10-table")
+            (json.sourceGame === "skyjo-table" ||
+              json.sourceGame === "phase10-table" ||
+              json.sourceGame === "fivecrowns-table")
           ? defaultSessionName(payload)
         : typeof json.name === "string" && json.name.trim()
           ? json.name.trim()
@@ -2869,6 +2879,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
         ? "rummikub"
         : state.presetKey === "quiz"
         ? "quiz"
+        : state.presetKey === "fivecrowns"
+        ? "fixed-low"
         : state.winMode,
       state.target,
     );
