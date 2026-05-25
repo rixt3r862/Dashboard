@@ -18,30 +18,30 @@
     <style>
       :root {
         color-scheme: light;
-        --bg-top: #f3efe4;
-        --bg-bottom: #d7e3da;
+        --bg: #f4efe5;
+        --bg-soft: #d9e5dd;
         --ink: #13221b;
-        --muted: #4f6258;
-        --line: rgba(19, 34, 27, 0.12);
-        --panel: rgba(255, 252, 245, 0.88);
-        --panel-strong: rgba(255, 255, 255, 0.95);
+        --muted: #52655b;
+        --line: rgba(19, 34, 27, 0.13);
+        --panel: rgba(255, 252, 245, 0.86);
+        --panel-strong: rgba(255, 255, 255, 0.96);
         --accent: #155e4c;
         --accent-soft: rgba(21, 94, 76, 0.12);
-        --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+        --shadow: 0 18px 42px rgba(15, 23, 42, 0.11);
       }
 
       html.dark {
         color-scheme: dark;
-        --bg-top: #07120f;
-        --bg-bottom: #102821;
+        --bg: #07120f;
+        --bg-soft: #102821;
         --ink: #eef8f2;
         --muted: #b7cbc1;
         --line: rgba(203, 213, 225, 0.14);
         --panel: rgba(8, 20, 17, 0.82);
-        --panel-strong: rgba(13, 29, 24, 0.92);
+        --panel-strong: rgba(13, 29, 24, 0.94);
         --accent: #57c6a8;
         --accent-soft: rgba(87, 198, 168, 0.16);
-        --shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+        --shadow: 0 20px 46px rgba(0, 0, 0, 0.28);
       }
 
       * {
@@ -51,12 +51,9 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family:
-          "Avenir Next", Avenir, "Segoe UI", sans-serif;
+        font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
         color: var(--ink);
-        background:
-          radial-gradient(circle at top, rgba(255, 255, 255, 0.3), transparent 34%),
-          linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+        background: linear-gradient(180deg, var(--bg), var(--bg-soft));
       }
 
       a {
@@ -69,17 +66,21 @@
       }
 
       .page {
-        width: min(1120px, calc(100% - 2rem));
+        width: min(980px, calc(100% - 2rem));
         margin: 0 auto;
-        padding: 1.5rem 0 3.5rem;
+        padding: 1.5rem 0 3rem;
       }
 
-      .topbar {
+      .topbar,
+      .header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        margin-bottom: 1.5rem;
+      }
+
+      .topbar {
+        margin-bottom: 2.25rem;
       }
 
       .crumbs {
@@ -91,275 +92,115 @@
       }
 
       .crumbs a {
-        font-weight: 600;
+        font-weight: 700;
       }
 
       .theme-toggle {
         border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.62rem 0.9rem;
         background: var(--panel);
         color: var(--ink);
-        border-radius: 999px;
-        padding: 0.7rem 1rem;
         cursor: pointer;
-        box-shadow: var(--shadow);
       }
 
-      .hero {
-        position: relative;
-        overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 32px;
-        padding: 2rem;
-        background:
-          radial-gradient(circle at top right, rgba(255, 255, 255, 0.35), transparent 28%),
-          linear-gradient(135deg, rgba(21, 94, 76, 0.18), rgba(21, 94, 76, 0.04)),
-          var(--panel-strong);
-        box-shadow: var(--shadow);
-      }
-
-      .hero::after {
-        content: "";
-        position: absolute;
-        inset: auto -3rem -3rem auto;
-        width: 12rem;
-        height: 12rem;
-        border-radius: 50%;
-        background: rgba(21, 94, 76, 0.12);
-        filter: blur(2px);
-      }
-
-      .hero-kicker {
-        margin: 0 0 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.16em;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: var(--muted);
-      }
-
-      .hero h1 {
-        margin: 0;
-        font-size: clamp(2.2rem, 4vw, 4rem);
-        line-height: 0.95;
-      }
-
-      .hero p {
-        max-width: 42rem;
-        margin: 1rem 0 0;
-        font-size: 1.05rem;
-        line-height: 1.7;
-        color: var(--muted);
-      }
-
-      .hero-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.85rem;
-        margin-top: 1.5rem;
-      }
-
-      .hero-link,
-      .hero-link-secondary {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        padding: 0.85rem 1.15rem;
-        font-weight: 700;
-      }
-
-      .hero-link {
-        background: var(--accent);
-        color: #f7fffb;
-      }
-
-      .hero-link-secondary {
-        border: 1px solid var(--line);
-        background: var(--panel);
-      }
-
-      .section {
-        margin-top: 1.5rem;
-      }
-
-      .section-head {
-        display: flex;
-        align-items: end;
-        justify-content: space-between;
-        gap: 1rem;
+      .header {
         margin-bottom: 1rem;
       }
 
-      .section-head h2 {
+      h1 {
         margin: 0;
-        font-size: 1.45rem;
+        font-size: clamp(2.15rem, 5vw, 3.8rem);
+        line-height: 0.98;
       }
 
-      .section-head p {
-        margin: 0.35rem 0 0;
-        color: var(--muted);
-      }
-
-      .section-note {
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
-
-      .hub-grid {
+      .games-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
       }
 
-      .hub-card,
-      .idea-card {
+      .game-card {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: start;
+        gap: 0.8rem;
+        min-height: 6.75rem;
+        padding: 1rem;
         border: 1px solid var(--line);
-        border-radius: 28px;
+        border-radius: 16px;
         background: var(--panel);
         box-shadow: var(--shadow);
-      }
-
-      .hub-card {
-        display: block;
-        padding: 1.35rem;
         transition:
           transform 0.16s ease,
           border-color 0.16s ease,
           background 0.16s ease;
       }
 
-      .hub-card:hover,
-      .hub-card:focus-visible {
-        transform: translateY(-4px);
-        border-color: rgba(21, 94, 76, 0.3);
+      .game-card:hover,
+      .game-card:focus-visible {
+        transform: translateY(-3px);
+        border-color: rgba(21, 94, 76, 0.32);
         background: var(--panel-strong);
         outline: none;
       }
 
-      .card-top {
-        display: flex;
-        align-items: start;
-        justify-content: space-between;
-        gap: 1rem;
+      html.dark .game-card:hover,
+      html.dark .game-card:focus-visible {
+        border-color: rgba(87, 198, 168, 0.36);
       }
 
-      .card-icon {
+      .game-icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 3rem;
-        height: 3rem;
-        border-radius: 18px;
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 12px;
         background: var(--accent-soft);
-        font-size: 1.5rem;
+        font-size: 1.45rem;
       }
 
-      .card-tag {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        padding: 0.35rem 0.65rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        background: var(--accent-soft);
-        color: var(--accent);
-      }
-
-      .hub-card h3,
-      .idea-card h3 {
-        margin: 1rem 0 0.45rem;
-        font-size: 1.3rem;
-      }
-
-      .hub-card p,
-      .idea-card p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.65;
-      }
-
-      .card-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 1rem;
-      }
-
-      .meta-pill {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: 0.45rem 0.7rem;
-        font-size: 0.86rem;
-        background: rgba(255, 255, 255, 0.55);
-        border: 1px solid var(--line);
-      }
-
-      html.dark .meta-pill {
-        background: rgba(255, 255, 255, 0.03);
-      }
-
-      .ideas-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1rem;
-      }
-
-      .idea-card {
-        padding: 1.2rem;
-      }
-
-      .idea-card strong {
+      .game-name {
         display: block;
-        margin-bottom: 0.45rem;
-        font-size: 0.95rem;
+        overflow-wrap: anywhere;
+        font-size: 1.08rem;
+        font-weight: 800;
+        line-height: 1.15;
       }
 
-      .footer-note {
-        margin-top: 1rem;
+      .game-desc {
+        display: block;
+        margin-top: 0.35rem;
         color: var(--muted);
-        font-size: 0.95rem;
+        font-size: 0.88rem;
+        line-height: 1.35;
       }
 
       @media (max-width: 860px) {
-        .hub-grid,
-        .ideas-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .section-head {
-          align-items: start;
-          flex-direction: column;
+        .games-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
 
       @media (max-width: 640px) {
         .page {
-          width: min(100% - 1rem, 1120px);
+          width: min(100% - 1rem, 980px);
           padding-top: 1rem;
         }
 
-        .topbar {
+        .topbar,
+        .header {
           align-items: stretch;
           flex-direction: column;
         }
 
-        .theme-toggle,
-        .hero-link,
-        .hero-link-secondary {
+        .theme-toggle {
           width: 100%;
         }
 
-        .hero {
-          padding: 1.4rem;
-          border-radius: 26px;
-        }
-
-        .hero-actions {
-          flex-direction: column;
+        .games-grid {
+          grid-template-columns: 1fr;
         }
       }
     </style>
@@ -378,89 +219,21 @@
       </header>
 
       <main>
-        <section class="hero">
-          <p class="hero-kicker">Tabletop Hub</p>
+        <div class="header">
           <h1>Game Room</h1>
-          <p>
-            This is the new landing spot for Phase 10 and the next round of game
-            apps. The main dashboard stays tidy, while your card-table projects
-            get their own home base.
-          </p>
-          <div class="hero-actions">
-            <a class="hero-link" href="../Phase10/index.html" data-dashboard-url="./Phase10/index.html">
-              Open Phase 10
-            </a>
-            <a
-              class="hero-link-secondary"
-              href="../ScoreKeeper/index.html"
-              data-dashboard-url="./ScoreKeeper/index.html"
-            >
-              Open ScoreKeeper
-            </a>
-          </div>
-        </section>
+        </div>
 
-        <section class="section" aria-labelledby="liveGamesTitle">
-          <div class="section-head">
-            <div>
-              <h2 id="liveGamesTitle">Live Tables</h2>
-              <p>Current game apps already wired into the dashboard.</p>
-            </div>
-            <div class="section-note">Add new folders later and drop new cards here.</div>
-          </div>
-          <div id="gamesGrid" class="hub-grid"></div>
-        </section>
-
-        <section class="section" aria-labelledby="futureGamesTitle">
-          <div class="section-head">
-            <div>
-              <h2 id="futureGamesTitle">Open Seats</h2>
-              <p>Reserved space for the next batch of game ideas.</p>
-            </div>
-          </div>
-          <div class="ideas-grid">
-            <article class="idea-card">
-              <strong>Future folder</strong>
-              <h3>New game app</h3>
-              <p>
-                When you build the next game, give it its own folder and add one
-                entry to this hub.
-              </p>
-            </article>
-            <article class="idea-card">
-              <strong>Shared setup</strong>
-              <h3>Reusable launcher</h3>
-              <p>
-                This page can stay the single front door for tabletop apps while
-                each game keeps its own files.
-              </p>
-            </article>
-            <article class="idea-card">
-              <strong>Low friction</strong>
-              <h3>Main dashboard stays clean</h3>
-              <p>
-                The top-level dashboard only needs one Game Room card even as
-                the games section grows.
-              </p>
-            </article>
-          </div>
-          <p class="footer-note">
-            Local app links from this page also write into the dashboard recent
-            list, so the main dashboard still remembers what you opened here.
-          </p>
-        </section>
+        <div id="gamesGrid" class="games-grid" aria-label="Game apps"></div>
       </main>
     </div>
 
     <template id="gameCardTemplate">
-      <a class="hub-card" target="_self" rel="noopener">
-        <div class="card-top">
-          <span class="card-icon" aria-hidden="true"></span>
-          <span class="card-tag"></span>
-        </div>
-        <h3></h3>
-        <p></p>
-        <div class="card-meta"></div>
+      <a class="game-card" target="_self" rel="noopener">
+        <span class="game-icon" aria-hidden="true"></span>
+        <span>
+          <span class="game-name"></span>
+          <span class="game-desc"></span>
+        </span>
       </a>
     </template>
 
@@ -473,63 +246,49 @@
           href: "../Phase10/index.html",
           dashboardUrl: "./Phase10/index.html",
           icon: "🔟",
-          tag: "Live Game",
-          desc: "Streamlined single-device Phase 10 with one human player and one to three bots.",
-          meta: ["1 human", "1-3 bots", "saved sessions"],
+          desc: "Play Phase 10 against bots.",
         },
         {
           name: "SkyJo",
           href: "../SkyJo/index.html",
           dashboardUrl: "./SkyJo/index.html",
           icon: "🌤️",
-          tag: "Live Game",
-          desc: "Play a single-device SkyJo table with one human player and one to three bots.",
-          meta: ["1 human", "1-3 bots", "saved table"],
+          desc: "Build the lowest card total.",
         },
         {
           name: "Hearts",
           href: "../Hearts/index.html",
           dashboardUrl: "./Hearts/index.html",
           icon: "♥️",
-          tag: "Live Game",
-          desc: "Play standard Hearts on one device against three bots.",
-          meta: ["1 human", "3 bots", "standard rules"],
+          desc: "Avoid points and the queen.",
         },
         {
           name: "Spades",
           href: "../Spades/index.html",
           dashboardUrl: "./Spades/index.html",
           icon: "♠️",
-          tag: "Live Game",
-          desc: "Play partnership Spades on one device with one human player and three bots.",
-          meta: ["1 human", "3 bots", "teams"],
+          desc: "Bid tricks with a partner.",
         },
         {
           name: "Crazy 8s",
           href: "../Crazy8s/index.html",
           dashboardUrl: "./Crazy8s/index.html",
           icon: "8️⃣",
-          tag: "Live Game",
-          desc: "Play classic Crazy 8s on one device with one human player and up to three bots.",
-          meta: ["1 human", "1-3 bots", "wild 8s"],
+          desc: "Match suits, ranks, and wild eights.",
         },
         {
           name: "5 Crowns",
           href: "../FiveCrowns/index.html",
           dashboardUrl: "./FiveCrowns/index.html",
           icon: "👑",
-          tag: "Live Game",
-          desc: "Play 5 Crowns on one device with one human player and up to four bots.",
-          meta: ["1 human", "1-4 bots", "wild ranks"],
+          desc: "Make books and runs by round.",
         },
         {
           name: "ScoreKeeper",
           href: "../ScoreKeeper/index.html",
           dashboardUrl: "./ScoreKeeper/index.html",
           icon: "🧮",
-          tag: "Companion",
-          desc: "Flexible score tracking for card nights, including presets like Phase 10, Uno, and more.",
-          meta: ["presets", "saved sessions", "printable scoreboard"],
+          desc: "Track scores for game night.",
         },
       ];
 
@@ -582,28 +341,14 @@
       function renderGames() {
         const grid = document.getElementById("gamesGrid");
         const template = document.getElementById("gameCardTemplate");
+
         for (const game of GAME_APPS) {
           const card = template.content.firstElementChild.cloneNode(true);
           card.href = game.href;
-          if (game.dashboardUrl) {
-            card.dataset.dashboardUrl = game.dashboardUrl;
-          }
-          if (game.external) {
-            card.target = "_blank";
-            card.rel = "noopener noreferrer";
-          }
-          card.querySelector(".card-icon").textContent = game.icon;
-          card.querySelector(".card-tag").textContent = game.tag;
-          card.querySelector("h3").textContent = game.name;
-          card.querySelector("p").textContent = game.desc;
-
-          const meta = card.querySelector(".card-meta");
-          for (const item of game.meta) {
-            const chip = document.createElement("span");
-            chip.className = "meta-pill";
-            chip.textContent = item;
-            meta.appendChild(chip);
-          }
+          card.dataset.dashboardUrl = game.dashboardUrl;
+          card.querySelector(".game-icon").textContent = game.icon;
+          card.querySelector(".game-name").textContent = game.name;
+          card.querySelector(".game-desc").textContent = game.desc;
           grid.appendChild(card);
         }
       }
