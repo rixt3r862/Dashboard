@@ -7,6 +7,7 @@ const DEAL_ANIMATION_MS = 900;
 const PLAY_ANIMATION_MS = 620;
 const DRAW_ANIMATION_MS = 540;
 const STORAGE_SESSIONS_KEY = "dashboard.fivecrowns.sessions";
+const STORAGE_ACTIVE_KEY = "dashboard.fivecrowns.active";
 const SESSION_EXPORT_VERSION = 1;
 const SUITS = ["clubs", "diamonds", "spades", "hearts", "stars"];
 const SUIT_SYMBOLS = { clubs: "♣", diamonds: "♦", spades: "♠", hearts: "♥", stars: "★" };
@@ -120,6 +121,7 @@ const cloneJson = window.GameRoom?.cloneJson || ((value) => JSON.parse(JSON.stri
 const downloadJson = window.GameRoom?.downloadJson || fallbackDownloadJson;
 const readStoredJson = window.GameRoom?.readStoredJson || ((key, fallback) => JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)));
 const writeStoredJson = window.GameRoom?.writeStoredJson || ((key, value) => (localStorage.setItem(key, JSON.stringify(value)), true));
+const removeStoredJson = window.GameRoom?.removeStoredJson || ((key) => (localStorage.removeItem(key), true));
 const clampInteger = window.GameRoom?.clampInteger || ((value, min, max, fallback) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.max(min, Math.min(max, Math.trunc(numeric))) : fallback;
@@ -221,6 +223,7 @@ function resetState() {
   clearDiscardAnimationTimer();
   clearDrawAnimationTimers();
   animatedMeldRevealKeys.clear();
+  removeStoredJson(STORAGE_ACTIVE_KEY);
   state.gameStarted = false;
   state.busy = false;
   state.players = [];
@@ -427,6 +430,9 @@ function recycleDiscardPile() {
 }
 
 function finishRound() {
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   const playerEntries = state.players.map((player) => {
     const deadwood = minDeadwoodScore(player.hand);
     player.score += deadwood;
@@ -644,6 +650,26 @@ function render() {
   } else {
     els.winnerBanner.hidden = true;
   }
+  persistActiveGame();
+}
+
+function persistActiveGame() {
+  if (!state.gameStarted) {
+    removeStoredJson(STORAGE_ACTIVE_KEY);
+    return;
+  }
+  writeStoredJson(STORAGE_ACTIVE_KEY, {
+    savedAt: Date.now(),
+    payload: sessionSnapshot(),
+  });
+}
+
+function restoreActiveGame() {
+  const saved = readStoredJson(STORAGE_ACTIVE_KEY, null);
+  const payload = saved?.payload || saved;
+  if (!payload?.gameStarted || !Array.isArray(payload.players) || !payload.players.length) return false;
+  restoreSessionSnapshot(payload);
+  return true;
 }
 
 function renderSetupPanel() {
@@ -1472,4 +1498,6 @@ shuffleSetupBotNames();
 ensureSetupBotNames();
 bindEvents();
 renderBotNameFields();
-render();
+if (!restoreActiveGame()) {
+  render();
+}
