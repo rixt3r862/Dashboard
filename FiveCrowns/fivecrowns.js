@@ -397,8 +397,12 @@ function takeBotTurn() {
   if (!player?.bot || state.stage !== "playing") return;
   const discard = topDiscard();
   const currentScore = minDeadwoodScore(player.hand);
-  const discardScore = discard ? bestDiscardChoice(player.hand.concat(discard)).score : Infinity;
-  drawForCurrentPlayer(discard && discardScore <= currentScore ? "discard" : "stock");
+  const discardChoice = discard ? bestDiscardChoice(player.hand.concat(discard)) : null;
+  const shouldTakeDiscard = Boolean(
+    discardChoice &&
+      (discardChoice.score < currentScore || discardChoice.card?.id !== discard.id),
+  );
+  drawForCurrentPlayer(shouldTakeDiscard ? "discard" : "stock");
   const choice = bestDiscardChoice(player.hand);
   discardCard(player, choice.card || player.hand[player.hand.length - 1]);
 }

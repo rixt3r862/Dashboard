@@ -64,7 +64,7 @@ Current assumptions:
 - Treat 5 Crowns as a true sibling to the existing standalone card tables, not as an extension of ScoreKeeper only.
 - Use Phase 10 as the primary layout/gameplay model: sidebar setup/status/piles, a player board, a large human hand workspace, embedded actions, and round history. Do not use the Crazy 8s table-seat/felt layout except as a source for card face/back sizing.
 - Reuse shared resources before creating local one-offs: `shared/game-room.js`, `shared/game-room.css`, session/export helpers, shared bot-name and difficulty helpers, shared history sort controls, shared PWA/error logging, and established ScoreKeeper export patterns.
-- Add a ScoreKeeper `fivecrowns` preset if one does not exist when implementation starts. Scoring should be low-score-wins, fixed 11-round session, with round scores equal to each player's remaining hand value after the round ends. Wire `ScoreKeeper/img/5 Crowns.png` into the preset background map at the same time.
+- ScoreKeeper includes a `fivecrowns` preset. Scoring is low-score-wins, fixed 11-round session, with round scores equal to each player's remaining hand value after the round ends. `ScoreKeeper/img/5 Crowns.png` is wired into the preset background map.
 - Export/import should follow the existing standalone game pattern and produce ScoreKeeper-compatible payloads.
 - Use the official 5 Crowns rhythm as the default: 11 hands from 3 cards through 13 cards, with the wild rank matching the hand size each round.
 - Model the 5-suit deck directly instead of trying to squeeze it into standard 4-suit card helpers.
@@ -98,6 +98,7 @@ Design direction:
 - Use the preset art as a branded table or setup-panel mark, not a full-page wallpaper. Let the purple and crown-gold tones carry the table surface, buttons, winner states, and wild-rank badge.
 - Match Crazy 8s card proportions exactly for both faces and backs: `aspect-ratio: 5 / 7`, default width `4.35rem`, mobile width `3.7rem`, mini-card width around `2.8rem` to `3.1rem`, rounded `0.55rem` face corners, and the same border/inner-shadow feel. Only the 5 Crowns suits, colors, typography, and back pattern should differ.
 - Build the identity around five clear suit colors, crown/star motifs used sparingly, a prominent wild-rank badge, and clean meld zones.
+- Revisit star suit glyph shadows in Safari. Chrome renders the current Unicode star/drop-shadow treatment clearly, but Safari may under-render CSS `filter: drop-shadow()` on text glyphs; if needed, test a `text-shadow` fallback for `.suit-stars .suit-mark` while preserving the current card geometry.
 - Prioritize hand organization. This game will live or die by how pleasant it feels to sort, group, ungroup, and understand leftover card value.
 - Keep the first version readable over flashy: compact controls, stable card dimensions, obvious selected/playable states, and no layout shifts when hands grow to 13 cards.
 
