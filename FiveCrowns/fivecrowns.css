@@ -856,15 +856,26 @@ button {
 }
 
 .playing-card.suit-stars {
-  --card-suit-color: #f9e231;
+  --card-suit-color: #fffb00;
   text-shadow: none;
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 2px var(--card-suit-color),
+    inset 0 0 0 3px rgba(61, 54, 0, 0.72),
+    0 0 0.34rem rgba(61, 54, 0, 0.32);
+}
+
+.playing-card.suit-stars .card-corner {
+  text-shadow:
+    0 0 1px #2d2800,
+    0 1px 1px rgba(0, 0, 0, 0.58);
 }
 
 .playing-card.suit-stars .suit-mark {
   transform: scale(0.8);
   filter:
-    drop-shadow(0 0 1px #3d3600)
-    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.42));
+    drop-shadow(0 0 1px #2d2800)
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.58));
 }
 
 .playing-card.suit-spades {
