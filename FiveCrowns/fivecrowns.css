@@ -518,8 +518,7 @@ button {
   background-size: 1.05rem 1.05rem, 1.05rem 1.05rem, auto, auto;
 }
 
-.mini-card-overflow,
-.mini-card-summary {
+.mini-card-overflow {
   display: inline-flex;
   align-items: center;
   min-height: 1.75rem;
@@ -531,14 +530,6 @@ button {
   color: var(--accent-strong);
   font-size: 0.74rem;
   font-weight: 800;
-}
-
-.human-mini-card-row {
-  padding-left: 0;
-}
-
-.human-mini-card-row .mini-card-summary {
-  margin-left: 0;
 }
 
 .face-up-mini-row {
@@ -646,6 +637,9 @@ button {
 }
 
 .meld-face-card {
+  position: relative;
+  isolation: isolate;
+  z-index: calc(var(--meld-index, 0) + 1);
   display: inline-flex;
   margin-left: -1.8rem;
   transform: rotate(calc((var(--meld-index, 0) - 2) * 1.6deg));
@@ -773,6 +767,8 @@ button {
 
 .card-button {
   position: relative;
+  isolation: isolate;
+  z-index: calc(var(--hand-index, 0) + 1);
   flex: 0 0 auto;
   border: 0;
   background: transparent;
@@ -802,6 +798,7 @@ button {
 
 .card-button.legal:hover,
 .card-button.legal:focus-visible {
+  z-index: 100;
   transform: translateY(-0.35rem);
 }
 

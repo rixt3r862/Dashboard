@@ -747,19 +747,20 @@ function renderScoreBoard() {
   els.leaderText.textContent = leader
     ? `${leader.name} has the low score at ${leader.score} points.`
     : "Lowest score wins after the king round.";
-  els.scoreBoard.style.gridTemplateColumns = `repeat(${Math.min(state.players.length, 5)}, minmax(0, 1fr))`;
-  els.scoreBoard.innerHTML = state.players.map((player) => `
+  const botPlayers = state.players.filter((player) => player.bot);
+  els.scoreBoard.style.gridTemplateColumns = `repeat(${Math.min(botPlayers.length || 1, 4)}, minmax(0, 1fr))`;
+  els.scoreBoard.innerHTML = botPlayers.map((player) => `
     <article class="player-card ${player.id === currentPlayer()?.id ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""} ${player.id === state.wentOutPlayerId ? "out" : ""}">
       <div class="player-head">
         <h3 class="player-name">${escapeHtml(player.name)}</h3>
-        <span class="badge ${player.id === state.winnerId ? "gold" : ""}">${player.bot ? difficultyLabel(player.difficulty) : "You"}</span>
+        <span class="badge ${player.id === state.winnerId ? "gold" : ""}">${difficultyLabel(player.difficulty)}</span>
       </div>
       <div class="player-stats">
         <span class="stat-pill gold">${player.score} pts</span>
         <span class="stat-pill">${player.hand.length} in hand</span>
       </div>
       <div class="player-mini-hand" aria-label="${escapeHtml(player.name)} has ${player.hand.length} cards">
-        ${player.bot ? renderPlayerMiniHand(player) : renderHumanMiniHand(player)}
+        ${renderPlayerMiniHand(player)}
       </div>
       <div class="score-meta">${player.id === currentPlayer()?.id && state.stage === "playing" ? "Current turn" : player.id === state.wentOutPlayerId ? "Went out" : indexLabel(player)}</div>
     </article>
@@ -827,17 +828,6 @@ function renderMiniFaceCard(card, index) {
     ">",
     ` style="--mini-index: ${index};">`,
   );
-}
-
-function renderHumanMiniHand(player) {
-  if (shouldShowMeldLayout(player)) {
-    return renderMeldLayout(player.hand, { animationKey: meldAnimationKey(player, "summary") });
-  }
-  return `
-    <div class="mini-card-row human-mini-card-row">
-      <span class="mini-card-summary">Deadwood ${minDeadwoodScore(player.hand)}</span>
-    </div>
-  `;
 }
 
 function renderSeats() {
@@ -961,7 +951,7 @@ function renderHumanHand() {
     els.humanHand.innerHTML = renderMeldLayout(player.hand, { size: "full", animationKey: meldAnimationKey(player, "hand") });
     return;
   }
-  els.humanHand.innerHTML = player.hand.map((card) => {
+  els.humanHand.innerHTML = player.hand.map((card, index) => {
     const legal = isHumanTurn() && state.stage === "playing" && !state.busy && !state.dealAnimationActive && state.turnPhase === "discard";
     const dealIndex = state.players.indexOf(player) * currentHandSize() + player.hand.indexOf(card);
     const freshDraw = state.drawingToHandIds.includes(card.id);
@@ -973,9 +963,10 @@ function renderHumanHand() {
       drawnCard ? "drawn-card" : "",
       legal ? "legal" : "illegal",
     ].filter(Boolean).join(" ");
-    const style = state.dealAnimationActive ? ` style="--deal-index: ${dealIndex};"` : "";
+    const styleVars = [`--hand-index: ${index};`];
+    if (state.dealAnimationActive) styleVars.push(`--deal-index: ${dealIndex};`);
     return `
-      <button class="${classes}" type="button" data-card-id="${card.id}" aria-label="${cardLabel(card)}"${style}>
+      <button class="${classes}" type="button" data-card-id="${card.id}" aria-label="${cardLabel(card)}" style="${styleVars.join(" ")}">
         ${renderCard(card)}
       </button>
     `;
