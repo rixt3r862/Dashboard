@@ -7,7 +7,13 @@ const GRID_SIZE = ROWS * COLS;
 const STORAGE_KEY = "skyjo.table.v1";
 const SESSIONS_KEY = "skyjo.table.sessions.v1";
 const EXPORT_VERSION = 1;
+const DEAL_CARD_STAGGER_MS = 110;
+const DEAL_FLIGHT_DURATION_MS = 540;
 let dealAnimationTimer = null;
+let dealFlightAnimationFrame = null;
+let dealFlightOverlay = null;
+let dealFlightRunId = 0;
+let renderedDealFlightRunId = 0;
 let botTurnTimer = null;
 let botTurnToken = 0;
 
@@ -444,7 +450,20 @@ function clearDealAnimation() {
     window.clearTimeout(dealAnimationTimer);
     dealAnimationTimer = null;
   }
+  clearDealFlightAnimation();
   state.dealAnimationCardIds = [];
+}
+
+function clearDealFlightAnimation() {
+  if (dealFlightAnimationFrame) {
+    window.cancelAnimationFrame(dealFlightAnimationFrame);
+    dealFlightAnimationFrame = null;
+  }
+  if (dealFlightOverlay) {
+    dealFlightOverlay.remove();
+    dealFlightOverlay = null;
+  }
+  renderedDealFlightRunId = 0;
 }
 
 function cancelPendingBotTurn() {
@@ -460,7 +479,8 @@ function triggerDealAnimation(cardIds) {
   clearDealAnimation();
   state.dealAnimationCardIds = Array.isArray(cardIds) ? cardIds.filter(Boolean) : [];
   if (!state.dealAnimationCardIds.length) return;
-  const duration = 420 + state.dealAnimationCardIds.length * 110;
+  dealFlightRunId += 1;
+  const duration = 420 + state.dealAnimationCardIds.length * DEAL_CARD_STAGGER_MS;
   dealAnimationTimer = window.setTimeout(() => {
     dealAnimationTimer = null;
     state.dealAnimationCardIds = [];
@@ -888,6 +908,7 @@ function render() {
   renderActions();
   renderPlayers();
   renderHistory();
+  scheduleDealFlightAnimation();
 }
 
 function renderSetupPanel() {
@@ -1217,10 +1238,12 @@ function slotMarkup(player, slot, index, selectable) {
   const dealIndex = dealAnimationIndex(slot.card?.id);
   const dealtClass = Number.isFinite(dealIndex) ? "dealt" : "";
   const style = Number.isFinite(dealIndex) ? `style="--deal-index: ${dealIndex}"` : "";
+  const dealCardAttribute = slot.card?.id ? `data-deal-card-id="${escapeHtml(slot.card.id)}"` : "";
   return `
     <${tag}
       class="grid-slot ${slot.cleared ? "cleared" : ""} ${interactive ? "interactive" : ""} ${dealtClass}"
       ${style}
+      ${dealCardAttribute}
       ${interactive ? `type="button" data-player-id="${escapeHtml(player.id)}" data-slot-index="${index}" aria-label="${actionLabel} card ${index + 1}"` : ""}
     >
       ${content}
@@ -1232,6 +1255,88 @@ function dealAnimationIndex(cardId) {
   if (!cardId || !state.dealAnimationCardIds.length) return null;
   const index = state.dealAnimationCardIds.indexOf(cardId);
   return index >= 0 ? index : null;
+}
+
+function scheduleDealFlightAnimation() {
+  if (!state.dealAnimationCardIds.length || renderedDealFlightRunId === dealFlightRunId) return;
+  renderedDealFlightRunId = dealFlightRunId;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  if (dealFlightAnimationFrame) window.cancelAnimationFrame(dealFlightAnimationFrame);
+  dealFlightAnimationFrame = window.requestAnimationFrame(() => {
+    dealFlightAnimationFrame = null;
+    playDealFlightAnimation(state.dealAnimationCardIds);
+  });
+}
+
+function playDealFlightAnimation(cardIds) {
+  const deckCard = els.deckPreview?.querySelector(".skyjo-card") || els.drawDeckBtn?.querySelector(".skyjo-card");
+  if (!deckCard || !document.body) return;
+
+  const sourceRect = deckCard.getBoundingClientRect();
+  const targets = Array.from(els.playersBoard?.querySelectorAll("[data-deal-card-id]") || []);
+  const flights = cardIds
+    .map((cardId, index) => ({
+      cardId,
+      index,
+      target: targets.find((entry) => entry.dataset.dealCardId === cardId),
+    }))
+    .filter((flight) => flight.target);
+
+  if (!flights.length) return;
+  if (dealFlightOverlay) dealFlightOverlay.remove();
+  dealFlightOverlay = document.createElement("div");
+  dealFlightOverlay.className = "deal-flight-layer";
+  document.body.appendChild(dealFlightOverlay);
+  const overlay = dealFlightOverlay;
+
+  const animations = flights.map(({ index, target }) => {
+    const targetRect = target.getBoundingClientRect();
+    const startX = sourceRect.left + sourceRect.width / 2 - (targetRect.left + targetRect.width / 2);
+    const startY = sourceRect.top + sourceRect.height / 2 - (targetRect.top + targetRect.height / 2);
+    const rotation = index % 2 === 0 ? -7 : 7;
+    const flyer = document.createElement("span");
+    flyer.className = "deal-flight-card";
+    flyer.style.left = `${targetRect.left}px`;
+    flyer.style.top = `${targetRect.top}px`;
+    flyer.style.width = `${targetRect.width}px`;
+    flyer.style.height = `${targetRect.height}px`;
+    flyer.innerHTML = hiddenCardMarkup();
+    overlay.appendChild(flyer);
+    return flyer.animate(
+      [
+        {
+          opacity: 0,
+          transform: `translate(${startX}px, ${startY}px) rotate(${rotation}deg) scale(0.92)`,
+        },
+        {
+          opacity: 1,
+          offset: 0.16,
+          transform: `translate(${startX * 0.86}px, ${startY * 0.86}px) rotate(${rotation}deg) scale(0.96)`,
+        },
+        {
+          opacity: 1,
+          offset: 0.78,
+          transform: `translate(${startX * 0.08}px, ${startY * 0.08 - 10}px) rotate(${rotation * -0.28}deg) scale(1.02)`,
+        },
+        {
+          opacity: 0,
+          transform: "translate(0, 0) rotate(0deg) scale(1)",
+        },
+      ],
+      {
+        delay: index * DEAL_CARD_STAGGER_MS,
+        duration: DEAL_FLIGHT_DURATION_MS,
+        easing: "cubic-bezier(0.18, 0.78, 0.26, 1)",
+        fill: "both",
+      },
+    );
+  });
+
+  Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+    if (dealFlightOverlay !== overlay) return;
+    overlay.remove();
+    dealFlightOverlay = null;
+  });
 }
 
 function renderHistory() {

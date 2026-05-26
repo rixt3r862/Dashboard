@@ -855,6 +855,28 @@ button {
   animation-delay: calc(var(--deal-index, 0) * 110ms);
 }
 
+.deal-flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.deal-flight-card {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  will-change: transform, opacity;
+  transform-origin: center;
+  filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.26));
+}
+
+.deal-flight-card .skyjo-card {
+  width: 100%;
+  height: 100%;
+}
+
 .grid-slot.interactive {
   cursor: pointer;
   outline: 2px solid rgba(var(--lime-rgb), 0.38);
