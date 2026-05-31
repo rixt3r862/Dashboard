@@ -768,7 +768,7 @@ function renderScoreBoard() {
 }
 
 function renderPlayerMiniHand(player) {
-  if (player.id === state.wentOutPlayerId) {
+  if (shouldShowMeldLayout(player)) {
     return renderMeldLayout(player.hand, { animationKey: meldAnimationKey(player, "summary") });
   }
   const visibleCount = Math.min(player.hand.length, 10);
