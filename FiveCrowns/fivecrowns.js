@@ -108,6 +108,7 @@ const els = {
   sortHandBtn: document.getElementById("sortHandBtn"),
   nextRoundBtn: document.getElementById("nextRoundBtn"),
   humanHand: document.getElementById("humanHand"),
+  possibleMelds: document.getElementById("possibleMelds"),
   handSummary: document.getElementById("handSummary"),
   deadwoodPreview: document.getElementById("deadwoodPreview"),
   historySummary: document.getElementById("historySummary"),
@@ -175,6 +176,8 @@ function bindEvents() {
   els.drawStockActionBtn.addEventListener("click", () => drawForHuman("stock"));
   els.drawDiscardActionBtn.addEventListener("click", () => drawForHuman("discard"));
   els.humanHand.addEventListener("click", handleHandClick);
+  els.possibleMelds.addEventListener("click", handlePossibleMeldClick);
+  els.possibleMelds.addEventListener("keydown", handlePossibleMeldKeydown);
   els.sortHandBtn.addEventListener("click", () => {
     state.handSortMode = state.handSortMode === "suit" ? "rank" : "suit";
     sortHands();
@@ -324,6 +327,20 @@ function handleHandClick(event) {
   const card = humanPlayer().hand.find((entry) => entry.id === button.dataset.cardId);
   if (!card) return;
   discardCard(humanPlayer(), card);
+}
+
+function handlePossibleMeldClick(event) {
+  const item = event.target.closest("[data-meld-layout-index]");
+  if (!item) return;
+  applyPossibleMeldOrder(Number(item.dataset.meldLayoutIndex));
+}
+
+function handlePossibleMeldKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const item = event.target.closest("[data-meld-layout-index]");
+  if (!item) return;
+  event.preventDefault();
+  applyPossibleMeldOrder(Number(item.dataset.meldLayoutIndex));
 }
 
 function drawForHuman(source) {
@@ -830,6 +847,128 @@ function renderMiniFaceCard(card, index) {
   );
 }
 
+function renderPossibleMelds(cards) {
+  const suggestions = possibleMeldCombinations(cards);
+  if (!suggestions.length) {
+    return `
+      <section class="possible-melds-panel is-empty" aria-label="Possible melds">
+        <div class="possible-melds-head">
+          <h3>Possible Meld Combinations</h3>
+          <span>No complete books or runs yet</span>
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="possible-melds-panel" aria-label="Possible melds">
+      <div class="possible-melds-head">
+        <h3>Possible Meld Combinations</h3>
+        <span>${suggestions.length} shown • best deadwood ${suggestions[0].score}</span>
+      </div>
+      <ul class="possible-melds-list">
+        ${suggestions.map((layout, layoutIndex) => `
+          <li class="possible-meld-item" data-meld-layout-index="${layoutIndex}" role="button" tabindex="0" style="--possible-index: ${layoutIndex};">
+            <span class="possible-meld-score">Deadwood ${layout.score}</span>
+            <span class="possible-meld-combo">
+              ${layout.melds.map((meld) => `
+                <span class="possible-meld-part possible-${meld.type.toLowerCase()}">
+                  <span class="possible-meld-label">${meld.type}</span>
+                  <span class="possible-meld-cards">${meld.cards.map(cardLabel).join(", ")}</span>
+                </span>
+              `).join(`<span class="possible-meld-plus">+</span>`)}
+            </span>
+          </li>
+        `).join("")}
+      </ul>
+    </section>
+  `;
+}
+
+function applyPossibleMeldOrder(layoutIndex) {
+  const player = humanPlayer();
+  if (!Number.isInteger(layoutIndex) || !player?.hand?.length || shouldShowMeldLayout(player)) return;
+  const layout = possibleMeldCombinations(player.hand)[layoutIndex];
+  if (!layout) return;
+  const meldCards = layout.melds.flatMap((meld) => meld.cards);
+  const meldCardIds = new Set(meldCards.map((card) => card.id));
+  const deadwood = player.hand.filter((card) => !meldCardIds.has(card.id));
+  player.hand = [...meldCards, ...deadwood];
+  renderHumanHand();
+  persistActiveGame();
+}
+
+function possibleMeldCombinations(cards) {
+  if (!cards.length) return [];
+  const count = cards.length;
+  const fullMask = (1 << count) - 1;
+  const melds = validMelds(cards);
+  const memo = new Map();
+  const limit = 12;
+  const solve = (mask) => {
+    if (mask === 0) return [{ score: 0, melds: [] }];
+    if (memo.has(mask)) return memo.get(mask);
+    const layouts = [{ score: sumMask(cards, mask), melds: [] }];
+    for (const meld of melds) {
+      if ((mask & meld.mask) !== meld.mask) continue;
+      for (const next of solve(mask ^ meld.mask)) {
+        layouts.push({ score: next.score, melds: [meld, ...next.melds] });
+      }
+    }
+    const best = dedupeMeldLayouts(layouts)
+      .sort(comparePossibleLayout)
+      .slice(0, limit);
+    memo.set(mask, best);
+    return best;
+  };
+  return solve(fullMask)
+    .filter((layout) => layout.melds.length)
+    .map((layout) => ({
+      score: layout.score,
+      melds: layout.melds
+        .slice()
+        .sort((left, right) => firstMaskIndex(left.mask) - firstMaskIndex(right.mask))
+        .map((meld) => ({
+          type: meld.type,
+          cards: cards.filter((_card, index) => meld.mask & (1 << index)),
+        })),
+    }));
+}
+
+function dedupeMeldLayouts(layouts) {
+  const byKey = new Map();
+  layouts.forEach((layout) => {
+    const key = layout.melds
+      .map((meld) => String(meld.mask))
+      .sort()
+      .join("|");
+    const existing = byKey.get(key);
+    if (!existing || comparePossibleLayout(layout, existing) < 0) {
+      byKey.set(key, layout);
+    }
+  });
+  return [...byKey.values()];
+}
+
+function comparePossibleLayout(left, right) {
+  if (left.score !== right.score) return left.score - right.score;
+  const leftCards = meldCardCount(left.melds);
+  const rightCards = meldCardCount(right.melds);
+  if (leftCards !== rightCards) return rightCards - leftCards;
+  if (left.melds.length !== right.melds.length) return right.melds.length - left.melds.length;
+  return meldLayoutSortLabel(left.melds).localeCompare(meldLayoutSortLabel(right.melds));
+}
+
+function meldCardCount(melds) {
+  return melds.reduce((sum, meld) => sum + bitCount(meld.mask), 0);
+}
+
+function meldLayoutSortLabel(melds) {
+  return melds
+    .map((meld) => `${meld.type}-${meld.mask}`)
+    .sort()
+    .join("|");
+}
+
 function renderSeats() {
   const seats = [els.humanSeat, els.opponentLeft, els.opponentTop, els.opponentRight, els.opponentExtra];
   if (!seats.some(Boolean)) return;
@@ -928,6 +1067,7 @@ function renderHumanHand() {
     if (els.handPanelTitle) els.handPanelTitle.textContent = "Your Hand";
     els.handSummary.textContent = "Start a game to see your cards.";
     els.humanHand.innerHTML = "";
+    updatePossibleMelds("");
     if (els.humanSeatSummary) els.humanSeatSummary.innerHTML = "";
     els.deadwoodPreview.hidden = true;
     return;
@@ -949,6 +1089,7 @@ function renderHumanHand() {
   if (shouldShowMeldLayout(player)) {
     els.handSummary.textContent = `${player.hand.length} cards in hand • ${player.id === state.wentOutPlayerId ? "went out" : "round scored"}.`;
     els.humanHand.innerHTML = renderMeldLayout(player.hand, { size: "full", animationKey: meldAnimationKey(player, "hand") });
+    updatePossibleMelds("");
     return;
   }
   els.humanHand.innerHTML = player.hand.map((card, index) => {
@@ -971,6 +1112,12 @@ function renderHumanHand() {
       </button>
     `;
   }).join("");
+  updatePossibleMelds(renderPossibleMelds(player.hand));
+}
+
+function updatePossibleMelds(html) {
+  if (els.possibleMelds.innerHTML === html) return;
+  els.possibleMelds.innerHTML = html;
 }
 
 function shouldShowMeldLayout(player) {
