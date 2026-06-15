@@ -1431,6 +1431,132 @@ body.game-active .deck-card-badge {
   font-size: 0.58rem;
 }
 
+.possible-phase-melds {
+  margin-top: 0.72rem;
+}
+
+.possible-phase-melds-panel {
+  padding: 0.7rem;
+  border: 1px solid rgba(var(--phase-paper-rgb), 0.12);
+  border-radius: 1rem;
+  background:
+    linear-gradient(132deg, rgba(var(--phase-red-rgb), 0.08), transparent 46%),
+    rgba(var(--phase-panel-rgb), 0.42);
+}
+
+.possible-phase-melds-panel.is-empty {
+  background: rgba(var(--phase-paper-rgb), 0.035);
+}
+
+.possible-phase-melds-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.possible-phase-melds-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.possible-phase-melds-head span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.possible-phase-melds-list {
+  display: grid;
+  gap: 0.36rem;
+  max-height: 10.5rem;
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  overflow: auto;
+}
+
+.possible-phase-meld-item {
+  border-radius: 0.55rem;
+  padding-left: 0.15rem;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.possible-phase-meld-item::marker {
+  color: var(--accent-strong);
+}
+
+.possible-phase-meld-item:hover,
+.possible-phase-meld-item:focus-visible {
+  background: rgba(var(--phase-paper-rgb), 0.07);
+  outline: none;
+}
+
+.possible-phase-meld-score {
+  display: inline-flex;
+  margin-right: 0.4rem;
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+.possible-phase-meld-combo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.35rem;
+}
+
+.possible-phase-meld-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1rem;
+}
+
+.possible-phase-meld-plus {
+  color: rgba(var(--phase-paper-rgb), 0.46);
+  font-weight: 800;
+}
+
+.possible-phase-meld-label {
+  display: inline-flex;
+  margin-right: 0.35rem;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+  background: rgba(var(--phase-panel-rgb), 0.58);
+  color: var(--accent-strong);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.possible-set .possible-phase-meld-label {
+  color: #ffd36d;
+}
+
+.possible-run .possible-phase-meld-label {
+  color: #9ed4ff;
+}
+
+.possible-color .possible-phase-meld-label {
+  color: #a8efbd;
+}
+
+.possible-phase-meld-cards {
+  color: var(--muted);
+}
+
+.possible-phase-meld-need {
+  display: inline-flex;
+  margin-left: 0.24rem;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
 .round-history-wrap {
   margin-top: 0.85rem;
   overflow-x: auto;

@@ -177,6 +177,7 @@ const els = {
   leaderText: document.getElementById("leaderText"),
   humanSeatSummary: document.getElementById("humanSeatSummary"),
   humanHand: document.getElementById("humanHand"),
+  possiblePhaseMelds: document.getElementById("possiblePhaseMelds"),
   handSummary: document.getElementById("handSummary"),
   roundHistorySummary: document.getElementById("roundHistorySummary"),
   roundHistoryWrap: document.getElementById("roundHistoryWrap"),
@@ -269,6 +270,8 @@ function bindEvents() {
   els.layPhaseBtn.addEventListener("click", humanLayPhase);
   els.discardBtn.addEventListener("click", humanDiscardSelected);
   els.nextRoundBtn.addEventListener("click", beginNextRound);
+  els.possiblePhaseMelds.addEventListener("click", handlePossiblePhaseMeldClick);
+  els.possiblePhaseMelds.addEventListener("keydown", handlePossiblePhaseMeldKeydown);
   els.roundHistoryOrderBtn.addEventListener("click", () => {
     state.roundHistorySortDir = toggleRoundHistorySortDir(state.roundHistorySortDir);
     persistGame();
@@ -1575,6 +1578,20 @@ function humanDraw(source) {
   render();
 }
 
+function handlePossiblePhaseMeldClick(event) {
+  const item = event.target.closest("[data-phase-layout-index]");
+  if (!item) return;
+  applyPossiblePhaseMeldOrder(Number(item.dataset.phaseLayoutIndex));
+}
+
+function handlePossiblePhaseMeldKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const item = event.target.closest("[data-phase-layout-index]");
+  if (!item) return;
+  event.preventDefault();
+  applyPossiblePhaseMeldOrder(Number(item.dataset.phaseLayoutIndex));
+}
+
 function takeDeckInternal(player) {
   const card = drawFromDeckInternal();
   if (!card) return null;
@@ -2460,6 +2477,246 @@ function findBestPhaseMeld(hand, phase) {
       searchGroups(groupIndex + 1, nextRemaining, [...builtGroups, candidate]);
     }
   }
+}
+
+function closestPhasePaths(hand, phase) {
+  if (!phase) return [];
+  const usableCards = hand.filter((card) => card.type !== "skip");
+  const availableIds = new Set(usableCards.map((card) => card.id));
+  const paths = [];
+  const limit = 12;
+
+  searchGroups(0, availableIds, []);
+
+  return dedupePhasePaths(paths)
+    .filter((path) => path.usedCardIds.length)
+    .sort(comparePhasePath)
+    .slice(0, limit);
+
+  function searchGroups(groupIndex, remainingIds, builtGroups) {
+    if (groupIndex >= phase.groups.length) {
+      const usedCards = builtGroups.flatMap((group) => phasePathCardsForDisplay(group));
+      const usedCardIds = usedCards.map((card) => card.id);
+      const usedIdSet = new Set(usedCardIds);
+      const leftover = hand.filter((card) => !usedIdSet.has(card.id));
+      paths.push({
+        groups: builtGroups,
+        usedCardIds,
+        missingCount: builtGroups.reduce((sum, group) => sum + group.missingCount, 0),
+        points: usedCards.reduce((sum, card) => sum + cardPoints(card), 0),
+        leftoverPoints: leftover.reduce((sum, card) => sum + cardPoints(card), 0),
+      });
+      return;
+    }
+
+    const availableCards = usableCards.filter((card) => remainingIds.has(card.id));
+    const candidates = generatePhasePathGroupCandidates(availableCards, phase.groups[groupIndex])
+      .sort(comparePhasePathGroup)
+      .slice(0, 10);
+    for (const candidate of candidates) {
+      const nextRemaining = new Set(remainingIds);
+      let blocked = false;
+      for (const card of candidate.cards) {
+        if (!nextRemaining.delete(card.id)) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+      searchGroups(groupIndex + 1, nextRemaining, [...builtGroups, candidate]);
+    }
+  }
+}
+
+function generatePhasePathGroupCandidates(cards, descriptor) {
+  if (descriptor.kind === "set") {
+    return generateSetPathCandidates(cards, descriptor.size);
+  }
+  if (descriptor.kind === "run") {
+    return generateRunPathCandidates(cards, descriptor.size);
+  }
+  return generateColorPathCandidates(cards, descriptor.size);
+}
+
+function generateSetPathCandidates(cards, size) {
+  const wilds = cards.filter((card) => card.type === "wild").sort(compareCards);
+  const candidates = [];
+  const seen = new Set();
+
+  for (let value = 1; value <= 12; value += 1) {
+    const naturals = cards
+      .filter((card) => card.type === "number" && card.value === value)
+      .sort(compareCards);
+    if (!naturals.length && !wilds.length) continue;
+    const selectedNaturals = naturals.slice(0, size);
+    const selectedWilds = wilds.slice(0, Math.max(0, size - selectedNaturals.length));
+    const groupCards = [...selectedNaturals, ...selectedWilds];
+    if (!groupCards.length) continue;
+    const missingCount = Math.max(0, size - groupCards.length);
+    const candidate = {
+      cards: groupCards,
+      meta: { kind: "set", size, value },
+      missingCount,
+      missingLabel: missingCount ? `${missingCount} more ${value}` : "",
+      points: groupCards.reduce((sum, card) => sum + cardPoints(card), 0),
+    };
+    const signature = `${value}:${cardSignature(groupCards)}:${missingCount}`;
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    candidates.push(candidate);
+  }
+  return candidates.length ? candidates : [emptyPhasePathGroup({ kind: "set", size })];
+}
+
+function generateColorPathCandidates(cards, size) {
+  const wilds = cards.filter((card) => card.type === "wild").sort(compareCards);
+  const candidates = [];
+
+  for (const color of COLORS) {
+    const naturals = cards
+      .filter((card) => card.type === "number" && card.color === color.id)
+      .sort(compareCards)
+      .slice(0, size);
+    if (!naturals.length && !wilds.length) continue;
+    const selectedWilds = wilds.slice(0, Math.max(0, size - naturals.length));
+    const groupCards = [...naturals, ...selectedWilds];
+    if (!groupCards.length) continue;
+    const missingCount = Math.max(0, size - groupCards.length);
+    candidates.push({
+      cards: groupCards,
+      meta: {
+        kind: "color",
+        size,
+        color: color.id,
+        colorLabel: color.label,
+      },
+      missingCount,
+      missingLabel: missingCount ? `${missingCount} more ${color.label}` : "",
+      points: groupCards.reduce((sum, card) => sum + cardPoints(card), 0),
+    });
+  }
+  return candidates.length ? candidates : [emptyPhasePathGroup({ kind: "color", size })];
+}
+
+function generateRunPathCandidates(cards, size) {
+  const wilds = cards.filter((card) => card.type === "wild").sort(compareCards);
+  const candidates = [];
+
+  for (let start = 1; start <= 13 - size; start += 1) {
+    const sequenceValues = Array.from({ length: size }, (_item, offset) => start + offset);
+    const naturals = [];
+    const missingValues = [];
+    for (const value of sequenceValues) {
+      const natural = cards
+        .filter((card) => card.type === "number" && card.value === value)
+        .sort(compareCards)[0];
+      if (natural) {
+        naturals.push(natural);
+      } else {
+        missingValues.push(value);
+      }
+    }
+    if (!naturals.length && !wilds.length) continue;
+    const selectedWilds = wilds.slice(0, Math.min(wilds.length, missingValues.length));
+    const missingAfterWilds = missingValues.slice(selectedWilds.length);
+    const groupCards = orderRunCardsForDisplay([...naturals, ...selectedWilds], start, start + size - 1);
+    candidates.push({
+      cards: groupCards,
+      meta: {
+        kind: "run",
+        size,
+        start,
+        end: start + size - 1,
+      },
+      missingCount: missingAfterWilds.length,
+      missingLabel: missingAfterWilds.length ? missingValuesLabel(missingAfterWilds) : "",
+      points: groupCards.reduce((sum, card) => sum + cardPoints(card), 0),
+    });
+  }
+  return candidates.length ? candidates : [emptyPhasePathGroup({ kind: "run", size })];
+}
+
+function emptyPhasePathGroup(descriptor) {
+  if (descriptor.kind === "run") {
+    return {
+      cards: [],
+      meta: { kind: "run", size: descriptor.size, start: 1, end: descriptor.size },
+      missingCount: descriptor.size,
+      missingLabel: `${descriptor.size} cards`,
+      points: 0,
+    };
+  }
+  if (descriptor.kind === "color") {
+    return {
+      cards: [],
+      meta: { kind: "color", size: descriptor.size, colorLabel: "cards of one color" },
+      missingCount: descriptor.size,
+      missingLabel: `${descriptor.size} cards`,
+      points: 0,
+    };
+  }
+  return {
+    cards: [],
+    meta: { kind: "set", size: descriptor.size },
+    missingCount: descriptor.size,
+    missingLabel: `${descriptor.size} cards`,
+    points: 0,
+  };
+}
+
+function missingValuesLabel(values) {
+  if (!values.length) return "";
+  if (values.length === 1) return String(values[0]);
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+function comparePhasePathGroup(left, right) {
+  if (left.missingCount !== right.missingCount) return left.missingCount - right.missingCount;
+  if (left.cards.length !== right.cards.length) return right.cards.length - left.cards.length;
+  if (left.points !== right.points) return right.points - left.points;
+  return phasePreviewGroupLabel(left).localeCompare(phasePreviewGroupLabel(right));
+}
+
+function dedupePhasePaths(paths) {
+  const byKey = new Map();
+  paths.forEach((path) => {
+    const key = path.groups
+      .map((group) => cardSignature(group.cards))
+      .sort()
+      .join("::");
+    const existing = byKey.get(key);
+    if (!existing || comparePhasePath(path, existing) < 0) {
+      byKey.set(key, path);
+    }
+  });
+  return [...byKey.values()];
+}
+
+function comparePhasePath(left, right) {
+  if (left.missingCount !== right.missingCount) {
+    return left.missingCount - right.missingCount;
+  }
+  if (left.usedCardIds.length !== right.usedCardIds.length) {
+    return right.usedCardIds.length - left.usedCardIds.length;
+  }
+  if (left.leftoverPoints !== right.leftoverPoints) return left.leftoverPoints - right.leftoverPoints;
+  if (left.points !== right.points) return right.points - left.points;
+  return phaseLayoutSortLabel(left.groups).localeCompare(phaseLayoutSortLabel(right.groups));
+}
+
+function phaseLayoutSortLabel(groups) {
+  return groups
+    .map((group) => `${phasePreviewGroupLabel(group)}:${cardSignature(group.cards)}`)
+    .sort()
+    .join("|");
+}
+
+function phasePathCardsForDisplay(group) {
+  if (group?.meta?.kind === "run") {
+    return orderRunCardsForDisplay(group.cards, group.meta.start, group.meta.end);
+  }
+  return group?.cards?.slice().sort(compareCards) || [];
 }
 
 function generateGroupCandidates(cards, descriptor) {
@@ -3676,6 +3933,71 @@ function renderPhasePreviewMarkup(meld, phase) {
   `;
 }
 
+function renderPossiblePhaseMelds(player, phase) {
+  if (!player || !phase || player.laidGroups.length || player.completedPhaseThisRound) return "";
+  const suggestions = closestPhasePaths(player.hand, phase);
+  if (!suggestions.length) {
+    return `
+      <section class="possible-phase-melds-panel is-empty" aria-label="Possible phase combinations">
+        <div class="possible-phase-melds-head">
+          <h3>Closest Phase Paths</h3>
+          <span>No useful path yet</span>
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="possible-phase-melds-panel" aria-label="Possible phase combinations">
+      <div class="possible-phase-melds-head">
+        <h3>Closest Phase Paths</h3>
+        <span>${suggestions.length} shown • best needs ${suggestions[0].missingCount}</span>
+      </div>
+      <ul class="possible-phase-melds-list">
+        ${suggestions.map((layout, layoutIndex) => `
+          <li class="possible-phase-meld-item" data-phase-layout-index="${layoutIndex}" role="button" tabindex="0" style="--phase-layout-index: ${layoutIndex};">
+            <span class="possible-phase-meld-score">${layout.missingCount ? `Need ${layout.missingCount}` : "Ready"}</span>
+            <span class="possible-phase-meld-combo">
+              ${layout.groups.map((group) => `
+                <span class="possible-phase-meld-part possible-${group.meta.kind}">
+                  <span class="possible-phase-meld-label">${escapeHtml(phasePreviewGroupLabel(group))}</span>
+                  <span class="possible-phase-meld-cards">
+                    ${phasePathCardsForDisplay(group).map(cardLabel).map(escapeHtml).join(", ") || "No cards yet"}
+                    ${group.missingLabel ? `<span class="possible-phase-meld-need">need ${escapeHtml(group.missingLabel)}</span>` : ""}
+                  </span>
+                </span>
+              `).join(`<span class="possible-phase-meld-plus">+</span>`)}
+            </span>
+          </li>
+        `).join("")}
+      </ul>
+    </section>
+  `;
+}
+
+function applyPossiblePhaseMeldOrder(layoutIndex) {
+  const player = humanPlayer();
+  const phase = currentPhaseFor(player);
+  if (
+    !Number.isInteger(layoutIndex) ||
+    !player?.hand?.length ||
+    !phase ||
+    player.laidGroups.length ||
+    player.completedPhaseThisRound
+  ) return;
+  const layout = closestPhasePaths(player.hand, phase)[layoutIndex];
+  if (!layout) return;
+  const phaseCards = layout.groups.flatMap(phasePathCardsForDisplay);
+  const phaseCardIds = new Set(phaseCards.map((card) => card.id));
+  const leftovers = player.hand.filter((card) => !phaseCardIds.has(card.id));
+  player.hand = [...phaseCards, ...leftovers];
+  render();
+}
+
+function updatePossiblePhaseMelds(html) {
+  if (els.possiblePhaseMelds.innerHTML === html) return;
+  els.possiblePhaseMelds.innerHTML = html;
+}
+
 function renderHand() {
   const human = humanPlayer();
   if (!human) {
@@ -3685,6 +4007,7 @@ function renderHand() {
     els.humanHand.closest(".hand-panel")?.classList.remove("current");
     els.humanHand.closest(".hand-panel")?.classList.remove("round-out");
     els.humanHand.innerHTML = "";
+    updatePossiblePhaseMelds("");
     return;
   }
 
@@ -3766,6 +4089,7 @@ function renderHand() {
       }),
     )
     .join("");
+  updatePossiblePhaseMelds(renderPossiblePhaseMelds(human, phase));
 }
 
 function renderRoundHistory() {
