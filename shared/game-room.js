@@ -17,7 +17,7 @@
     "Axel", "Bennett", "Walker", "Jonas", "Kieran", "Sullivan", "Lawson", "Thatcher",
     "Camden", "Conrad", "Vaughn", "Pierce", "Ellis", "Grant", "Joaquin", "Emilio",
     "Valentin", "Marcel", "Thierry", "Alaric", "Nikolás", "Rocco", "Stellan", "Dorian",
-    "Bodhi", "Baylor", "Montgomery", "Royce",
+    "Bodhi", "Baylor", "Montgomery", "Royce", "Branson", "Crosby", "Dashiell", "Fletcher", "Gannon", "Hendrix", "Jensen", "Keaton", "Lennon", "Maverick", "Orson", "Quentin", "Ranger", "Soren", "Tatum", "Ulric", "Viggo", "Wilder", "Xander", "Yale", "Zander", "Zeke",
   ];
   const BOT_DIFFICULTY_SETS = {
     hearts: ["easy", "medium", "hard"],
