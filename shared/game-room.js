@@ -1,23 +1,166 @@
 (function initGameRoomShared(global) {
   const BOT_NAMES = [
-    "Nick", "Sam", "Nate", "Garth", "Kyle", "Kip", "Oliver", "Benny",
-    "Nyle", "Eddie", "Jack", "Scott", "Alex", "Henry", "Hank", "Harry",
-    "Dan", "George", "Mike", "Simon", "Steve", "Clark", "Bruce", "Grayson",
-    "Alfie", "Matt", "Patrick", "Lee", "Louie", "François", "Jace", "Finn",
-    "Sebastian", "Ethan", "Ash", "Hunter", "Jax", "West", "Seth",
-    "Roman", "Gabriel", "Dominic", "Luca", "Julian", "Theo", "Xavier", "Damien",
-    "Elijah", "Rhys", "Tristan", "Adrian", "Mason", "Caleb", "Levi", "Everett",
-    "Beckett", "Declan", "Maddox", "Sawyer", "Colton", "Wyatt", "Reid", "Jasper",
-    "Rowan", "Emmett", "Holden", "Dean", "Wesley", "Brooks", "Asher", "Sterling",
-    "Landon", "Blake", "Cooper", "Gideon", "Silas", "Elias", "Archer", "Knox",
-    "Callum", "Damon", "Zane", "Chase", "Logan", "Cade", "Troy", "Victor",
-    "Rafael", "Marco", "Dante", "Vincent", "Lucien", "Stefan", "Nikolai", "Ivan",
-    "Cassian", "Orion", "Phoenix", "Malcolm", "Lennox", "Killian", "August", "Tobias",
-    "Corbin", "Paxton", "Remington", "Briggs", "Ryker", "Colt", "Easton", "Hudson",
-    "Axel", "Bennett", "Walker", "Jonas", "Kieran", "Sullivan", "Lawson", "Thatcher",
-    "Camden", "Conrad", "Vaughn", "Pierce", "Ellis", "Grant", "Joaquin", "Emilio",
-    "Valentin", "Marcel", "Thierry", "Alaric", "Nikolás", "Rocco", "Stellan", "Dorian",
-    "Bodhi", "Baylor", "Montgomery", "Royce", "Branson", "Crosby", "Dashiell", "Fletcher", "Gannon", "Hendrix", "Jensen", "Keaton", "Lennon", "Maverick", "Orson", "Quentin", "Ranger", "Soren", "Tatum", "Ulric", "Viggo", "Wilder", "Xander", "Yale", "Zander", "Zeke",
+    "Nick",
+    "Sam",
+    "Nate",
+    "Garth",
+    "Kyle",
+    "Kip",
+    "Oliver",
+    "Benny",
+    "Nyle",
+    "Eddie",
+    "Jack",
+    "Scott",
+    "Alex",
+    "Henry",
+    "Hank",
+    "Harry",
+    "Dan",
+    "George",
+    "Mike",
+    "Simon",
+    "Steve",
+    "Clark",
+    "Bruce",
+    "Grayson",
+    "Alfie",
+    "Matt",
+    "Patrick",
+    "Lee",
+    "Louie",
+    "François",
+    "Jace",
+    "Finn",
+    "Sebastian",
+    "Ethan",
+    "Ash",
+    "Hunter",
+    "Jax",
+    "West",
+    "Seth",
+    "Roman",
+    "Gabriel",
+    "Dominic",
+    "Luca",
+    "Julian",
+    "Theo",
+    "Xavier",
+    "Damien",
+    "Elijah",
+    "Rhys",
+    "Tristan",
+    "Adrian",
+    "Mason",
+    "Caleb",
+    "Levi",
+    "Everett",
+    "Beckett",
+    "Declan",
+    "Maddox",
+    "Sawyer",
+    "Colton",
+    "Wyatt",
+    "Reid",
+    "Jasper",
+    "Rowan",
+    "Emmett",
+    "Holden",
+    "Dean",
+    "Wesley",
+    "Brooks",
+    "Asher",
+    "Sterling",
+    "Landon",
+    "Blake",
+    "Cooper",
+    "Gideon",
+    "Silas",
+    "Elias",
+    "Archer",
+    "Knox",
+    "Callum",
+    "Damon",
+    "Zane",
+    "Chase",
+    "Logan",
+    "Cade",
+    "Troy",
+    "Victor",
+    "Rafael",
+    "Marco",
+    "Dante",
+    "Vincent",
+    "Lucien",
+    "Stefan",
+    "Nikolai",
+    "Ivan",
+    "Cassian",
+    "Orion",
+    "Phoenix",
+    "Malcolm",
+    "Lennox",
+    "Killian",
+    "August",
+    "Tobias",
+    "Corbin",
+    "Paxton",
+    "Remington",
+    "Briggs",
+    "Ryker",
+    "Colt",
+    "Easton",
+    "Hudson",
+    "Axel",
+    "Bennett",
+    "Walker",
+    "Jonas",
+    "Kieran",
+    "Sullivan",
+    "Lawson",
+    "Thatcher",
+    "Camden",
+    "Conrad",
+    "Vaughn",
+    "Pierce",
+    "Ellis",
+    "Grant",
+    "Joaquin",
+    "Emilio",
+    "Valentin",
+    "Marcel",
+    "Thierry",
+    "Alaric",
+    "Nikolás",
+    "Rocco",
+    "Stellan",
+    "Dorian",
+    "Bodhi",
+    "Baylor",
+    "Montgomery",
+    "Royce",
+    "Branson",
+    "Crosby",
+    "Dashiell",
+    "Fletcher",
+    "Gannon",
+    "Hendrix",
+    "Jensen",
+    "Keaton",
+    "Lennon",
+    "Maverick",
+    "Orson",
+    "Quentin",
+    "Ranger",
+    "Soren",
+    "Tatum",
+    "Ulric",
+    "Viggo",
+    "Wilder",
+    "Xander",
+    "Yale",
+    "Zander",
+    "Zeke",
   ];
   const BOT_DIFFICULTY_SETS = {
     hearts: ["easy", "medium", "hard"],
@@ -28,7 +171,11 @@
   function randomBotNames(count, excludedNames = []) {
     const used = new Set(
       excludedNames
-        .map((name) => String(name || "").trim().toLowerCase())
+        .map((name) =>
+          String(name || "")
+            .trim()
+            .toLowerCase(),
+        )
         .filter(Boolean),
     );
     const pool = BOT_NAMES.filter((name) => !used.has(name.toLowerCase()));
@@ -36,11 +183,15 @@
       const swapIndex = Math.floor(Math.random() * (index + 1));
       [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
     }
-    return Array.from({ length: count }, (_, index) => pool[index] || `Bot ${index + 1}`);
+    return Array.from(
+      { length: count },
+      (_, index) => pool[index] || `Bot ${index + 1}`,
+    );
   }
 
   function setupBotNames(count, humanName = "", fallbackHumanName = "Player") {
-    const excludedHumanName = String(humanName || fallbackHumanName).trim() || fallbackHumanName;
+    const excludedHumanName =
+      String(humanName || fallbackHumanName).trim() || fallbackHumanName;
     return randomBotNames(count, [excludedHumanName]);
   }
 
@@ -59,12 +210,18 @@
   function difficultyLabel(value, options = {}) {
     const normalized = normalizeBotDifficulty(value, options);
     const labels = options.labels || {};
-    return labels[normalized] || normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    return (
+      labels[normalized] ||
+      normalized.charAt(0).toUpperCase() + normalized.slice(1)
+    );
   }
 
   function setupBotDifficulties(count, difficulties = [], options = {}) {
     return Array.from({ length: count }, (_, index) =>
-      normalizeBotDifficulty(Array.isArray(difficulties) ? difficulties[index] : undefined, options),
+      normalizeBotDifficulty(
+        Array.isArray(difficulties) ? difficulties[index] : undefined,
+        options,
+      ),
     );
   }
 
@@ -98,7 +255,9 @@
   }
 
   function historySortLabel(value) {
-    return normalizeHistorySortDir(value) === "desc" ? "Newest First" : "Oldest First";
+    return normalizeHistorySortDir(value) === "desc"
+      ? "Newest First"
+      : "Oldest First";
   }
 
   function orderedHistory(entries, sortDir = "desc", options = {}) {
@@ -126,11 +285,13 @@
   }
 
   function slugify(value, fallback = "session") {
-    return String(value)
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "") || fallback;
+    return (
+      String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") || fallback
+    );
   }
 
   function sanitizeFileName(value, fallback = "session") {
@@ -158,7 +319,9 @@
   function exportPlayerNameSegment(payload, normalizeName = (value) => value) {
     const names = Array.isArray(payload?.players)
       ? payload.players
-          .map((player) => sanitizeFileName(normalizeName(player?.name, "")).slice(0, 8))
+          .map((player) =>
+            sanitizeFileName(normalizeName(player?.name, "")).slice(0, 8),
+          )
           .filter(Boolean)
       : [];
     return names.length ? names.join("_") : "session";
@@ -193,7 +356,9 @@
     if (!payload || typeof payload !== "object") return null;
     const createdAt = timestampValue(session.createdAt ?? session.savedAt);
     const updatedAt = timestampValue(session.updatedAt, createdAt);
-    const normalizeName = options.normalizeName || ((value, fallback) => String(value || fallback || "").trim() || fallback);
+    const normalizeName =
+      options.normalizeName ||
+      ((value, fallback) => String(value || fallback || "").trim() || fallback);
     const fallbackName = options.fallbackName || "Game Session";
     return {
       id: session.id,
@@ -239,9 +404,12 @@
   }
 
   function defaultSessionName(payload = {}, options = {}) {
-    const normalizeName = options.normalizeName || ((value) => String(value || "").trim());
+    const normalizeName =
+      options.normalizeName || ((value) => String(value || "").trim());
     const names = Array.isArray(payload.players)
-      ? payload.players.map((player) => normalizeName(player?.name, "")).filter(Boolean)
+      ? payload.players
+          .map((player) => normalizeName(player?.name, ""))
+          .filter(Boolean)
       : [];
     const gameName = options.gameName || "Game";
     const lead = names.slice(0, options.nameCount || 3).join(", ") || gameName;
@@ -280,20 +448,26 @@
     };
   }
 
-  function scoreKeeperPlayers(players = [], normalizeName = (value, fallback) => String(value || fallback || "").trim() || fallback) {
+  function scoreKeeperPlayers(
+    players = [],
+    normalizeName = (value, fallback) =>
+      String(value || fallback || "").trim() || fallback,
+  ) {
     return Array.isArray(players)
       ? players.map((player, index) => ({
-        id: String(player?.id || `p-${index + 1}`),
-        name: normalizeName(player?.name, `Player ${index + 1}`),
-      }))
+          id: String(player?.id || `p-${index + 1}`),
+          name: normalizeName(player?.name, `Player ${index + 1}`),
+        }))
       : [];
   }
 
   function scoreKeeperScores(players = [], scoreForPlayer = () => 0) {
-    return Object.fromEntries(players.map((player, index) => {
-      const score = Number(scoreForPlayer(player, index));
-      return [player.id, Number.isFinite(score) ? Math.trunc(score) : 0];
-    }));
+    return Object.fromEntries(
+      players.map((player, index) => {
+        const score = Number(scoreForPlayer(player, index));
+        return [player.id, Number.isFinite(score) ? Math.trunc(score) : 0];
+      }),
+    );
   }
 
   function scoreKeeperWinnerId(winnerId, players = []) {
@@ -303,7 +477,9 @@
 
   function scoreKeeperRound(index, scores, options = {}) {
     return {
-      n: Number.isFinite(Number(options.n)) ? Math.trunc(Number(options.n)) : index + 1,
+      n: Number.isFinite(Number(options.n))
+        ? Math.trunc(Number(options.n))
+        : index + 1,
       scores,
       ts: Number(options.ts) || Date.now(),
       ...(options.extra || {}),
@@ -328,7 +504,8 @@
       target,
       winMode: options.winMode,
       players,
-      roundEntryOrder: options.roundEntryOrder || players.map((player) => player.id),
+      roundEntryOrder:
+        options.roundEntryOrder || players.map((player) => player.id),
       playerInactiveRanges: options.playerInactiveRanges || {},
       teams: options.teams ?? null,
       rounds,
@@ -336,22 +513,29 @@
       quizTieIds: options.quizTieIds || [],
       gameState: options.gameState || (winnerId ? "completed" : "in_progress"),
       firstWinnerAt: options.firstWinnerAt ?? winnerMilestones[0] ?? null,
-      finalWinnerAt: options.finalWinnerAt ?? winnerMilestones[winnerMilestones.length - 1] ?? null,
+      finalWinnerAt:
+        options.finalWinnerAt ??
+        winnerMilestones[winnerMilestones.length - 1] ??
+        null,
       winnerMilestones,
       sortByTotal: Boolean(options.sortByTotal),
       historySortDir: options.historySortDir || "desc",
       showHistoryTotals: options.showHistoryTotals !== false,
       spadesPartnerIndex: options.spadesPartnerIndex ?? 3,
       presetNote: options.presetNote || "",
-      skyjoCurrentRoundWentOutPlayerId: options.skyjoCurrentRoundWentOutPlayerId ?? null,
-      rummikubCurrentRoundWinnerId: options.rummikubCurrentRoundWinnerId ?? null,
+      skyjoCurrentRoundWentOutPlayerId:
+        options.skyjoCurrentRoundWentOutPlayerId ?? null,
+      rummikubCurrentRoundWinnerId:
+        options.rummikubCurrentRoundWinnerId ?? null,
       currentSessionId: options.currentSessionId ?? null,
     };
   }
 
   function scoreKeeperPayloadFromRounds(options = {}) {
     const payload = options.payload || {};
-    const rawPlayers = Array.isArray(options.players) ? options.players : payload.players;
+    const rawPlayers = Array.isArray(options.players)
+      ? options.players
+      : payload.players;
     const rawHistory = Array.isArray(options.history)
       ? options.history
       : payload[options.historyKey || "roundHistory"];
@@ -360,25 +544,32 @@
     const players = scoreKeeperPlayers(rawPlayers, options.normalizeName);
     if (!players.length || !rawHistory.length) return null;
 
-    const scoreForRound = typeof options.scoreForRound === "function"
-      ? options.scoreForRound
-      : () => 0;
+    const scoreForRound =
+      typeof options.scoreForRound === "function"
+        ? options.scoreForRound
+        : () => 0;
     const rounds = rawHistory.map((entry, index) => {
       const scores = scoreKeeperScores(players, (player, playerIndex) =>
-        scoreForRound(entry, player, playerIndex, index));
-      const roundOptions = typeof options.roundOptions === "function"
-        ? options.roundOptions(entry, index, players, scores) || {}
-        : {};
+        scoreForRound(entry, player, playerIndex, index),
+      );
+      const roundOptions =
+        typeof options.roundOptions === "function"
+          ? options.roundOptions(entry, index, players, scores) || {}
+          : {};
       return scoreKeeperRound(index, scores, {
         ts: entry?.ts,
         ...roundOptions,
       });
     });
 
-    const target = typeof options.target === "function"
-      ? options.target(payload)
-      : options.target;
-    const winnerId = scoreKeeperWinnerId(options.winnerId ?? payload.winnerId, players);
+    const target =
+      typeof options.target === "function"
+        ? options.target(payload)
+        : options.target;
+    const winnerId = scoreKeeperWinnerId(
+      options.winnerId ?? payload.winnerId,
+      players,
+    );
     return scoreKeeperPayloadBase({
       presetKey: options.presetKey,
       target,
@@ -393,7 +584,9 @@
   }
 
   function downloadJson(filename, payload) {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
