@@ -121,7 +121,7 @@ function syncDeviceLayout() {
   const landscape = window.matchMedia?.("(orientation: landscape)")?.matches;
   const shortSide = Math.min(window.innerWidth || 0, window.innerHeight || 0);
   const longSide = Math.max(window.innerWidth || 0, window.innerHeight || 0);
-  const phoneLandscape = Boolean(coarsePointer && landscape && shortSide <= 520 && longSide <= 950);
+  const phoneLandscape = Boolean(coarsePointer && landscape && shortSide <= 560 && longSide <= 1100);
   document.body.classList.toggle("phone-landscape", phoneLandscape);
 }
 
