@@ -116,7 +116,20 @@ const els = {
   roundHistoryOrderBtn: document.getElementById("roundHistoryOrderBtn"),
 };
 
+function syncDeviceLayout() {
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
+  const landscape = window.matchMedia?.("(orientation: landscape)")?.matches;
+  const shortSide = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+  const longSide = Math.max(window.innerWidth || 0, window.innerHeight || 0);
+  const phoneLandscape = Boolean(coarsePointer && landscape && shortSide <= 520 && longSide <= 950);
+  document.body.classList.toggle("phone-landscape", phoneLandscape);
+}
+
 function bindEvents() {
+  syncDeviceLayout();
+  bind(window, "resize", syncDeviceLayout);
+  bind(window, "orientationchange", syncDeviceLayout);
+
   bind(els.setupForm, "submit", (event) => {
     event.preventDefault();
     if (state.turnStage === "opening-ready" && state.openingStarter) {
