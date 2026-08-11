@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="manifest" href="./app.webmanifest" />
+  <link rel="icon" href="./img/dashboard-icon.svg" />
+  <link rel="apple-touch-icon" href="./img/dashboard-icon.svg" />
+  <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
+  <title>URL Encoder / Decoder</title>
+  <script>
+    (function () {
+      try {
+        const theme = localStorage.getItem("dash.theme");
+        if (theme === "dark" || theme === "light") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch {}
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --panel: #f8fafc;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #dbeafe;
+      --focus: rgba(37, 99, 235, 0.24);
+      --error: #b91c1c;
+      --error-soft: #fef2f2;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: linear-gradient(135deg, #0f172a, #111827);
+        --card: #111827;
+        --panel: #1f2937;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --line: #374151;
+        --accent: #60a5fa;
+        --accent-hover: #93c5fd;
+        --accent-soft: #1e3a8a;
+        --focus: rgba(96, 165, 250, 0.24);
+        --error: #fca5a5;
+        --error-soft: #3f1d24;
+        --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
+      --card: #ffffff;
+      --panel: #f8fafc;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #dbeafe;
+      --focus: rgba(37, 99, 235, 0.24);
+      --error: #b91c1c;
+      --error-soft: #fef2f2;
+      --shadow: 0 12px 34px rgba(2, 6, 23, 0.12);
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: linear-gradient(135deg, #0f172a, #111827);
+      --card: #111827;
+      --panel: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #374151;
+      --accent: #60a5fa;
+      --accent-hover: #93c5fd;
+      --accent-soft: #1e3a8a;
+      --focus: rgba(96, 165, 250, 0.24);
+      --error: #fca5a5;
+      --error-soft: #3f1d24;
+      --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 4.25rem 1rem 1rem;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    button, textarea, input { font: inherit; }
+
+    .back-link {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top, 0px));
+      left: 12px;
+      z-index: 10;
+      padding: 0.5rem 0.78rem;
+      border: 1px solid var(--line);
+      border-radius: 0.65rem;
+      color: var(--text);
+      background: var(--card);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      width: min(100%, 920px);
+      padding: clamp(1rem, 3vw, 1.5rem);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    h1 { margin: 0; font-size: clamp(1.45rem, 4vw, 1.9rem); }
+    .sub { margin: 0.3rem 0 1.15rem; color: var(--muted); font-size: 0.94rem; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      margin-bottom: 0.9rem;
+      padding: 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+
+    .scope { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+    .scope-label { color: var(--muted); font-size: 0.84rem; font-weight: 600; }
+    .segmented { display: inline-flex; padding: 0.2rem; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+
+    .segmented button {
+      width: auto;
+      min-height: 2.1rem;
+      padding: 0.38rem 0.68rem;
+      border: 0;
+      border-radius: 7px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .segmented button[aria-pressed="true"] { color: var(--text); background: var(--accent-soft); font-weight: 650; }
+
+    .plus-option { display: flex; align-items: center; gap: 0.48rem; color: var(--muted); font-size: 0.84rem; cursor: pointer; }
+    .plus-option input { width: 1rem; height: 1rem; accent-color: var(--accent); }
+
+    .workspace { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.85rem; align-items: stretch; }
+    .panel { min-width: 0; }
+    .panel-head { min-height: 2.3rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    label { color: var(--muted); font-size: 0.87rem; font-weight: 650; }
+
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 240px;
+      resize: vertical;
+      padding: 0.8rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: var(--panel);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    textarea[readonly] { background: color-mix(in srgb, var(--panel) 82%, var(--accent-soft)); }
+    textarea.invalid { border-color: var(--error); background: var(--error-soft); }
+
+    button {
+      min-height: 2.5rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--text);
+      background: var(--card);
+      cursor: pointer;
+    }
+
+    button:hover { border-color: var(--accent); }
+    button:disabled { cursor: not-allowed; opacity: 0.55; }
+    button:focus-visible, textarea:focus-visible, input:focus-visible, .back-link:focus-visible {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .mini-button { width: auto; min-height: 2rem; padding: 0.35rem 0.62rem; font-size: 0.82rem; }
+    .direction-actions { display: flex; flex-direction: column; justify-content: center; gap: 0.55rem; width: 7.25rem; }
+    .action-button { padding: 0.62rem 0.7rem; font-weight: 700; }
+    .action-button.active { color: #fff; border-color: var(--accent); background: var(--accent); }
+    :root[data-theme="dark"] .action-button.active { color: #0f172a; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme]) .action-button.active { color: #0f172a; } }
+    .action-button.active:hover { background: var(--accent-hover); }
+
+    .bottom-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.85rem; }
+    .bottom-actions button { width: auto; padding: 0.5rem 0.85rem; }
+    .status { min-height: 1.35rem; margin: 0.7rem 0 0; color: var(--muted); font-size: 0.86rem; }
+    .status.error { color: var(--error); }
+
+    @media (max-width: 720px) {
+      body { display: block; padding-top: 4.25rem; }
+      .workspace { grid-template-columns: 1fr; }
+      .direction-actions { width: 100%; flex-direction: row; }
+      .direction-actions button { flex: 1; }
+      textarea { min-height: 175px; }
+      .toolbar { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="./index.html">← Dashboard</a>
+
+  <main class="card">
+    <h1>URL Encoder / Decoder</h1>
+    <p class="sub">Encode text for a URL or turn percent-encoded text back into readable form.</p>
+
+    <div class="toolbar">
+      <div class="scope">
+        <span class="scope-label">Encoding scope</span>
+        <div class="segmented" role="group" aria-label="Encoding scope">
+          <button id="componentScope" type="button" aria-pressed="true">URL component</button>
+          <button id="fullScope" type="button" aria-pressed="false">Complete URL</button>
+        </div>
+      </div>
+      <label class="plus-option" title="Common when decoding query-string values">
+        <input id="plusAsSpace" type="checkbox" checked />
+        Decode + as a space
+      </label>
+    </div>
+
+    <div class="workspace">
+      <section class="panel">
+        <div class="panel-head">
+          <label for="source">Input</label>
+          <button id="pasteButton" class="mini-button" type="button">Paste</button>
+        </div>
+        <textarea id="source" placeholder="Enter a URL or text…" autofocus spellcheck="false"></textarea>
+      </section>
+
+      <div class="direction-actions" aria-label="Conversion direction">
+        <button id="encodeButton" class="action-button active" type="button" aria-pressed="true">Encode →</button>
+        <button id="decodeButton" class="action-button" type="button" aria-pressed="false">Decode →</button>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <label for="result">Result</label>
+          <button id="copyButton" class="mini-button" type="button" disabled>Copy</button>
+        </div>
+        <textarea id="result" readonly placeholder="Your converted result appears here" spellcheck="false"></textarea>
+      </section>
+    </div>
+
+    <div class="bottom-actions">
+      <button id="swapButton" type="button" disabled>⇄ Use result as input</button>
+      <button id="clearButton" type="button">Clear</button>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script>
+    const source = document.getElementById("source");
+    const result = document.getElementById("result");
+    const status = document.getElementById("status");
+    const encodeButton = document.getElementById("encodeButton");
+    const decodeButton = document.getElementById("decodeButton");
+    const copyButton = document.getElementById("copyButton");
+    const pasteButton = document.getElementById("pasteButton");
+    const swapButton = document.getElementById("swapButton");
+    const clearButton = document.getElementById("clearButton");
+    const componentScope = document.getElementById("componentScope");
+    const fullScope = document.getElementById("fullScope");
+    const plusAsSpace = document.getElementById("plusAsSpace");
+
+    let operation = "encode";
+    let scope = "component";
+
+    function setStatus(message = "", isError = false) {
+      status.textContent = message;
+      status.classList.toggle("error", isError);
+    }
+
+    function updateControls() {
+      const hasResult = result.value.length > 0;
+      copyButton.disabled = !hasResult;
+      swapButton.disabled = !hasResult;
+    }
+
+    function convert() {
+      const input = source.value;
+      result.classList.remove("invalid");
+
+      if (!input) {
+        result.value = "";
+        setStatus();
+        updateControls();
+        return;
+      }
+
+      try {
+        if (operation === "encode") {
+          result.value = scope === "component" ? encodeURIComponent(input) : encodeURI(input);
+        } else {
+          const prepared = plusAsSpace.checked ? input.replace(/\+/g, " ") : input;
+          result.value = scope === "component" ? decodeURIComponent(prepared) : decodeURI(prepared);
+        }
+        setStatus(operation === "encode" ? "Encoded successfully." : "Decoded successfully.");
+      } catch (error) {
+        result.value = "";
+        result.classList.add("invalid");
+        setStatus("This value contains incomplete or invalid percent-encoding.", true);
+      }
+
+      updateControls();
+    }
+
+    function setOperation(nextOperation) {
+      operation = nextOperation;
+      encodeButton.classList.toggle("active", operation === "encode");
+      decodeButton.classList.toggle("active", operation === "decode");
+      encodeButton.setAttribute("aria-pressed", operation === "encode");
+      decodeButton.setAttribute("aria-pressed", operation === "decode");
+      convert();
+    }
+
+    function setScope(nextScope) {
+      scope = nextScope;
+      componentScope.setAttribute("aria-pressed", scope === "component");
+      fullScope.setAttribute("aria-pressed", scope === "full");
+      convert();
+    }
+
+    async function copyResult() {
+      if (!result.value) return;
+      try {
+        await navigator.clipboard.writeText(result.value);
+      } catch {
+        result.focus();
+        result.select();
+        document.execCommand("copy");
+      }
+      setStatus("Result copied to the clipboard.");
+    }
+
+    async function pasteInput() {
+      try {
+        source.value = await navigator.clipboard.readText();
+        convert();
+        source.focus();
+      } catch {
+        setStatus("Clipboard access was blocked. Paste into the input box manually.", true);
+        source.focus();
+      }
+    }
+
+    source.addEventListener("input", convert);
+    encodeButton.addEventListener("click", () => setOperation("encode"));
+    decodeButton.addEventListener("click", () => setOperation("decode"));
+    componentScope.addEventListener("click", () => setScope("component"));
+    fullScope.addEventListener("click", () => setScope("full"));
+    plusAsSpace.addEventListener("change", convert);
+    copyButton.addEventListener("click", copyResult);
+    pasteButton.addEventListener("click", pasteInput);
+
+    swapButton.addEventListener("click", () => {
+      source.value = result.value;
+      setOperation(operation === "encode" ? "decode" : "encode");
+      source.focus();
+    });
+
+    clearButton.addEventListener("click", () => {
+      source.value = "";
+      result.value = "";
+      result.classList.remove("invalid");
+      setStatus();
+      updateControls();
+      source.focus();
+    });
+
+    updateControls();
+  </script>
+</body>
+</html>
