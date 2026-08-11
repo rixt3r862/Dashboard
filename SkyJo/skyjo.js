@@ -119,9 +119,13 @@ const els = {
 function syncDeviceLayout() {
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
   const landscape = window.matchMedia?.("(orientation: landscape)")?.matches;
+  const forcePhoneLandscape = new URLSearchParams(window.location.search).get("layout") === "phone-landscape";
+  const touchCapable = coarsePointer || Number(navigator.maxTouchPoints || 0) > 0;
   const shortSide = Math.min(window.innerWidth || 0, window.innerHeight || 0);
   const longSide = Math.max(window.innerWidth || 0, window.innerHeight || 0);
-  const phoneLandscape = Boolean(coarsePointer && landscape && shortSide <= 560 && longSide <= 1100);
+  const phoneLandscape = Boolean(
+    forcePhoneLandscape || (touchCapable && landscape && shortSide <= 650 && longSide <= 1400),
+  );
   document.body.classList.toggle("phone-landscape", phoneLandscape);
 }
 

@@ -1298,3 +1298,51 @@ body.phone-landscape .pile-button {
 body.phone-landscape .table-pile-row {
   display: contents;
 }
+
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 650px) and (max-width: 1400px) {
+  body {
+    --phone-table-rail-width: clamp(17rem, 40vw, 20rem);
+  }
+
+  body .page-shell {
+    padding-right: calc(var(--phone-table-rail-width) + max(0.85rem, env(safe-area-inset-right)));
+    padding-bottom: 10rem;
+  }
+
+  body .table-card-row {
+    position: fixed;
+    right: max(0.45rem, env(safe-area-inset-right));
+    bottom: max(0.45rem, env(safe-area-inset-bottom));
+    z-index: 40;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: var(--phone-table-rail-width);
+    padding: 0.45rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(var(--aqua-rgb), 0.22);
+    background:
+      radial-gradient(circle at right, rgba(var(--aqua-rgb), 0.18), transparent 46%),
+      rgba(var(--surface-rgb), 0.9);
+    box-shadow:
+      0 20px 34px rgba(0, 0, 0, 0.32),
+      0 0 0 1px rgba(var(--lime-rgb), 0.08) inset;
+  }
+
+  body .table-drawn-card-wrap {
+    min-width: 0;
+    min-height: 7.3rem;
+  }
+
+  body .table-drawn-card-wrap .skyjo-card,
+  body .pile-button .skyjo-card {
+    width: 4.35rem;
+  }
+
+  body .pile-button {
+    min-width: 0;
+    padding: 0.45rem 0.35rem;
+  }
+
+  body .table-pile-row {
+    display: contents;
+  }
+}
