@@ -1253,7 +1253,6 @@ body.phone-landscape.game-active {
 }
 
 body.phone-landscape.game-active .page-shell {
-  padding-right: calc(var(--phone-table-rail-width) + max(0.85rem, env(safe-area-inset-right)));
   padding-bottom: 10rem;
 }
 
@@ -1326,7 +1325,6 @@ body.phone-landscape.game-active .table-pile-row {
   }
 
   body.game-active .page-shell {
-    padding-right: calc(var(--phone-table-rail-width) + max(0.85rem, env(safe-area-inset-right)));
     padding-bottom: 10rem;
   }
 
