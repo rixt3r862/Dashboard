@@ -671,15 +671,16 @@ button {
     var(--panel);
 }
 
-.current-card-panel .panel-head {
+.table-card-controls {
   grid-column: 1;
-  grid-row: 1;
-  margin-bottom: 0;
+  grid-row: 1 / span 2;
+  display: grid;
+  align-content: start;
+  gap: var(--game-panel-head-gap);
 }
 
-.current-card-panel .table-control-slot {
-  grid-column: 1;
-  grid-row: 2;
+.table-card-controls .panel-head {
+  margin-bottom: 0;
 }
 
 .table-card-row {
@@ -766,16 +767,10 @@ button {
   grid-template-columns: minmax(240px, 0.82fr) minmax(0, 1.55fr);
 }
 
-.players-board .current-card-panel.in-player-grid .panel-head {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.players-board .current-card-panel.in-player-grid .table-control-slot {
+.players-board .current-card-panel.in-player-grid .table-card-controls {
   grid-column: 1;
   grid-row: 1;
   align-self: start;
-  margin-top: 4.7rem;
 }
 
 .players-board .current-card-panel.in-player-grid .table-card-row {
@@ -1211,8 +1206,7 @@ body.game-active .session-status {
     grid-template-columns: 1fr;
   }
 
-  .current-card-panel .panel-head,
-  .current-card-panel .table-control-slot,
+  .table-card-controls,
   .table-card-row {
     grid-column: auto;
     grid-row: auto;
@@ -1253,16 +1247,42 @@ body.game-active .session-status {
   }
 }
 
-body.phone-landscape {
+body.phone-landscape.game-active {
   --phone-table-rail-width: clamp(17rem, 40vw, 20rem);
+  --phone-table-control-width: min(17.5rem, calc(100vw - var(--phone-table-rail-width) - 1.8rem));
 }
 
-body.phone-landscape .page-shell {
+body.phone-landscape.game-active .page-shell {
   padding-right: calc(var(--phone-table-rail-width) + max(0.85rem, env(safe-area-inset-right)));
   padding-bottom: 10rem;
 }
 
-body.phone-landscape .table-card-row {
+body.phone-landscape.game-active .current-card-panel {
+  display: contents;
+}
+
+body.phone-landscape.game-active .table-card-controls {
+  position: fixed;
+  left: max(0.45rem, env(safe-area-inset-left));
+  bottom: max(0.45rem, env(safe-area-inset-bottom));
+  z-index: 39;
+  width: var(--phone-table-control-width);
+  padding: 0.72rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(var(--aqua-rgb), 0.22);
+  background:
+    radial-gradient(circle at left bottom, rgba(var(--lime-rgb), 0.13), transparent 54%),
+    rgba(var(--surface-rgb), 0.9);
+  box-shadow:
+    0 20px 34px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(var(--lime-rgb), 0.08) inset;
+}
+
+body.phone-landscape.game-active .table-card-controls .panel-head {
+  display: none;
+}
+
+body.phone-landscape.game-active .table-card-row {
   position: fixed;
   right: max(0.45rem, env(safe-area-inset-right));
   bottom: max(0.45rem, env(safe-area-inset-bottom));
@@ -1280,36 +1300,62 @@ body.phone-landscape .table-card-row {
     0 0 0 1px rgba(var(--lime-rgb), 0.08) inset;
 }
 
-body.phone-landscape .table-drawn-card-wrap {
+body.phone-landscape.game-active .table-drawn-card-wrap {
   min-width: 0;
   min-height: 7.3rem;
 }
 
-body.phone-landscape .table-drawn-card-wrap .skyjo-card,
-body.phone-landscape .pile-button .skyjo-card {
+body.phone-landscape.game-active .table-drawn-card-wrap .skyjo-card,
+body.phone-landscape.game-active .pile-button .skyjo-card {
   width: 4.35rem;
 }
 
-body.phone-landscape .pile-button {
+body.phone-landscape.game-active .pile-button {
   min-width: 0;
   padding: 0.45rem 0.35rem;
 }
 
-body.phone-landscape .table-pile-row {
+body.phone-landscape.game-active .table-pile-row {
   display: contents;
 }
 
 @media (orientation: landscape) and (pointer: coarse) and (max-height: 650px) and (max-width: 1400px) {
   body {
     --phone-table-rail-width: clamp(17rem, 40vw, 20rem);
+    --phone-table-control-width: min(17.5rem, calc(100vw - var(--phone-table-rail-width) - 1.8rem));
   }
 
-  body .page-shell {
+  body.game-active .page-shell {
     padding-right: calc(var(--phone-table-rail-width) + max(0.85rem, env(safe-area-inset-right)));
     padding-bottom: 10rem;
   }
 
-  body .table-card-row {
+  body.game-active .current-card-panel {
+    display: contents;
+  }
+
+  body.game-active .table-card-controls {
+    position: fixed;
+    left: max(0.45rem, env(safe-area-inset-left));
+    bottom: max(0.45rem, env(safe-area-inset-bottom));
+    z-index: 39;
+    width: var(--phone-table-control-width);
+    padding: 0.72rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(var(--aqua-rgb), 0.22);
+    background:
+      radial-gradient(circle at left bottom, rgba(var(--lime-rgb), 0.13), transparent 54%),
+      rgba(var(--surface-rgb), 0.9);
+    box-shadow:
+      0 20px 34px rgba(0, 0, 0, 0.28),
+      0 0 0 1px rgba(var(--lime-rgb), 0.08) inset;
+  }
+
+  body.game-active .table-card-controls .panel-head {
+    display: none;
+  }
+
+  body.game-active .table-card-row {
     position: fixed;
     right: max(0.45rem, env(safe-area-inset-right));
     bottom: max(0.45rem, env(safe-area-inset-bottom));
@@ -1327,22 +1373,22 @@ body.phone-landscape .table-pile-row {
       0 0 0 1px rgba(var(--lime-rgb), 0.08) inset;
   }
 
-  body .table-drawn-card-wrap {
+  body.game-active .table-drawn-card-wrap {
     min-width: 0;
     min-height: 7.3rem;
   }
 
-  body .table-drawn-card-wrap .skyjo-card,
-  body .pile-button .skyjo-card {
+  body.game-active .table-drawn-card-wrap .skyjo-card,
+  body.game-active .pile-button .skyjo-card {
     width: 4.35rem;
   }
 
-  body .pile-button {
+  body.game-active .pile-button {
     min-width: 0;
     padding: 0.45rem 0.35rem;
   }
 
-  body .table-pile-row {
+  body.game-active .table-pile-row {
     display: contents;
   }
 }
