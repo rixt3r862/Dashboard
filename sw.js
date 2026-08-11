@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v111";
+const VERSION = "dashboard-v112";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -16,6 +16,7 @@ const CORE_ASSETS = [
   "./Time%20Converter.html",
   "./Timer.html",
   "./Unit%20Converter.html",
+  "./URL%20Tool.html",
   "./Notepad.html",
   "./QR%20Tool.html",
   "./Date%20Math%20Tool.html",
