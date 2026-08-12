@@ -118,13 +118,15 @@ const els = {
 
 function syncDeviceLayout() {
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
-  const landscape = window.matchMedia?.("(orientation: landscape)")?.matches;
   const forcePhoneLandscape = new URLSearchParams(window.location.search).get("layout") === "phone-landscape";
   const touchCapable = coarsePointer || Number(navigator.maxTouchPoints || 0) > 0;
-  const shortSide = Math.min(window.innerWidth || 0, window.innerHeight || 0);
-  const longSide = Math.max(window.innerWidth || 0, window.innerHeight || 0);
+  const viewportWidth = window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0;
+  const landscapeShape = viewportWidth > viewportHeight;
+  const shortSide = Math.min(viewportWidth, viewportHeight);
+  const longSide = Math.max(viewportWidth, viewportHeight);
   const phoneLandscape = Boolean(
-    forcePhoneLandscape || (touchCapable && landscape && shortSide <= 650 && longSide <= 1400),
+    forcePhoneLandscape || (touchCapable && landscapeShape && shortSide <= 650 && longSide <= 1400),
   );
   document.body.classList.toggle("phone-landscape", phoneLandscape);
 }
@@ -133,6 +135,7 @@ function bindEvents() {
   syncDeviceLayout();
   bind(window, "resize", syncDeviceLayout);
   bind(window, "orientationchange", syncDeviceLayout);
+  bind(window.visualViewport, "resize", syncDeviceLayout);
 
   bind(els.setupForm, "submit", (event) => {
     event.preventDefault();
