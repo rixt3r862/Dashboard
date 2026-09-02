@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Time Unit Converter</title>
+    <link rel="manifest" href="./app.webmanifest" />
+    <link rel="apple-touch-icon" href="./img/dashboard-icon.svg" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%230f766e%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>⇄</text></svg>"
+    />
+    <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
+    <script>
+      (function () {
+        try {
+          const theme = localStorage.getItem("dash.theme");
+          if (theme === "dark" || theme === "light") {
+            document.documentElement.dataset.theme = theme;
+          }
+        } catch {}
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e6f3ef;
+        --bg-glow: rgba(20, 184, 166, 0.22);
+        --panel: rgba(255, 255, 255, 0.88);
+        --panel-solid: #ffffff;
+        --field: #f8fafc;
+        --text: #132a28;
+        --muted: #607572;
+        --line: rgba(15, 118, 110, 0.2);
+        --accent: #0f766e;
+        --accent-soft: rgba(13, 148, 136, 0.12);
+        --danger: #b42318;
+        --shadow: 0 28px 70px rgba(19, 78, 74, 0.16);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #0b1717;
+          --bg-glow: rgba(20, 184, 166, 0.17);
+          --panel: rgba(15, 35, 34, 0.9);
+          --panel-solid: #102321;
+          --field: #142c2a;
+          --text: #edfffb;
+          --muted: #a4c4bf;
+          --line: rgba(153, 246, 228, 0.16);
+          --accent: #5eead4;
+          --accent-soft: rgba(45, 212, 191, 0.12);
+          --danger: #fda29b;
+          --shadow: 0 28px 70px rgba(0, 0, 0, 0.38);
+        }
+      }
+
+      :root[data-theme="light"] {
+        color-scheme: light;
+        --bg: #e6f3ef;
+        --bg-glow: rgba(20, 184, 166, 0.22);
+        --panel: rgba(255, 255, 255, 0.88);
+        --panel-solid: #ffffff;
+        --field: #f8fafc;
+        --text: #132a28;
+        --muted: #607572;
+        --line: rgba(15, 118, 110, 0.2);
+        --accent: #0f766e;
+        --accent-soft: rgba(13, 148, 136, 0.12);
+        --danger: #b42318;
+        --shadow: 0 28px 70px rgba(19, 78, 74, 0.16);
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1717;
+        --bg-glow: rgba(20, 184, 166, 0.17);
+        --panel: rgba(15, 35, 34, 0.9);
+        --panel-solid: #102321;
+        --field: #142c2a;
+        --text: #edfffb;
+        --muted: #a4c4bf;
+        --line: rgba(153, 246, 228, 0.16);
+        --accent: #5eead4;
+        --accent-soft: rgba(45, 212, 191, 0.12);
+        --danger: #fda29b;
+        --shadow: 0 28px 70px rgba(0, 0, 0, 0.38);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+        display: grid;
+        place-items: center;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 18% 10%, var(--bg-glow), transparent 34rem),
+          linear-gradient(145deg, color-mix(in srgb, var(--bg) 92%, white 8%), var(--bg));
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      .back-link {
+        position: fixed;
+        z-index: 5;
+        top: max(12px, env(safe-area-inset-top));
+        left: 12px;
+        padding: 0.55rem 0.85rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--text);
+        background: var(--panel);
+        text-decoration: none;
+        backdrop-filter: blur(14px);
+      }
+
+      .app-shell {
+        width: min(100%, 1050px);
+        padding: clamp(1.25rem, 4vw, 2.5rem);
+        border: 1px solid var(--line);
+        border-radius: 30px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .eyebrow {
+        margin: 0 0 0.45rem;
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 3.6rem);
+        line-height: 1;
+      }
+
+      .intro {
+        max-width: 44rem;
+        margin: 0.8rem 0 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .converter {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: clamp(0.75rem, 2vw, 1.25rem);
+        margin-top: 2rem;
+      }
+
+      .unit-field {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--field);
+        transition: border-color 0.16s ease, box-shadow 0.16s ease;
+      }
+
+      .magnitude {
+        min-height: 2.4rem;
+        margin: 0;
+        padding: 0.85rem 1rem 0;
+        color: var(--accent);
+        font-size: 0.86rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-align: center;
+      }
+
+      .unit-field:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-soft);
+      }
+
+      .unit-field.invalid {
+        border-color: var(--danger);
+      }
+
+      .unit-field input,
+      .unit-field select {
+        width: 100%;
+        border: 0;
+        color: var(--text);
+        background: transparent;
+      }
+
+      .unit-field input {
+        min-width: 0;
+        padding: 0.55rem 1rem 1.25rem;
+        outline: 0;
+        font-size: clamp(1.75rem, 5vw, 3rem);
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+      }
+
+      .unit-field select {
+        padding: 0.9rem 1rem;
+        border-top: 1px solid var(--line);
+        outline: 0;
+        font-size: 1.05rem;
+        cursor: pointer;
+      }
+
+      .equals {
+        color: var(--muted);
+        font-size: clamp(1.8rem, 5vw, 2.8rem);
+        font-weight: 700;
+      }
+
+      .status {
+        min-height: 1.4rem;
+        margin: 0.9rem 0 0;
+        color: var(--danger);
+        font-size: 0.9rem;
+        text-align: center;
+      }
+
+      .definition {
+        margin-top: 1.5rem;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        color: var(--muted);
+        background: var(--accent-soft);
+        font-size: 0.92rem;
+        line-height: 1.55;
+      }
+
+      .definition strong {
+        color: var(--text);
+      }
+
+      @media (max-width: 700px) {
+        body {
+          align-items: start;
+          padding-top: 4.5rem;
+        }
+
+        .app-shell {
+          border-radius: 24px;
+        }
+
+        .converter {
+          grid-template-columns: 1fr;
+        }
+
+        .equals {
+          line-height: 0.7;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="./TimeTools/index.html">← Time Tools</a>
+    <main class="app-shell">
+      <p class="eyebrow">Time Tools</p>
+      <h1>Time Unit Converter</h1>
+      <p class="intro">
+        Enter a value on either side to convert between units of time. Change either dropdown at any time.
+      </p>
+
+      <section class="converter" aria-label="Time unit conversion">
+        <div id="leftField" class="unit-field">
+          <p id="leftMagnitude" class="magnitude" aria-live="polite"></p>
+          <input id="leftValue" type="text" inputmode="decimal" value="60" autocomplete="off" spellcheck="false" aria-label="First value" />
+          <select id="leftUnit" aria-label="First time unit"></select>
+        </div>
+
+        <div class="equals" aria-hidden="true">=</div>
+
+        <div id="rightField" class="unit-field">
+          <p id="rightMagnitude" class="magnitude" aria-live="polite"></p>
+          <input id="rightValue" type="text" inputmode="decimal" value="1" autocomplete="off" spellcheck="false" aria-label="Second value" />
+          <select id="rightUnit" aria-label="Second time unit"></select>
+        </div>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <aside class="definition">
+        <strong>Fixed calendar values:</strong> One month is 30 days and one year is 365 days. Decades and centuries are based on that 365-day year.
+      </aside>
+    </main>
+
+    <script>
+      const UNITS = [
+        { name: "Nanosecond", seconds: 1e-9 },
+        { name: "Microsecond", seconds: 1e-6 },
+        { name: "Millisecond", seconds: 1e-3 },
+        { name: "Second", seconds: 1 },
+        { name: "Minute", seconds: 60 },
+        { name: "Hour", seconds: 3600 },
+        { name: "Day", seconds: 86400 },
+        { name: "Week", seconds: 604800 },
+        { name: "Month", seconds: 2592000 },
+        { name: "Year", seconds: 31536000 },
+        { name: "Decade", seconds: 315360000 },
+        { name: "Century", seconds: 3153600000 },
+      ];
+
+      const MAGNITUDES = [
+        { minimum: 1e33, name: "Decillion" },
+        { minimum: 1e30, name: "Nonillion" },
+        { minimum: 1e27, name: "Octillion" },
+        { minimum: 1e24, name: "Septillion" },
+        { minimum: 1e21, name: "Sextillion" },
+        { minimum: 1e18, name: "Quintillion" },
+        { minimum: 1e15, name: "Quadrillion" },
+        { minimum: 1e12, name: "Trillion" },
+        { minimum: 1e9, name: "Billion" },
+        { minimum: 1e6, name: "Million" },
+        { minimum: 1e3, name: "Thousand" },
+        { minimum: 1e2, name: "Hundred" },
+      ];
+
+      const leftValue = document.getElementById("leftValue");
+      const rightValue = document.getElementById("rightValue");
+      const leftMagnitude = document.getElementById("leftMagnitude");
+      const rightMagnitude = document.getElementById("rightMagnitude");
+      const leftUnit = document.getElementById("leftUnit");
+      const rightUnit = document.getElementById("rightUnit");
+      const leftField = document.getElementById("leftField");
+      const rightField = document.getElementById("rightField");
+      const status = document.getElementById("status");
+      let sourceSide = "left";
+
+      function fillUnits(select) {
+        for (const unit of UNITS) {
+          const option = document.createElement("option");
+          option.value = String(unit.seconds);
+          option.textContent = unit.name;
+          select.appendChild(option);
+        }
+      }
+
+      function parseValue(input) {
+        const normalized = input.value.trim().replaceAll(",", "");
+        if (!normalized) return null;
+        const value = Number(normalized);
+        return Number.isFinite(value) ? value : null;
+      }
+
+      function formatValue(value) {
+        if (Object.is(value, -0) || value === 0) return "0";
+        const absolute = Math.abs(value);
+        if (absolute >= 1e12 || absolute < 1e-6) {
+          return value
+            .toExponential(10)
+            .replace(/\.0+e/, "e")
+            .replace(/(\.\d*?[1-9])0+e/, "$1e")
+            .replace("e+", "e");
+        }
+        return new Intl.NumberFormat("en-US", {
+          useGrouping: true,
+          maximumSignificantDigits: 12,
+        }).format(value);
+      }
+
+      function addGrouping(input) {
+        const original = input.value;
+        const cursor = input.selectionStart ?? original.length;
+        const normalized = original.replaceAll(",", "");
+        if (!/^[+-]?\d*(?:\.\d*)?$/.test(normalized)) return;
+
+        const sign = normalized.match(/^[+-]/)?.[0] || "";
+        const unsigned = sign ? normalized.slice(1) : normalized;
+        const decimalIndex = unsigned.indexOf(".");
+        const integer = decimalIndex === -1 ? unsigned : unsigned.slice(0, decimalIndex);
+        const decimal = decimalIndex === -1 ? "" : unsigned.slice(decimalIndex);
+        const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        const formatted = `${sign}${grouped}${decimal}`;
+        if (formatted === original) return;
+
+        const charactersToLeft = original.slice(0, cursor).replaceAll(",", "").length;
+        input.value = formatted;
+
+        let nextCursor = 0;
+        let remaining = charactersToLeft;
+        while (nextCursor < formatted.length && remaining > 0) {
+          if (formatted[nextCursor] !== ",") remaining -= 1;
+          nextCursor += 1;
+        }
+        input.setSelectionRange(nextCursor, nextCursor);
+      }
+
+      function fitInputText(input) {
+        input.style.removeProperty("font-size");
+        if (!input.value) return;
+
+        const styles = getComputedStyle(input);
+        const baseSize = Number.parseFloat(styles.fontSize);
+        const horizontalPadding =
+          Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight);
+        const availableWidth = Math.max(1, input.clientWidth - horizontalPadding);
+        const contentWidth = Math.max(1, input.scrollWidth - horizontalPadding);
+        if (contentWidth <= availableWidth) return;
+
+        const minimumSize = 10;
+        let fittedSize = Math.max(
+          minimumSize,
+          Math.floor(baseSize * (availableWidth / contentWidth) * 9.8) / 10,
+        );
+        input.style.fontSize = `${fittedSize}px`;
+
+        while (input.scrollWidth > input.clientWidth && fittedSize > minimumSize) {
+          fittedSize = Math.max(minimumSize, fittedSize - 0.5);
+          input.style.fontSize = `${fittedSize}px`;
+        }
+      }
+
+      function fitInputValues() {
+        fitInputText(leftValue);
+        fitInputText(rightValue);
+      }
+
+      function magnitudeName(value) {
+        if (!Number.isFinite(value)) return "";
+        const absolute = Math.abs(value);
+        return MAGNITUDES.find((magnitude) => absolute >= magnitude.minimum)?.name || "";
+      }
+
+      function updateMagnitude(input, output) {
+        output.textContent = magnitudeName(parseValue(input));
+      }
+
+      function updateMagnitudes() {
+        updateMagnitude(leftValue, leftMagnitude);
+        updateMagnitude(rightValue, rightMagnitude);
+      }
+
+      function clearError() {
+        leftField.classList.remove("invalid");
+        rightField.classList.remove("invalid");
+        leftValue.removeAttribute("aria-invalid");
+        rightValue.removeAttribute("aria-invalid");
+        status.textContent = "";
+      }
+
+      function showError(side) {
+        clearError();
+        const field = side === "left" ? leftField : rightField;
+        const input = side === "left" ? leftValue : rightValue;
+        field.classList.add("invalid");
+        input.setAttribute("aria-invalid", "true");
+        status.textContent = "Enter a valid number to convert.";
+      }
+
+      function convertFrom(side) {
+        const sourceInput = side === "left" ? leftValue : rightValue;
+        const targetInput = side === "left" ? rightValue : leftValue;
+        const sourceUnit = side === "left" ? leftUnit : rightUnit;
+        const targetUnit = side === "left" ? rightUnit : leftUnit;
+        const value = parseValue(sourceInput);
+
+        if (value === null) {
+          if (sourceInput.value.trim() === "") {
+            clearError();
+            targetInput.value = "";
+          } else {
+            showError(side);
+          }
+          updateMagnitudes();
+          fitInputValues();
+          return;
+        }
+
+        clearError();
+        targetInput.value = formatValue((value * Number(sourceUnit.value)) / Number(targetUnit.value));
+        updateMagnitudes();
+        fitInputValues();
+      }
+
+      fillUnits(leftUnit);
+      fillUnits(rightUnit);
+      leftUnit.value = "1";
+      rightUnit.value = "60";
+      updateMagnitudes();
+      fitInputValues();
+
+      leftValue.addEventListener("input", () => {
+        sourceSide = "left";
+        addGrouping(leftValue);
+        convertFrom("left");
+      });
+      rightValue.addEventListener("input", () => {
+        sourceSide = "right";
+        addGrouping(rightValue);
+        convertFrom("right");
+      });
+      leftUnit.addEventListener("change", () => convertFrom(sourceSide));
+      rightUnit.addEventListener("change", () => convertFrom(sourceSide));
+      window.addEventListener("resize", fitInputValues);
+    </script>
+  </body>
+</html>
