@@ -234,6 +234,32 @@
         text-align: center;
       }
 
+      .round-option {
+        display: flex;
+        justify-content: center;
+        margin-top: 1rem;
+      }
+
+      .round-option label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.65rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: var(--field);
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .round-option input {
+        width: 1.05rem;
+        height: 1.05rem;
+        margin: 0;
+        accent-color: var(--accent);
+      }
+
       .definition {
         margin-top: 1.5rem;
         padding: 1rem 1.1rem;
@@ -295,6 +321,12 @@
         </div>
       </section>
 
+      <div class="round-option">
+        <label>
+          <input id="roundResult" type="checkbox" />
+          <span>Round result to 2 decimal places</span>
+        </label>
+      </div>
       <p id="status" class="status" role="status" aria-live="polite"></p>
       <aside class="definition">
         <strong>Fixed calendar values:</strong> One month is 30 days and one year is 365 days. Decades and centuries are based on that 365-day year.
@@ -341,6 +373,7 @@
       const leftField = document.getElementById("leftField");
       const rightField = document.getElementById("rightField");
       const status = document.getElementById("status");
+      const roundResult = document.getElementById("roundResult");
       let sourceSide = "left";
 
       function fillUnits(select) {
@@ -360,6 +393,13 @@
       }
 
       function formatValue(value) {
+        if (roundResult.checked) {
+          return new Intl.NumberFormat("en-US", {
+            useGrouping: true,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }).format(Math.abs(value) < 0.005 ? 0 : value);
+        }
         if (Object.is(value, -0) || value === 0) return "0";
         const absolute = Math.abs(value);
         if (absolute >= 1e12 || absolute < 1e-6) {
@@ -508,6 +548,7 @@
       });
       leftUnit.addEventListener("change", () => convertFrom(sourceSide));
       rightUnit.addEventListener("change", () => convertFrom(sourceSide));
+      roundResult.addEventListener("change", () => convertFrom(sourceSide));
       window.addEventListener("resize", fitInputValues);
     </script>
   </body>
