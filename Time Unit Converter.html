@@ -236,7 +236,9 @@
 
       .round-option {
         display: flex;
+        flex-wrap: wrap;
         justify-content: center;
+        gap: 0.75rem;
         margin-top: 1rem;
       }
 
@@ -321,10 +323,14 @@
         </div>
       </section>
 
-      <div class="round-option">
+      <div class="round-option" role="group" aria-label="Result formatting">
         <label>
           <input id="roundResult" type="checkbox" />
           <span>Round result to 2 decimal places</span>
+        </label>
+        <label>
+          <input id="roundSignificantDigits" type="checkbox" />
+          <span>Round result to 2 significant digits</span>
         </label>
       </div>
       <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -374,6 +380,7 @@
       const rightField = document.getElementById("rightField");
       const status = document.getElementById("status");
       const roundResult = document.getElementById("roundResult");
+      const roundSignificantDigits = document.getElementById("roundSignificantDigits");
       let sourceSide = "left";
 
       function fillUnits(select) {
@@ -392,7 +399,13 @@
         return Number.isFinite(value) ? value : null;
       }
 
+      function roundToSignificantDigits(value, digits = 2) {
+        if (value === 0) return 0;
+        return Number(value.toPrecision(digits));
+      }
+
       function formatValue(value) {
+        if (roundSignificantDigits.checked) value = roundToSignificantDigits(value);
         if (roundResult.checked) {
           return new Intl.NumberFormat("en-US", {
             useGrouping: true,
@@ -536,6 +549,10 @@
       updateMagnitudes();
       fitInputValues();
 
+      function selectInputValue(event) {
+        event.currentTarget.select();
+      }
+
       leftValue.addEventListener("input", () => {
         sourceSide = "left";
         addGrouping(leftValue);
@@ -546,9 +563,20 @@
         addGrouping(rightValue);
         convertFrom("right");
       });
+      leftValue.addEventListener("focus", selectInputValue);
+      leftValue.addEventListener("click", selectInputValue);
+      rightValue.addEventListener("focus", selectInputValue);
+      rightValue.addEventListener("click", selectInputValue);
       leftUnit.addEventListener("change", () => convertFrom(sourceSide));
       rightUnit.addEventListener("change", () => convertFrom(sourceSide));
-      roundResult.addEventListener("change", () => convertFrom(sourceSide));
+      roundResult.addEventListener("change", () => {
+        if (roundResult.checked) roundSignificantDigits.checked = false;
+        convertFrom(sourceSide);
+      });
+      roundSignificantDigits.addEventListener("change", () => {
+        if (roundSignificantDigits.checked) roundResult.checked = false;
+        convertFrom(sourceSide);
+      });
       window.addEventListener("resize", fitInputValues);
     </script>
   </body>
