@@ -130,3 +130,11 @@ session-validation, and Dashboard/ScoreKeeper integration coverage.
 - Autosaves use `skipbo.autosave.v1`; named sessions use `skipbo.sessions.v1`. Restored autosaves automatically continue the current turn.
 - ScoreKeeper imports awarded round points directly through the `skipbo` preset; do not apply Uno-style opponent-hand conversion.
 - Rules reference: https://service.mattel.com/instruction_sheets/N7808-0920.pdf.
+
+## Browser compatibility diagnostics
+
+Keep `-webkit-backdrop-filter` and `-webkit-user-select` immediately before their
+unprefixed declarations for older Safari support. The project `.hintrc` preserves
+webhint’s default HTML compatibility exclusions and also ignores only
+`meta[name=theme-color]`: this optional browser-chrome color is intentionally kept
+for supporting browsers. Other HTML compatibility checks remain enabled.

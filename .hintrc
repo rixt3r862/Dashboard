@@ -1,0 +1,20 @@
+{
+  "hints": {
+    "compat-api/html": [
+      "warning",
+      {
+        "ignore": [
+          "a[rel=noopener]",
+          "autocomplete",
+          "crossorigin",
+          "input[inputmode]",
+          "integrity",
+          "link[rel]",
+          "main",
+          "spellcheck",
+          "meta[name=theme-color]"
+        ]
+      }
+    ]
+  }
+}

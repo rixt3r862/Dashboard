@@ -158,7 +158,7 @@ function render() {
   const history = state.history.map((h,i) => ({...h,n:i+1})); if (order === 'desc') history.reverse();
   $('historySummary').textContent = `${history.length} completed round${history.length === 1 ? '' : 's'} · ${state.target === 1 ? 'Single round' : 'First to 500 points'}`;
   $('historyOrder').textContent = G.historySortLabel?.(order) || (order === 'desc' ? 'Newest First' : 'Oldest First');
-  $('history').innerHTML = history.length ? `<table><thead><tr><th>Round</th>${state.players.map(p=>`<th>${esc(p.name)}</th>`).join('')}</tr></thead><tbody>${history.map(h=>`<tr><td>${h.n}</td>${state.players.map((p,i)=>`<td>${h.scores[p.id]}${p.id === h.winnerId ? '<small>Winner</small>' : `<small>${h.remaining[i]} stock left</small>`}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '';
+  $('history').innerHTML = history.length ? `<table><thead><tr><th>Round</th>${state.players.map(p=>`<th>${esc(p.name)} - ${p.score}</th>`).join('')}</tr></thead><tbody>${history.map(h=>`<tr><td>${h.n}</td>${state.players.map((p,i)=>`<td>${h.scores[p.id]}${p.id === h.winnerId ? '<small>Winner</small>' : `<small>${h.remaining[i]} stock left</small>`}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '';
 }
 $('setupForm').addEventListener('submit', e => {
   e.preventDefault();

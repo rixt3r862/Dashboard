@@ -475,6 +475,7 @@ select:disabled{
   align-items:center;
   justify-content:center;
   gap:8px;
+  -webkit-user-select:none;
   user-select:none;
   transition: transform .03s ease, border-color .15s ease, box-shadow .15s ease;
 }
@@ -2485,6 +2486,7 @@ summary::-webkit-details-marker{ display:none; }
   margin-left: 0;
   color: var(--muted);
   font-size: 12px;
+  -webkit-user-select: none;
   user-select: none;
 }
 .round-preview-out input[type="radio"]{

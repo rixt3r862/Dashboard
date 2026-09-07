@@ -2699,6 +2699,7 @@ body.game-active .hero-copy {
     padding: 0.35rem;
     border-radius: 1.05rem;
     background: linear-gradient(180deg, rgba(3, 19, 13, 0.2), rgba(3, 19, 13, 0.8) 18%, rgba(3, 19, 13, 0.92));
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
   }
 
