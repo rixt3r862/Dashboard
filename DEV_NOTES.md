@@ -114,3 +114,19 @@ When diagnosing a future browser-only issue, suggest this flow:
 4. Run `DashboardErrorLog.download()` and attach the downloaded JSON file for review.
 
 For a quick logger sanity check, run `DashboardErrorLog.record({ type: "manual", message: "Logger test" })`, then `DashboardErrorLog.download()`.
+
+## Skip-Bo Standalone Table
+
+`SkipBo/` uses the shared Game Room tokens and helpers, with a separate, DOM-free
+`engine.mjs` for rules and bot decisions. Run `npm test` for engine, simulated-game,
+session-validation, and Dashboard/ScoreKeeper integration coverage.
+
+- One human and 1–5 bots; standard 30-card stocks (20 for 5–6 players), or short 10-card stocks.
+- A single round or a 500-point match. Round winner earns 25 plus 5 per opponent stock card.
+- Classic 162-card deck; zero represents a wild. Building pile length determines its effective value.
+- Hands refill automatically at turn start and after playing the entire hand.
+- Bots use only their hand and exposed cards. Easy chooses legal plays randomly; medium prioritizes stock; hard also favors plays that unlock the stock top.
+- Exhaustion house rule: a blocked empty-handed player may pass; a full table of passes redeals without points.
+- Autosaves use `skipbo.autosave.v1`; named sessions use `skipbo.sessions.v1`. Restored autosaves automatically continue the current turn.
+- ScoreKeeper imports awarded round points directly through the `skipbo` preset; do not apply Uno-style opponent-hand conversion.
+- Rules reference: https://service.mattel.com/instruction_sheets/N7808-0920.pdf.

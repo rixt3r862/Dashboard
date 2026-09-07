@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v117";
+const VERSION = "dashboard-v126";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -22,6 +22,28 @@ const CORE_ASSETS = [
   "./QR%20Tool.html",
   "./Date%20Math%20Tool.html",
   "./Games/index.html",
+  "./SkipBo/index.html",
+  "./SkipBo/skipbo.css",
+  "./SkipBo/skipbo.js",
+  "./SkipBo/engine.mjs",
+  "./SkipBo/motion.mjs",
+  "./SkipBo/icon.svg",
+  "./SkipBo/cards/0.svg",
+  "./SkipBo/cards/1.svg",
+  "./SkipBo/cards/2.svg",
+  "./SkipBo/cards/3.svg",
+  "./SkipBo/cards/4.svg",
+  "./SkipBo/cards/5.svg",
+  "./SkipBo/cards/6.svg",
+  "./SkipBo/cards/7.svg",
+  "./SkipBo/cards/8.svg",
+  "./SkipBo/cards/9.svg",
+  "./SkipBo/cards/10.svg",
+  "./SkipBo/cards/11.svg",
+  "./SkipBo/cards/12.svg",
+  "./SkipBo/cards/back.svg",
+  "./shared/game-room.css",
+  "./shared/game-room.js",
   "./TimeTools/index.html",
   "./Phase10/index.html",
   "./Phase10/phase10.css",

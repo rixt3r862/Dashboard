@@ -1,4 +1,8 @@
 export const PRESETS = {
+  skipbo: {
+    label: "Skip-Bo", target: 500, winMode: "high", teams: false,
+    notes: "Enter awarded points: round winner receives 25 plus 5 for each card left in opponents’ stock piles; everyone else scores 0. First to 500 wins.",
+  },
   custom: {
     label: "Custom",
     target: null,
