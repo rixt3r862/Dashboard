@@ -1,5 +1,6 @@
 import * as E from './engine.mjs';
 import { createMotion } from './motion.mjs';
+import { confirmDiscard } from './discard-dialog.mjs';
 const motion = createMotion(document, window);
 let moving = false;
 const $ = id => document.getElementById(id);
@@ -171,7 +172,7 @@ $('setupForm').addEventListener('submit', e => {
 });
 $('playerCount').onchange = () => namesFields(); $('shuffleNames').onclick = () => namesFields(true);
 $('resetTable').onclick = () => { if (state && !confirm('Reset this table? Saved sessions will remain.')) return; clearTimeout(timer); state = null; currentSession = ''; selected = null; try { localStorage.removeItem(AUTO); } catch {} render(); };
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   const button = e.target.closest('button'); if (moving || !button || button.disabled || !humanTurn()) return;
   if (button.dataset.source) { const source = {kind:button.dataset.source}; if (button.dataset.index !== '') source.index = Number(button.dataset.index); selected = same(selected, source) ? null : source; message = ''; render(); }
   else if (button.dataset.build !== undefined && selected) { const source = selected, pile = Number(button.dataset.build); moveWithAnimation({ type: 'play', source, pile }, () => E.play(state, source, pile)); }
@@ -180,7 +181,9 @@ document.addEventListener('click', e => {
     if (selected?.kind === 'hand') {
       const handIndex = selected.index;
       const value = state.players[0].hand[handIndex];
-      if (!confirm(`Discard ${value === 0 ? 'Skip-Bo wild' : value} onto discard pile ${index + 1}? This will end your turn.`)) return;
+      const table = state;
+      if (!await confirmDiscard(document, value, index)) return;
+      if (state !== table || moving || !humanTurn() || state.players[0].hand[handIndex] !== value) return;
       moveWithAnimation({ type: 'discard', index: handIndex, pile: index }, () => E.discard(state, handIndex, index));
     } else {
       const source = { kind: 'discard', index };

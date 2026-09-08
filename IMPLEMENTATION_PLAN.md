@@ -17,7 +17,7 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 8. Compact Dashboard panels, hide file paths, and relocate Clear Recent.
 - [x] 9. Simplify category launchers; add favorites/resume and remove placeholders.
 - [x] 10. Standardize utility navigation, themes, and save-status messages.
-- [ ] 11. Standardize game controls while preserving individual designs.
+- [x] 11. Standardize game controls while preserving individual designs.
 - [ ] 12. CashBox amount validation, naming, and reset protection.
 - [ ] 13. CashBox named deposit history and CSV export.
 - [ ] 14. Notepad previous-version recovery and replace/append import.
@@ -192,3 +192,26 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
 - Validation: all 108 project tests passed, including three confirmation tests;
   diff check passed. Service-worker cache bumped for delivery.
 - Next planned work remains session 11.
+
+### Session 11
+
+- Standardized Reset Table, Load Session, and Delete Session labels across all
+  seven card games (including SkyJo's shared phone view). Added reset tooltips,
+  explicit button types, session-panel relationships, and live session status.
+- Shared command buttons now have consistent minimum sizes, wrapping, keyboard
+  focus indicators, coarse-pointer touch targets, and reduced-motion behavior.
+- Preserved game-specific styles, card controls, rules, save formats, and the
+  Skip-Bo discard confirmation. ScoreKeeper's separate scoring workflow is unchanged.
+- Validation: all 115 project tests passed, including seven game-control checks;
+  diff check passed. Browser visual verification remains outstanding.
+- Next: session 12, CashBox validation, naming, and reset protection.
+- Session 11 forms a combined commit/push checkpoint with the themed dialog below.
+
+### Themed Skip-Bo Confirmation
+
+- Replaced the browser discard prompt with a blue-and-gold modal matching Skip-Bo.
+  Cancel receives initial focus; Escape dismisses it, and dismissal restores focus.
+- Confirmation still names the card and pile and warns that the turn will end.
+- Validation: all 117 project tests passed; diff check passed. Browser visual
+  verification remains outstanding.
+- Next planned work remains session 12.

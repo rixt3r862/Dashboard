@@ -101,12 +101,10 @@
                 <button id="startGameBtn" class="btn btn-primary" type="submit">
                   Start Game
                 </button>
-                <button id="resetTableBtn" class="btn" type="button">
-                  Reset
-                </button>
+                <button title="Clear the current table; keep named saved sessions" id="resetTableBtn" class="btn" type="button">Reset Table</button>
               </div>
               <div class="session-tools" id="sessionTools">
-                <button
+                <button aria-controls="sessionToolsBody"
                   id="sessionToolsToggle"
                   class="btn session-tools-toggle"
                   type="button"
@@ -126,12 +124,8 @@
                     <button id="saveSessionBtn" class="btn session-tool-wide" type="button">
                       Save Session
                     </button>
-                    <button id="loadSessionBtn" class="btn" type="button">
-                      Load Saved
-                    </button>
-                    <button id="deleteSessionBtn" class="btn btn-danger" type="button">
-                      Delete Saved
-                    </button>
+                    <button id="loadSessionBtn" class="btn" type="button">Load Session</button>
+                    <button id="deleteSessionBtn" class="btn btn-danger" type="button">Delete Session</button>
                     <button id="downloadSessionBtn" class="btn" type="button">
                       Download JSON
                     </button>
@@ -143,7 +137,7 @@
                     </button>
                   </div>
                   <input id="importSessionFile" type="file" accept="application/json,.json" hidden />
-                  <p id="sessionStatus" class="session-status">
+                  <p role="status" aria-live="polite" id="sessionStatus" class="session-status">
                     Save a session on this device or download a JSON backup copy.
                   </p>
                 </div>

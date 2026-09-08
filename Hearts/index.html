@@ -70,7 +70,7 @@
                 Start Game with Same Players
               </button>
               <div id="setupSummary" class="setup-summary" hidden></div>
-              <button id="resetTableBtn" class="btn" type="button">Reset</button>
+              <button title="Clear the current table; keep named saved sessions" id="resetTableBtn" class="btn" type="button">Reset Table</button>
             </form>
           </section>
 
@@ -78,10 +78,10 @@
             <div class="panel-head session-head">
               <div>
                 <h2>Sessions</h2>
-                <p id="sessionStatus">No saved sessions yet. Save on this device or download a JSON backup copy.</p>
+                <p role="status" aria-live="polite" id="sessionStatus">No saved sessions yet. Save on this device or download a JSON backup copy.</p>
                 <p id="autosaveStatus" role="status">Autosave ready.</p>
               </div>
-              <button id="sessionToggleBtn" class="btn session-toggle-btn" type="button" aria-expanded="true">Hide Sessions</button>
+              <button aria-controls="sessionTools" id="sessionToggleBtn" class="btn session-toggle-btn" type="button" aria-expanded="true">Hide Sessions</button>
             </div>
             <div id="sessionTools" class="session-tools">
               <label class="field">
@@ -92,8 +92,8 @@
               </label>
               <div class="session-tool-grid">
                 <button id="saveSessionBtn" class="btn session-tool-wide" type="button">Save Session</button>
-                <button id="loadSessionBtn" class="btn" type="button">Load Saved</button>
-                <button id="deleteSessionBtn" class="btn btn-danger" type="button">Delete Saved</button>
+                <button id="loadSessionBtn" class="btn" type="button">Load Session</button>
+                <button id="deleteSessionBtn" class="btn btn-danger" type="button">Delete Session</button>
                 <button id="downloadSessionBtn" class="btn" type="button">Download JSON</button>
                 <button id="importSessionBtn" class="btn" type="button">Import JSON</button>
                 <button id="exportScoreKeeperBtn" class="btn session-tool-wide" type="button">Export to ScoreKeeper</button>

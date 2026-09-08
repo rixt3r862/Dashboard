@@ -9,6 +9,14 @@
   <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
 </head>
 <body>
+<dialog id="discardDialog" class="discard-dialog" aria-labelledby="discardTitle" aria-describedby="discardMessage">
+  <h2 id="discardTitle">End your turn?</h2>
+  <p id="discardMessage"></p>
+  <div class="discard-dialog-actions">
+    <button id="cancelDiscard" class="btn" type="button" autofocus>Cancel</button>
+    <button id="confirmDiscard" class="btn btn-primary" type="button">Discard &amp; End Turn</button>
+  </div>
+</dialog>
 <div class="page-shell">
   <header class="hero"><div><p class="eyebrow">Card Table</p><h1>Skip-Bo</h1><p class="hero-copy">Build from 1 to 12. Clear your stock. Stay one card ahead.</p></div><a class="game-room-link" href="../Games/index.html">Game Room</a></header>
   <main class="layout">
@@ -20,12 +28,12 @@
           <label class="field"><span>Stock size</span><select id="stockSize"><option value="standard">Standard</option><option value="short">Short (10)</option></select></label></div>
           <label class="field"><span>Play to</span><select id="target"><option value="500">500 points</option><option value="1">One round</option></select></label>
           <div id="botNameFields"></div><button class="btn" id="shuffleNames" type="button">Shuffle Names</button>
-        </div><p id="setupSummary" hidden></p><button class="btn btn-primary" id="startGame" type="submit">Start Game</button><button class="btn" id="resetTable" type="button">Reset</button></form>
+        </div><p id="setupSummary" hidden></p><button class="btn btn-primary" id="startGame" type="submit">Start Game</button><button title="Clear the current table; keep named saved sessions" class="btn" id="resetTable" type="button">Reset Table</button></form>
       </section>
       <section class="panel"><div class="panel-head"><div class="section-heading"><h2>Table Status</h2><p id="statusText" role="status" aria-live="polite">Deal a table to begin.</p></div></div><div id="statusGrid" class="status-grid"></div><div id="drawPile" class="draw-pile" aria-label="Draw pile"></div></section>
-      <section class="panel"><div class="panel-head session-head"><div class="section-heading"><h2>Sessions</h2><p id="sessionStatus" role="status" aria-live="polite">Save a table to resume later.</p></div><button id="sessionToggle" class="btn" aria-expanded="true">Hide Sessions</button></div><div id="sessionTools" class="session-tools">
+      <section class="panel"><div class="panel-head session-head"><div class="section-heading"><h2>Sessions</h2><p id="sessionStatus" role="status" aria-live="polite">Save a table to resume later.</p></div><button type="button" aria-controls="sessionTools" id="sessionToggle" class="btn" aria-expanded="true">Hide Sessions</button></div><div id="sessionTools" class="session-tools">
         <label class="field"><span>Saved sessions</span><select id="savedSessions"><option value="">Saved sessions on this device</option></select></label>
-        <div class="session-tool-grid"><button id="saveSession" class="btn session-tool-wide">Save Session</button><button id="loadSession" class="btn">Load Saved</button><button id="deleteSession" class="btn btn-danger">Delete Saved</button><button id="downloadSession" class="btn">Download JSON</button><button id="importSession" class="btn">Import JSON</button><button id="exportScores" class="btn session-tool-wide">Export to ScoreKeeper</button></div>
+        <div class="session-tool-grid"><button type="button" id="saveSession" class="btn session-tool-wide">Save Session</button><button type="button" id="loadSession" class="btn">Load Session</button><button type="button" id="deleteSession" class="btn btn-danger">Delete Session</button><button type="button" id="downloadSession" class="btn">Download JSON</button><button type="button" id="importSession" class="btn">Import JSON</button><button type="button" id="exportScores" class="btn session-tool-wide">Export to ScoreKeeper</button></div>
         <input id="importFile" type="file" accept="application/json,.json" hidden></div>
       </section>
       <section class="panel"><div class="panel-head"><h2>Table Rules</h2></div><ul class="rule-list"><li>Standard stock: 30 cards for 2–4 players; 20 for 5–6. Short game: 10 each.</li><li>Your hand fills to five at the start of your turn. Play all five to draw again.</li><li>Build each shared pile from 1 to 12. Skip-Bo cards are wild. Completed piles are recycled.</li><li>Play from your hand, stock top, or a discard top. Discard one hand card to end your turn.</li><li>Empty your stock to win the round: 25 points plus 5 per opponent stock card. First to 500 wins.</li><li>If no cards can be drawn, an empty-handed blocked player may pass. A fully blocked table redeals without points.</li></ul><a class="rules-link" href="https://service.mattel.com/instruction_sheets/N7808-0920.pdf" target="_blank" rel="noopener">Mattel rules ↗</a></section>
@@ -35,10 +43,10 @@
       <section class="panel"><div class="panel-head"><div class="section-heading"><h2>Bot Players</h2><p>Stock tops and discards are visible. Hands stay hidden.</p></div></div><div id="bots" class="players-board"></div></section>
       <section class="panel build-panel"><div class="panel-head"><div class="section-heading"><h2>Building Piles</h2><p>Select one of your cards, then a highlighted pile.</p></div></div><div id="builds" class="pile-grid"></div></section>
       <section class="panel hand-panel"><div class="panel-head"><div class="section-heading"><h2 id="handTitle">Your Hand</h2><p id="actionHint">Start a game to see your cards.</p></div></div><div id="humanSummary" class="human-summary"></div><div class="human-workspace"><div><h3>Your stock</h3><div id="stock"></div></div><div><h3>Your hand</h3><div id="hand" class="human-hand"></div></div></div>
-        <div class="hand-controls"><button id="hint" class="btn">Hint</button><button id="sortHand" class="btn">Sort Hand</button><button id="passTurn" class="btn" hidden>Pass Turn</button><button id="nextRound" class="btn btn-primary" hidden>Deal Next Round</button></div>
+        <div class="hand-controls"><button type="button" id="hint" class="btn">Hint</button><button type="button" id="sortHand" class="btn">Sort Hand</button><button type="button" id="passTurn" class="btn" hidden>Pass Turn</button><button type="button" id="nextRound" class="btn btn-primary" hidden>Deal Next Round</button></div>
         <div class="section-heading discard-heading"><h3>Your discard piles</h3><p class="muted">Select a hand card, then click a discard pile to end your turn. Without a hand card selected, click a pile to play its top card.</p></div><div id="discards" class="pile-grid"></div>
       </section>
-      <section class="panel"><div class="panel-head history-head"><div><div class="section-heading"><h2>Round History</h2><p id="historySummary">Completed rounds will appear here.</p></div></div><button id="historyOrder" class="btn">Newest First</button></div><div id="history" class="history-wrap"></div></section>
+      <section class="panel"><div class="panel-head history-head"><div><div class="section-heading"><h2>Round History</h2><p id="historySummary">Completed rounds will appear here.</p></div></div><button type="button" id="historyOrder" class="btn">Newest First</button></div><div id="history" class="history-wrap"></div></section>
     </section>
   </main>
 </div>

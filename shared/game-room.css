@@ -46,6 +46,33 @@
   --game-session-status-line-height: 1.4;
 }
 
+/* Shared command ergonomics; game-specific colors and card controls stay local. */
+button.btn {
+  min-height: 36px;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  letter-spacing: 0;
+}
+
+button.btn:focus-visible,
+.game-room-link:focus-visible {
+  outline: 3px solid var(--accent-strong, #ffd67f);
+  outline-offset: 3px;
+}
+
+button.btn:disabled { cursor: default; }
+
+@media (pointer: coarse) {
+  button.btn, a.game-room-link { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.btn, a.game-room-link { transition: none; }
+  button.btn:hover:not(:disabled), a.game-room-link:hover { transform: none; }
+}
+
 .hero {
   display: flex;
   align-items: flex-start;

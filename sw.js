@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v138";
+const VERSION = "dashboard-v140";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -30,6 +30,7 @@ const CORE_ASSETS = [
   "./SkipBo/index.html",
   "./SkipBo/skipbo.css",
   "./SkipBo/skipbo.js",
+  "./SkipBo/discard-dialog.mjs",
   "./SkipBo/engine.mjs",
   "./SkipBo/motion.mjs",
   "./SkipBo/icon.svg",
