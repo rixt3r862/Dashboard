@@ -117,6 +117,12 @@ Design direction:
 
 ## Client-Side Error Logging
 
+PWA updates now wait for the Update now action in shared/pwa.js. The worker
+accepts APPLY_UPDATE to activate; only the requesting tab reloads. Later dismisses
+the notice for that page visit. Keep localhost service-worker bypass intact;
+test the update flow on a controlled non-localhost origin. Old open tabs may
+reload once during migration because they still run the previous PWA client.
+
 Production pages load a lightweight client-side error logger from `shared/pwa.js`. It stores the latest browser errors in `localStorage` under `dashboard.clientErrors.v1` and exposes `window.DashboardErrorLog` in DevTools with `list()`, `clear()`, `record(entry)`, and `download()` helpers. Known extension-origin noise such as `Unchecked runtime.lastError: The message port closed before a response was received` is filtered before storage.
 
 When diagnosing a future browser-only issue, suggest this flow:

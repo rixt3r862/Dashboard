@@ -12,9 +12,9 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 3. Hearts autosave and recovery.
 - [x] 4. Spades autosave and recovery.
 - [x] 5. Crazy 8s autosave and recovery.
-- [ ] 6. Controlled update reloads with an Update ready action.
-- [ ] 7. Resume shortcuts for all supported games.
-- [ ] 8. Compact Dashboard panels, hide file paths, and relocate Clear Recent.
+- [x] 6. Controlled update reloads with an Update ready action.
+- [x] 7. Resume shortcuts for all supported games.
+- [x] 8. Compact Dashboard panels, hide file paths, and relocate Clear Recent.
 - [ ] 9. Simplify category launchers; add favorites/resume and remove placeholders.
 - [ ] 10. Standardize utility navigation, themes, and save-status messages.
 - [ ] 11. Standardize game controls while preserving individual designs.
@@ -120,3 +120,39 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
   diff checks passed. Visual browser testing remains outstanding.
 - Sessions 2-5 form one commit/push checkpoint.
 - Next: session 6, controlled update reloads.
+
+### Session 6
+
+- Updates wait for an explicit Update now action; Later dismisses the notice for
+  the current page. Only the tab requesting activation reloads automatically.
+- First installation does not prompt/reload. Updates installed during the visit
+  are detected, and activation failures allow retry.
+- Validation: 9 focused update/error-logger tests passed; diff check passed.
+  Actual multi-tab browser verification remains outstanding.
+- Rollout caveat: already-open pages running the old PWA script may reload once
+  when this version activates; their old event handlers cannot be replaced remotely.
+- Next: session 7, resume shortcuts for all supported games.
+
+### Session 7
+
+- Continue Playing now lists unfinished saves for ScoreKeeper, Phase 10, SkyJo,
+  Hearts, Spades, Crazy 8s, 5 Crowns, and Skip-Bo with round/hand progress.
+- Catalog metadata maps save keys and wrappers. SkyJo appears once; completed
+  games are excluded, and named ScoreKeeper sessions remain accessible.
+- Shortcuts update on storage changes and return navigation, and track recents.
+- Validation: 10 focused catalog/search tests passed; inline scripts parse and
+  diff checks passed. Visual browser testing remains outstanding.
+- Next: session 8, Dashboard layout cleanup. Sessions 6-7 are local, pending push.
+
+### Session 8
+
+- Replaced oversized decorative shortcut panels with compact, unframed sections;
+  shortened headings/empty states and stacked sections on phones.
+- Moved Clear Recent into Recent and disabled it when history is empty.
+- Removed visible file paths from app cards; long names wrap and cards fill their
+  grid rows consistently.
+- Validation: 10 focused catalog/search tests passed. Desktop Chrome screenshot
+  and accessibility inspection confirmed the new sections and links.
+  Mobile visual verification remains outstanding.
+- Next: session 9, category launcher improvements.
+- Sessions 6-8 form a combined commit/push checkpoint; all 95 project tests passed.

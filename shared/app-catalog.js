@@ -81,6 +81,7 @@
     {
       "name": "ScoreKeeper",
       "url": "./ScoreKeeper/index.html",
+      "resume": { "key": "scorekeeper.v3.autosave", "kind": "scorekeeper", "wrapper": "" },
       "iconImg": "./ScoreKeeper/img/scorekeeper-favicon.svg",
       "icon": "♠️",
       "desc": "Game score tracking utility",
@@ -99,6 +100,7 @@
     {
       "name": "Phase 10",
       "url": "./Phase10/index.html",
+      "resume": { "key": "phase10.table.v1", "kind": "turn", "wrapper": "" },
       "icon": "🔟",
       "desc": "Play streamlined Phase 10 against 1-3 bots",
       "hidden": true,
@@ -110,6 +112,7 @@
     {
       "name": "SkyJo",
       "url": "./SkyJo/index.html",
+      "resume": { "key": "skyjo.table.v1", "kind": "turn", "wrapper": "" },
       "icon": "🃏",
       "desc": "Play SkyJo against 1-3 bots",
       "hidden": true,
@@ -133,6 +136,7 @@
     {
       "name": "Hearts",
       "url": "./Hearts/index.html",
+      "resume": { "key": "dashboard.hearts.autosave.v1", "kind": "hand", "wrapper": "" },
       "icon": "♥️",
       "desc": "Play a single-device Hearts table against 3 bots",
       "hidden": true,
@@ -144,6 +148,7 @@
     {
       "name": "Spades",
       "url": "./Spades/index.html",
+      "resume": { "key": "dashboard.spades.autosave.v1", "kind": "hand", "wrapper": "" },
       "icon": "♠️",
       "desc": "Play a single-device partnership Spades table against 3 bots",
       "hidden": true,
@@ -155,6 +160,7 @@
     {
       "name": "Crazy 8s",
       "url": "./Crazy8s/index.html",
+      "resume": { "key": "dashboard.crazy8s.autosave.v1", "kind": "round", "wrapper": "" },
       "icon": "8️⃣",
       "desc": "Play classic Crazy 8s against 1-3 bots",
       "hidden": true,
@@ -166,6 +172,7 @@
     {
       "name": "5 Crowns",
       "url": "./FiveCrowns/index.html",
+      "resume": { "key": "dashboard.fivecrowns.active", "kind": "round", "wrapper": "payload" },
       "icon": "👑",
       "desc": "Play 5 Crowns against 1-4 bots",
       "hidden": true,
@@ -177,6 +184,7 @@
     {
       "name": "Skip-Bo",
       "url": "./SkipBo/index.html",
+      "resume": { "key": "skipbo.autosave.v1", "kind": "skipbo", "wrapper": "state" },
       "icon": "🔢",
       "desc": "Play Skip-Bo against 1-5 bots",
       "hidden": true,
@@ -239,5 +247,36 @@
       }));
   }
 
-  global.DashboardCatalog = { apps, forCategory };
+  function resumableApps(storage) {
+    const results = [];
+    for (const app of apps.filter(app => app.resume)) {
+      try {
+        const source = storage || global.localStorage;
+        const raw = JSON.parse(source.getItem(app.resume.key) || "null");
+        const saved = app.resume.wrapper ? raw?.[app.resume.wrapper] : raw;
+        if (!saved || !Array.isArray(saved.players) || saved.players.length < 2 ||
+            !saved.players.every(player => player && typeof player.name === "string")) continue;
+        const kind = app.resume.kind;
+        let round;
+        if (kind === "scorekeeper") {
+          if (saved.mode !== "playing" || saved.gameState === "completed" || !Array.isArray(saved.rounds)) continue;
+          round = saved.rounds.length + 1;
+        } else {
+          const stage = kind === "skipbo" ? saved.phase : kind === "turn" ? saved.turnStage : saved.stage;
+          if (kind !== "skipbo" && saved.gameStarted !== true) continue;
+          if (kind === "turn" && saved.winnerId) continue;
+          if (typeof stage !== "string" || !stage ||
+              ["setup", "finished", "gameOver", "game-end", "game-over"].includes(stage)) continue;
+          round = kind === "hand" ? saved.handNumber : saved.roundNumber;
+        }
+        if (!Number.isInteger(round) || round < 1) continue;
+        results.push({ ...app, progress: (kind === "hand" ? "Hand " : "Round ") + round });
+      } catch {
+        // One unavailable or corrupt save must not hide the other shortcuts.
+      }
+    }
+    return results;
+  }
+
+  global.DashboardCatalog = { apps, forCategory, resumableApps };
 })(window);

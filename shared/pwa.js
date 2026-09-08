@@ -111,6 +111,57 @@
     location.hostname === "127.0.0.1" ||
     location.hostname === "[::1]";
   let refreshing = false;
+  let applyingUpdate = false;
+  let updateNotice = null;
+  let updateTimer = null;
+
+  function showUpdateNotice(registration) {
+    if (updateNotice) return;
+    const notice = document.createElement("div");
+    notice.setAttribute("role", "status");
+    notice.setAttribute("aria-live", "polite");
+    notice.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:12px;box-sizing:border-box;background:#fff;color:#18181b;border-bottom:1px solid #d4d4d8;font:14px system-ui;letter-spacing:0";
+    const label = document.createElement("span");
+    label.textContent = "Update ready";
+    const update = document.createElement("button");
+    update.type = "button";
+    update.textContent = "Update now";
+    const later = document.createElement("button");
+    later.type = "button";
+    later.textContent = "Later";
+    for (const button of [update, later]) {
+      button.style.cssText = "font:inherit;padding:8px 12px;min-height:40px;border:1px solid #71717a;border-radius:6px;background:#fff;color:#18181b;cursor:pointer";
+    }
+    update.addEventListener("click", () => {
+      if (applyingUpdate || refreshing) return;
+      applyingUpdate = true;
+      if (!registration.waiting) {
+        refreshing = true;
+        window.location.reload();
+        return;
+      }
+      update.disabled = true;
+      later.disabled = true;
+      label.textContent = "Updating...";
+      const retry = () => {
+        applyingUpdate = false;
+        update.disabled = false;
+        later.disabled = false;
+        label.textContent = "Update not applied. Try again.";
+      };
+      updateTimer = window.setTimeout(retry, 15000);
+      try {
+        registration.waiting.postMessage({ type: "APPLY_UPDATE" });
+      } catch {
+        window.clearTimeout(updateTimer);
+        retry();
+      }
+    });
+    later.addEventListener("click", () => notice.remove());
+    notice.append(label, update, later);
+    document.body.prepend(notice);
+    updateNotice = notice;
+  }
 
   window.addEventListener("load", () => {
     if (isLocalhost) {
@@ -131,13 +182,31 @@
     navigator.serviceWorker
       .register(swUrl, { updateViaCache: "none" })
       .then((registration) => {
-        registration.update().catch(() => {});
-
+        let hadController = Boolean(navigator.serviceWorker.controller);
         navigator.serviceWorker.addEventListener("controllerchange", () => {
           if (refreshing) return;
-          refreshing = true;
-          window.location.reload();
+          if (applyingUpdate) {
+            window.clearTimeout(updateTimer);
+            refreshing = true;
+            window.location.reload();
+          } else if (hadController) {
+            showUpdateNotice(registration);
+          }
+          hadController = true;
         });
+        const checkWaiting = () => {
+          if (registration.waiting && navigator.serviceWorker.controller) showUpdateNotice(registration);
+        };
+        const watchInstalling = () => {
+          const worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener("statechange", checkWaiting);
+          checkWaiting();
+        };
+        registration.addEventListener("updatefound", watchInstalling);
+        watchInstalling();
+        checkWaiting();
+        registration.update().catch(() => {});
       })
       .catch(() => {});
   });

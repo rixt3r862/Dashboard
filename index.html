@@ -68,6 +68,18 @@
       .app-shell {
         position: relative;
       }
+      .app-shell .card {
+        height: 100%;
+        border-radius: 8px;
+      }
+      .app-shell h2 {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      #resumeApps a {
+        flex-wrap: wrap;
+        overflow-wrap: anywhere;
+      }
       .pin-btn {
         position: absolute;
         top: 0.9rem;
@@ -109,11 +121,10 @@
         color: #e0e7ff;
       }
       .smart-section-card {
+        min-width: 0;
         color: #18181b;
-        border: 1px solid rgba(228, 228, 231, 0.8);
-        background:
-          radial-gradient(circle at top left, rgba(224, 231, 255, 0.9), transparent 42%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 244, 245, 0.86));
+        border-top: 1px solid #d4d4d8;
+        padding: 1rem 0;
       }
       .smart-section-head {
         display: flex;
@@ -126,6 +137,9 @@
       }
       .smart-title {
         color: #18181b;
+        font-size: 1rem;
+        line-height: 1.5;
+        margin: 0;
       }
       .smart-body,
       .smart-empty {
@@ -139,9 +153,6 @@
       html.dark .smart-section-card {
         color: #f5f5f5;
         border-color: rgba(82, 82, 91, 0.92);
-        background:
-          radial-gradient(circle at top left, rgba(99, 102, 241, 0.2), transparent 42%),
-          linear-gradient(180deg, rgba(39, 39, 42, 0.98), rgba(9, 9, 11, 0.97));
       }
       html.dark .smart-kicker {
         color: #a1a1aa;
@@ -167,12 +178,44 @@
         font-weight: 600;
         line-height: 1.35;
         text-align: center;
-        white-space: normal;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
       html.dark .smart-badge {
         border-color: rgba(99, 102, 241, 0.3);
         background: rgba(67, 56, 202, 0.24);
         color: #c7d2fe;
+      }
+      #smartSections {
+        align-items: start;
+        gap: 1.5rem;
+      }
+      #smartSections a {
+        border-radius: 6px;
+        overflow-wrap: anywhere;
+      }
+      #recentApps a {
+        padding: 0.5rem 0;
+        border: 0;
+        background: transparent;
+      }
+      .recent-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      #clearDashboardHistory {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #a1a1aa;
+        border-radius: 6px;
+        color: inherit;
+      }
+      #clearDashboardHistory:disabled {
+        opacity: 0.45;
+        cursor: default;
       }
       @media (max-width: 640px) {
         .dashboard-head {
@@ -186,24 +229,18 @@
           width: 100%;
         }
         #smartSections {
-          display: flex;
-          gap: 0.9rem;
-          overflow-x: auto;
-          padding-bottom: 0.35rem;
-          scroll-snap-type: x proximity;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
         }
         .smart-section-card {
-          flex: 0 0 min(84vw, 19rem);
-          max-width: min(84vw, 19rem);
-          padding: 1rem;
-          scroll-snap-align: start;
+          padding: 0.75rem 0;
         }
         .smart-section-head {
-          flex-direction: column;
-          align-items: flex-start;
+          align-items: center;
         }
         .smart-title {
-          font-size: 1.35rem;
+          font-size: 1rem;
           line-height: 1.2;
         }
         .smart-badge {
@@ -271,14 +308,9 @@
         class="mb-8 grid gap-4 lg:grid-cols-[1.1fr_1.1fr_0.9fr]"
         aria-label="Dashboard shortcuts"
       >
-        <article class="smart-section-card rounded-3xl p-5 shadow-sm">
+        <article class="smart-section-card">
           <div class="smart-section-head">
-            <div>
-              <p class="smart-kicker text-sm font-semibold tracking-wide">
-                Pinned
-              </p>
-              <h2 class="smart-title mt-1 text-xl font-semibold tracking-tight">Keep favorites within reach</h2>
-            </div>
+            <h2 class="smart-title font-semibold">Pinned</h2>
             <span id="pinnedCount" class="smart-badge">0 pinned</span>
           </div>
           <div id="pinnedApps" class="mt-4 flex flex-wrap gap-2"></div>
@@ -286,39 +318,38 @@
             id="pinnedEmpty"
             class="smart-empty mt-4 text-sm"
           >
-            Pin apps from their cards and they’ll show up here.
+            No pinned apps.
           </p>
         </article>
 
-        <article class="smart-section-card rounded-3xl p-5 shadow-sm">
+        <article class="smart-section-card">
           <div class="smart-section-head">
-            <div>
-              <p class="smart-kicker text-sm font-semibold tracking-wide">
-                Recent
-              </p>
-              <h2 class="smart-title mt-1 text-xl font-semibold tracking-tight">Jump back into what you were using</h2>
+            <h2 class="smart-title font-semibold">Recent</h2>
+            <div class="recent-actions"><span id="recentCount" class="smart-badge">0 recent</span>
+            <button
+              id="clearDashboardHistory"
+              type="button"
+            >
+              Clear Recent
+            </button>
             </div>
-            <span id="recentCount" class="smart-badge">0 recent</span>
           </div>
           <div id="recentApps" class="mt-4 grid gap-2"></div>
           <p
             id="recentEmpty"
             class="smart-empty mt-4 text-sm"
           >
-            Open an app from the dashboard and it will appear here.
+            No recent apps.
           </p>
         </article>
 
-        <article class="smart-section-card rounded-3xl p-5 shadow-sm">
+        <article class="smart-section-card">
           <div class="smart-section-head">
-            <div>
-              <p class="smart-kicker text-sm font-semibold tracking-wide">
-                ScoreKeeper
-              </p>
-              <h2 class="smart-title mt-1 text-xl font-semibold tracking-tight">Resume game night faster</h2>
-            </div>
-            <span id="scorekeeperBadge" class="smart-badge">Waiting</span>
+            <h2 class="smart-title font-semibold">Continue Playing</h2>
+            <span id="resumeCount" class="smart-badge">0 games</span>
           </div>
+          <div id="resumeApps" class="mt-4 grid gap-2"></div>
+          <p id="resumeEmpty" class="smart-empty mt-4 text-sm">No games in progress.</p>
           <p
             id="scorekeeperSummary"
             class="smart-body mt-4 text-sm leading-6"
@@ -333,13 +364,7 @@
             >
               Open ScoreKeeper
             </a>
-            <button
-              id="clearDashboardHistory"
-              type="button"
-              class="rounded-2xl border border-zinc-400/80 bg-white/88 px-4 py-2.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              Clear Recent
-            </button>
+
           </div>
         </article>
       </section>
@@ -391,9 +416,6 @@
               </div>
               <p
                 class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2"
-              ></p>
-              <p
-                class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 break-all"
               ></p>
             </div>
           </div>
@@ -522,7 +544,8 @@
 
       function scorekeeperStatus() {
         const autosave = readJson(SCOREKEEPER_AUTOSAVE_KEY, null);
-        const sessions = readJson(SCOREKEEPER_SESSIONS_KEY, []).filter(
+        const stored = readJson(SCOREKEEPER_SESSIONS_KEY, []);
+        const sessions = (Array.isArray(stored) ? stored : []).filter(
           (entry) => entry && typeof entry.id === "string",
         );
         return {
@@ -570,6 +593,7 @@
         const recentCount = document.getElementById("recentCount");
         recentApps.innerHTML = "";
         recentCount.textContent = `${recents.length} recent`;
+        document.getElementById("clearDashboardHistory").disabled = recents.length === 0;
         recentEmpty.classList.toggle("hidden", recents.length > 0);
         for (const item of recents) {
           const link = document.createElement("a");
@@ -580,34 +604,32 @@
           link.innerHTML = `
             <span class="min-w-0">
               <span class="block truncate font-medium text-zinc-900 dark:text-zinc-100">${item.name}</span>
-              <span class="block truncate text-xs text-zinc-500 dark:text-zinc-400">${item.desc || item.url}</span>
+              <span class="block truncate text-xs text-zinc-500 dark:text-zinc-400">${item.desc || ""}</span>
             </span>
             <span class="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">${formatRelativeTime(item.ts)}</span>
           `;
           recentApps.appendChild(link);
         }
 
-        const scorekeeperBadge = document.getElementById("scorekeeperBadge");
-        const scorekeeperSummary = document.getElementById("scorekeeperSummary");
-        const resumeScorekeeper = document.getElementById("resumeScorekeeper");
-        if (sk.hasAutosave && sk.sessionCount > 0) {
-          scorekeeperBadge.textContent = "Autosave + sessions";
-          scorekeeperSummary.textContent = `${sk.sessionCount} saved sessions on this device. Autosave is also ready if you want to jump back into the last active game.`;
-          resumeScorekeeper.textContent = "Resume ScoreKeeper";
-        } else if (sk.hasAutosave) {
-          scorekeeperBadge.textContent = "Autosave ready";
-          scorekeeperSummary.textContent = "Your last in-progress game is waiting in ScoreKeeper. Open it to continue right where you left off.";
-          resumeScorekeeper.textContent = "Resume ScoreKeeper";
-        } else if (sk.sessionCount > 0) {
-          const latestName = sk.latestSession?.name ? `"${sk.latestSession.name}"` : "a saved game";
-          scorekeeperBadge.textContent = `${sk.sessionCount} saved`;
-          scorekeeperSummary.textContent = `You have ${sk.sessionCount} saved ScoreKeeper session${sk.sessionCount === 1 ? "" : "s"} on this device, including ${latestName}.`;
-          resumeScorekeeper.textContent = "Open Saved Sessions";
-        } else {
-          scorekeeperBadge.textContent = "Waiting";
-          scorekeeperSummary.textContent = "Start or save a game in ScoreKeeper and the dashboard will surface it here.";
-          resumeScorekeeper.textContent = "Open ScoreKeeper";
+        const games = window.DashboardCatalog.resumableApps();
+        const resumeApps = document.getElementById("resumeApps");
+        resumeApps.replaceChildren();
+        document.getElementById("resumeCount").textContent = games.length + (games.length === 1 ? " game" : " games");
+        document.getElementById("resumeEmpty").classList.toggle("hidden", games.length > 0);
+        for (const game of games) {
+          const link = createShortcutChip(game);
+          link.setAttribute("aria-label", "Resume " + game.name + ", " + game.progress);
+          const progress = document.createElement("span");
+          progress.textContent = game.progress;
+          link.appendChild(progress);
+          resumeApps.appendChild(link);
         }
+        const summary = document.getElementById("scorekeeperSummary");
+        summary.textContent = sk.sessionCount + " saved ScoreKeeper sessions.";
+        summary.classList.toggle("hidden", sk.sessionCount === 0);
+        const scorekeeperLink = document.getElementById("resumeScorekeeper");
+        scorekeeperLink.dataset.appUrl = "./ScoreKeeper/index.html";
+        scorekeeperLink.textContent = "Open ScoreKeeper";
       }
 
       function createCard(item) {
@@ -626,7 +648,6 @@
         }
         node.querySelector("h2").textContent = item.name;
         node.querySelector("p.text-sm").textContent = item.desc || "";
-        node.querySelector("p.text-xs").textContent = item.url;
 
         const isPinned = getPinnedUrls().includes(item.url);
         pinBtn.classList.toggle("is-pinned", isPinned);
@@ -715,11 +736,13 @@
             DASHBOARD_RECENTS_KEY,
             SCOREKEEPER_AUTOSAVE_KEY,
             SCOREKEEPER_SESSIONS_KEY,
+            ...window.DashboardCatalog.apps.filter(app => app.resume).map(app => app.resume.key),
           ].includes(e.key)
         ) {
           render(search.value);
         }
       });
+      window.addEventListener("pageshow", () => render(search.value));
     </script>
 
     <!-- Footer -->

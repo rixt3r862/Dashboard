@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v132";
+const VERSION = "dashboard-v135";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -89,7 +89,12 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CORE_CACHE).then((cache) => cache.addAll(CORE_ASSETS)),
   );
-  self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "APPLY_UPDATE") {
+    event.waitUntil(self.skipWaiting());
+  }
 });
 
 self.addEventListener("activate", (event) => {
