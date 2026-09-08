@@ -19,16 +19,7 @@
     <link rel="manifest" href="./app.webmanifest" />
     <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
     <title>Notepad</title>
-    <script>
-      (function () {
-        try {
-          const theme = localStorage.getItem("dash.theme");
-          if (theme === "dark" || theme === "light") {
-            document.documentElement.setAttribute("data-theme", theme);
-          }
-        } catch {}
-      })();
-    </script>
+    <script src="./shared/utility-shell.js"></script>
     <style>
       :root {
         color-scheme: light dark;
@@ -49,6 +40,7 @@
       }
 
       .app {
+        width: 100%;
         max-width: 1100px;
         margin: 0 auto;
         padding: 1rem;
@@ -294,8 +286,19 @@
         color: #d6d3d1;
       }
     </style>
-  </head>
-  <body>
+    <link rel="stylesheet" href="./shared/utility-shell.css" />
+</head>
+  <body class="utility-page">
+  <nav class="utility-nav" aria-label="Utility navigation">
+    <div class="utility-nav-row">
+      <a href="./index.html">Dashboard</a>
+
+      <label for="utilityTheme">Theme
+        <select id="utilityTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
+  </nav>
     <main class="app">
       <div class="topbar">
         <h1>Notepad</h1>
@@ -310,7 +313,7 @@
           <button class="btn" id="spellToggle" type="button">
             Spellcheck: On
           </button>
-          <a class="btn" href="./index.html">Back to Dashboard</a>
+
         </div>
       </div>
 
@@ -408,9 +411,7 @@
       }
 
       function saveTextSizePreference() {
-        try {
-          localStorage.setItem(TEXT_SIZE_KEY, TEXT_SIZE_PRESETS[textSizeIndex].id);
-        } catch {}
+        UtilityShell.save(TEXT_SIZE_KEY, TEXT_SIZE_PRESETS[textSizeIndex].id);
       }
 
       function adjustTextSize(direction) {
@@ -448,7 +449,7 @@
       }
 
       function setDraftStatus(message) {
-        draftStatus.textContent = message;
+        UtilityShell.status(draftStatus, message);
       }
 
       function saveDraft() {
@@ -457,9 +458,9 @@
           const meta = { savedAt: Date.now() };
           localStorage.setItem(DRAFT_META_KEY, JSON.stringify(meta));
           updateDraftSavedAt(meta.savedAt);
-          setDraftStatus("Draft saved.");
+          setDraftStatus("Saved on this device.");
         } catch {
-          setDraftStatus("Unable to save draft on this device.");
+          setDraftStatus("Unable to save on this device.");
         }
       }
 
@@ -477,7 +478,7 @@
           const value = localStorage.getItem(DRAFT_KEY);
           if (typeof value === "string" && value.length) {
             pad.value = value;
-            setDraftStatus("Draft restored.");
+            setDraftStatus("Restored from this device.");
           } else {
             pad.value = "";
             setDraftStatus("Autosave ready.");

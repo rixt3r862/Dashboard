@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v135";
+const VERSION = "dashboard-v138";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -11,6 +11,10 @@ const CORE_ASSETS = [
   "./offline.html",
   "./shared/pwa.js",
   "./shared/app-catalog.js",
+  "./shared/category-launcher.js",
+  "./shared/category-launcher.css",
+  "./shared/utility-shell.js",
+  "./shared/utility-shell.css",
   "./img/dashboard-icon.svg",
   "./MoneyCounter.html",
   "./clock.html",

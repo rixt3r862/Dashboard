@@ -8,16 +8,7 @@
   <link rel="apple-touch-icon" href="./img/dashboard-icon.svg" />
   <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
   <title>URL Encoder / Decoder</title>
-  <script>
-    (function () {
-      try {
-        const theme = localStorage.getItem("dash.theme");
-        if (theme === "dark" || theme === "light") {
-          document.documentElement.setAttribute("data-theme", theme);
-        }
-      } catch {}
-    })();
-  </script>
+  <script src="./shared/utility-shell.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -225,9 +216,20 @@
       .toolbar { align-items: flex-start; }
     }
   </style>
+  <link rel="stylesheet" href="./shared/utility-shell.css" />
 </head>
-<body>
-  <a class="back-link" href="./index.html">← Dashboard</a>
+<body class="utility-page">
+  <nav class="utility-nav" aria-label="Utility navigation">
+    <div class="utility-nav-row">
+      <a href="./index.html">Dashboard</a>
+
+      <label for="utilityTheme">Theme
+        <select id="utilityTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
+  </nav>
+
 
   <main class="card">
     <h1>URL Encoder / Decoder</h1>

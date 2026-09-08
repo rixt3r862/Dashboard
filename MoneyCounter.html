@@ -6,16 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="manifest" href="./app.webmanifest" />
   <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
-  <script>
-    (function () {
-      try {
-        const theme = localStorage.getItem("dash.theme");
-        if (theme === "dark" || theme === "light") {
-          document.documentElement.setAttribute("data-theme", theme);
-        }
-      } catch {}
-    })();
-  </script>
+  <script src="./shared/utility-shell.js"></script>
   <style>
     :root{
       --bg:#f6f8fb; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e5e7eb;
@@ -468,9 +459,20 @@
   }
 }
   </style>
+  <link rel="stylesheet" href="./shared/utility-shell.css" />
 </head>
-<body>
-  <a class="back-link" href="./index.html">Back to Dashboard</a>
+<body class="utility-page">
+  <nav class="utility-nav" aria-label="Utility navigation">
+    <div class="utility-nav-row">
+      <a href="./index.html">Dashboard</a>
+
+      <label for="utilityTheme">Theme
+        <select id="utilityTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
+  </nav>
+
   <main class="card">
     <header class="header">
       <div class="logo">¢$</div>
@@ -747,7 +749,7 @@
     }
 
     function updateSaveStatus(message){
-      saveStatusEl.textContent=message;
+      UtilityShell.status(saveStatusEl, message);
     }
 
     function getSerializedChecks(){
@@ -771,15 +773,19 @@
           checks: getSerializedChecks()
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        updateSaveStatus(`Draft saved ${new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}.`);
+        updateSaveStatus("Saved on this device.");
       }catch{
-        updateSaveStatus("Unable to save draft on this device.");
+        updateSaveStatus("Unable to save on this device.");
       }
     }
 
     function clearDraft(){
-      try{ localStorage.removeItem(STORAGE_KEY); }catch{}
-      updateSaveStatus("Draft cleared.");
+      try{
+        localStorage.removeItem(STORAGE_KEY);
+        updateSaveStatus("Draft cleared from this device.");
+      }catch{
+        updateSaveStatus("Unable to clear the saved draft on this device.");
+      }
     }
 
     function restoreDraft(){
@@ -800,7 +806,7 @@
         checks.forEach(value=>addCheckRow(value));
         ensureExtraCheckRow();
         calcAll();
-        updateSaveStatus("Draft restored.");
+        updateSaveStatus("Restored from this device.");
         return true;
       }catch{
         updateSaveStatus("Saved draft could not be restored.");

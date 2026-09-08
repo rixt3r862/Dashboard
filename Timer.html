@@ -6,16 +6,7 @@
   <link rel="manifest" href="./app.webmanifest" />
   <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
   <title>Progress Bar Timer</title>
-  <script>
-    (function () {
-      try {
-        const theme = localStorage.getItem("dash.theme");
-        if (theme === "dark" || theme === "light") {
-          document.documentElement.setAttribute("data-theme", theme);
-        }
-      } catch {}
-    })();
-  </script>
+  <script src="./shared/utility-shell.js"></script>
   <style>
     :root{
       --bg: #0b0f14;
@@ -231,13 +222,24 @@
       font-size: .9rem;
     }
     .back-link:hover{ background:var(--back-hover); }
-    
+
     footer{margin-top:16px; color:var(--muted); font-size:12px; text-align:center}
     a { color:var(--link) }
   </style>
+  <link rel="stylesheet" href="./shared/utility-shell.css" />
 </head>
-<body>
-  <a class="back-link" href="./index.html">Back to Dashboard</a>
+<body class="utility-page">
+  <nav class="utility-nav" aria-label="Utility navigation">
+    <div class="utility-nav-row">
+      <a href="./index.html">Dashboard</a>
+      <a href="./TimeTools/index.html">Time Tools</a>
+      <label for="utilityTheme">Theme
+        <select id="utilityTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
+  </nav>
+
   <div class="app" role="application" aria-label="Progress bar timer">
     <header>
       <div>

@@ -178,7 +178,10 @@ document.addEventListener('click', e => {
   else if (button.dataset.discard !== undefined) {
     const index = Number(button.dataset.discard);
     if (selected?.kind === 'hand') {
-      const handIndex = selected.index; moveWithAnimation({ type: 'discard', index: handIndex, pile: index }, () => E.discard(state, handIndex, index));
+      const handIndex = selected.index;
+      const value = state.players[0].hand[handIndex];
+      if (!confirm(`Discard ${value === 0 ? 'Skip-Bo wild' : value} onto discard pile ${index + 1}? This will end your turn.`)) return;
+      moveWithAnimation({ type: 'discard', index: handIndex, pile: index }, () => E.discard(state, handIndex, index));
     } else {
       const source = { kind: 'discard', index };
       selected = same(selected, source) ? null : source;

@@ -13,16 +13,7 @@
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%230f766e%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>⇄</text></svg>"
     />
     <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
-    <script>
-      (function () {
-        try {
-          const theme = localStorage.getItem("dash.theme");
-          if (theme === "dark" || theme === "light") {
-            document.documentElement.dataset.theme = theme;
-          }
-        } catch {}
-      })();
-    </script>
+    <script src="./shared/utility-shell.js"></script>
     <style>
       :root {
         color-scheme: light;
@@ -300,9 +291,20 @@
         }
       }
     </style>
-  </head>
-  <body>
-    <a class="back-link" href="./TimeTools/index.html">← Time Tools</a>
+    <link rel="stylesheet" href="./shared/utility-shell.css" />
+</head>
+  <body class="utility-page">
+  <nav class="utility-nav" aria-label="Utility navigation">
+    <div class="utility-nav-row">
+      <a href="./index.html">Dashboard</a>
+      <a href="./TimeTools/index.html">Time Tools</a>
+      <label for="utilityTheme">Theme
+        <select id="utilityTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
+  </nav>
+
     <main class="app-shell">
       <p class="eyebrow">Time Tools</p>
       <h1>Time Unit Converter</h1>

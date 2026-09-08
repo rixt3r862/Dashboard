@@ -15,8 +15,8 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 6. Controlled update reloads with an Update ready action.
 - [x] 7. Resume shortcuts for all supported games.
 - [x] 8. Compact Dashboard panels, hide file paths, and relocate Clear Recent.
-- [ ] 9. Simplify category launchers; add favorites/resume and remove placeholders.
-- [ ] 10. Standardize utility navigation, themes, and save-status messages.
+- [x] 9. Simplify category launchers; add favorites/resume and remove placeholders.
+- [x] 10. Standardize utility navigation, themes, and save-status messages.
 - [ ] 11. Standardize game controls while preserving individual designs.
 - [ ] 12. CashBox amount validation, naming, and reset protection.
 - [ ] 13. CashBox named deposit history and CSV export.
@@ -156,3 +156,39 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
   Mobile visual verification remains outstanding.
 - Next: session 9, category launcher improvements.
 - Sessions 6-8 form a combined commit/push checkpoint; all 95 project tests passed.
+
+### Session 9
+
+- Game Room and Time Tools share compact launcher styles and behavior, including
+  favorites synchronized with Dashboard and canonical recent-history links.
+- Game Room shows Continue Playing; Time Tools shows recent tools and no longer
+  includes placeholder expansion sections.
+- Added shared launcher assets to the service-worker cache and bumped its version.
+- Validation: 16 focused catalog, search, integration, and launcher tests passed;
+  desktop Chrome screenshots confirmed both layouts. Diff check passed.
+  Mobile visual verification remains outstanding.
+- Next: session 10, consistent utility navigation, themes, and save status.
+- Session 9 is included in the combined sessions 9-10 checkpoint.
+
+### Session 10
+
+- All ten utilities use shared in-flow Dashboard navigation and a System/Light/Dark
+  theme selector. Time utilities also link to Time Tools. Existing app designs and
+  storage keys remain intact; theme changes synchronize across tabs and on return.
+- Standardized device-local save success/failure messages and accessible status
+  updates. Clock, Unit Converter, and Notepad preference writes report failures.
+- Clock tolerates malformed/unavailable preferences; CashBox reports failed draft
+  deletion accurately. Updated service-worker assets and cache version.
+- Validation: full suite passed (105 tests); inline scripts and diff checks passed.
+  Desktop Chrome verified Clock and Notepad, including a corrected editor width.
+  Mobile visual checks and remaining utility visual checks are outstanding.
+- Next: session 11, consistent game controls without changing individual designs.
+- Sessions 9-10 form a combined commit/push checkpoint with the Skip-Bo fix below.
+
+### Skip-Bo Discard Confirmation
+
+- Human discards ask for confirmation with the card, destination pile, and an
+  end-turn warning. Cancel preserves the table and selected card; bots are unchanged.
+- Validation: all 108 project tests passed, including three confirmation tests;
+  diff check passed. Service-worker cache bumped for delivery.
+- Next planned work remains session 11.

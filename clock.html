@@ -6,16 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="manifest" href="./app.webmanifest" />
     <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
-    <script>
-      (function () {
-        try {
-          const theme = localStorage.getItem("dash.theme");
-          if (theme === "dark" || theme === "light") {
-            document.documentElement.setAttribute("data-theme", theme);
-          }
-        } catch {}
-      })();
-    </script>
+    <script src="./shared/utility-shell.js"></script>
     <style>
       :root {
         --bg:#e2e8f0;
@@ -158,9 +149,20 @@
       }
       .back-link:hover { background: var(--back-bg-hover); }
     </style>
-  </head>
-  <body>
-    <a class="back-link" href="./index.html">Back to Dashboard</a>
+    <link rel="stylesheet" href="./shared/utility-shell.css" />
+</head>
+  <body class="utility-page">
+  <nav class="utility-nav" aria-label="Utility navigation">
+    <div class="utility-nav-row">
+      <a href="./index.html">Dashboard</a>
+      <a href="./TimeTools/index.html">Time Tools</a>
+      <label for="utilityTheme">Theme
+        <select id="utilityTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
+  </nav>
+
     <!-- Controls -->
     <div class="controls" role="group" aria-label="Time display options">
       <label><input id="toggle-24h" type="checkbox" /> 24-hour time</label>
@@ -240,14 +242,21 @@
         };
 
         // Load saved prefs (default: 12h, no seconds, system font)
-        const prefs = JSON.parse(localStorage.getItem('timePrefs') || '{}');
+        let prefs = {};
+        try {
+          const stored = JSON.parse(localStorage.getItem('timePrefs') || '{}');
+          if (!stored || typeof stored !== 'object' || Array.isArray(stored)) throw new Error('Invalid preferences');
+          prefs = stored;
+        } catch {
+          UtilityShell.status("utilityStatus", "Saved preferences could not be restored.");
+        }
         chk24.checked = !!prefs.is24h;
         chkSec.checked = !!prefs.showSeconds;
         const savedFontKey = prefs.fontKey || 'system';
         if (FONT_MAP[savedFontKey]) fontSelect.value = savedFontKey;
 
         function savePrefs() {
-          localStorage.setItem('timePrefs', JSON.stringify({
+          UtilityShell.save('timePrefs', JSON.stringify({
             is24h: chk24.checked,
             showSeconds: chkSec.checked,
             fontKey: fontSelect.value

@@ -7,16 +7,7 @@
   <link rel="apple-touch-icon" href="./img/dashboard-icon.svg" />
   <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
   <title>QR Generator + Scanner</title>
-  <script>
-    (function () {
-      try {
-        const theme = localStorage.getItem("dash.theme");
-        if (theme === "dark" || theme === "light") {
-          document.documentElement.setAttribute("data-theme", theme);
-        }
-      } catch {}
-    })();
-  </script>
+  <script src="./shared/utility-shell.js"></script>
   <style>
     :root {
       --bg: linear-gradient(135deg, #f5f7fa, #e4ebf5);
@@ -286,7 +277,7 @@
         border-radius: 0;
         box-shadow: none;
         padding:
-          calc(env(safe-area-inset-top, 0px) + 3.5rem)
+          1rem
           1rem
           max(1rem, env(safe-area-inset-bottom, 0px));
       }
@@ -301,9 +292,20 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="./shared/utility-shell.css" />
 </head>
-<body>
-  <a class="back-link" href="./index.html">Back to Dashboard</a>
+<body class="utility-page">
+  <nav class="utility-nav" aria-label="Utility navigation">
+    <div class="utility-nav-row">
+      <a href="./index.html">Dashboard</a>
+
+      <label for="utilityTheme">Theme
+        <select id="utilityTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
+  </nav>
+
 
   <main class="card">
     <h1>QR Generator + Scanner</h1>
