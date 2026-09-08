@@ -18,8 +18,8 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 9. Simplify category launchers; add favorites/resume and remove placeholders.
 - [x] 10. Standardize utility navigation, themes, and save-status messages.
 - [x] 11. Standardize game controls while preserving individual designs.
-- [ ] 12. CashBox amount validation, naming, and reset protection.
-- [ ] 13. CashBox named deposit history and CSV export.
+- [x] 12. CashBox amount validation, naming, and reset protection.
+- [x] 13. CashBox named deposit history and CSV export.
 - [ ] 14. Notepad previous-version recovery and replace/append import.
 - [ ] 15. Notepad named notes.
 - [ ] 16. Timer countdown persistence and alarm initialization.
@@ -215,3 +215,25 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
 - Validation: all 117 project tests passed; diff check passed. Browser visual
   verification remains outstanding.
 - Next planned work remains session 12.
+
+### Session 12
+
+- Added deposit names to drafts, copied summaries, and printed metadata.
+- Rejects negative/malformed amounts, excess decimals, fractional counts, and
+  excessive totals; invalid drafts cannot be copied, printed via the app, or
+  saved into history. Raw draft input remains available for correction.
+- Reset Draft requires confirmation, preserves history, and stops on storage
+  failure. Existing draft storage key remains compatible.
+
+### Session 13
+
+- Added named deposit snapshots, confirmed loading/deletion, and CSV export with
+  names, dates, account/notes, totals, denomination counts, and check amounts.
+- History uses a separate storage key, preserves corrupt/unwritable data, and
+  refreshes across tabs. CSV quotes embedded commas/quotes/newlines and protects
+  formula-like text.
+- Validation: all 123 project tests passed, including six CashBox checks;
+  script syntax and diff checks passed. Desktop Chrome checked the empty history
+  and totals layout. Mobile and print-preview verification remain outstanding.
+- Sessions 12-13 form a combined commit/push checkpoint.
+- Next: session 14, Notepad previous-version recovery and replace/append import.

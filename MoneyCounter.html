@@ -460,6 +460,7 @@
 }
   </style>
   <link rel="stylesheet" href="./shared/utility-shell.css" />
+<script src="./shared/cashbox.js"></script>
 </head>
 <body class="utility-page">
   <nav class="utility-nav" aria-label="Utility navigation">
@@ -473,6 +474,14 @@
     <p id="utilityStatus" class="utility-status" role="status" aria-live="polite"></p>
   </nav>
 
+  <style>
+    #validationStatus:not(:empty) { color: #b91c1c; font-weight: 600; }
+    [aria-invalid="true"] { outline: 2px solid #b91c1c; }
+    .deposit-history { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
+    .deposit-history-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .deposit-history-row span { flex: 1 1 220px; overflow-wrap: anywhere; }
+    @media print { .deposit-history { display: none; } }
+  </style>
   <main class="card">
     <header class="header">
       <div class="logo">¢$</div>
@@ -498,6 +507,7 @@
 
         <section class="panel panel-full">
           <h2>Deposit Info</h2>
+          <div class="field"><label for="depositName">Deposit Name</label><input id="depositName" type="text" maxlength="120" data-persist /></div>
           <div class="field-grid">
             <div class="field">
               <label for="depositDate">Deposit Date</label>
@@ -559,13 +569,23 @@
           <label>Difference</label><output id="summaryDifference">$0.00</output>
         </section>
 
+        <p id="validationStatus" role="status" aria-live="polite"></p>
         <div class="actions">
           <span class="status-note" id="saveStatus">Draft stays saved on this device.</span>
           <button type="button" class="btn ghost" id="copySummaryBtn">Copy Summary</button>
           <button type="button" class="btn primary" id="printBtn">Print</button>
-          <button type="reset" class="btn ghost">Reset</button>
+          <button type="reset" class="btn ghost">Reset Draft</button>
         </div>
       </form>
+      <section class="deposit-history">
+        <h2>Deposit History</h2>
+        <div class="actions">
+          <button type="button" class="btn primary" id="saveDeposit">Save Deposit</button>
+          <button type="button" class="btn ghost" id="exportDeposits">Export CSV</button>
+        </div>
+        <p id="historyStatus" role="status" aria-live="polite"></p>
+        <div id="depositHistory"></div>
+      </section>
     </section>
   </main>
 
@@ -574,20 +594,7 @@
     const toUsd=c=>usd.format(c/100);
     const formatSignedUsd=c=>`${c<0?"-":""}${usd.format(Math.abs(c)/100)}`;
     const STORAGE_KEY="cashbox.form.v1";
-    const parseMoneyToCents=s=>{
-      if(!s)return 0;
-      const c=String(s).replace(/[^\d.]/g,"");
-      if(!c)return 0;
-      const p=c.split(".");
-      let n=0;
-      if(p.length===1) n=parseInt(p[0])*100;
-      else{
-        const w=parseInt(p[0]||"0");
-        const f=(p[1]||"0").slice(0,2).padEnd(2,"0");
-        n=w*100+parseInt(f);
-      }
-      return isNaN(n)?0:n
-    };
+    const parseMoneyToCents=CashBox.money;
 
     const DENOMS=[
       {key:"pny",label:"1¢",cents:1},
@@ -604,6 +611,7 @@
       {key:"hun",label:"$100.00",cents:10000}
     ];
 
+    const depositNameEl=document.getElementById("depositName");
     const moneyForm=document.getElementById("moneyForm");
     const cashTbody=document.getElementById("cash-rows");
     const checkTbody=document.getElementById("check-rows");
@@ -648,6 +656,8 @@
       input.step="1";
       input.inputMode="numeric";
       input.id=d.key;
+      input.max="1000000";
+      input.setAttribute("aria-label",`${d.label} count`);
 
       const plus=document.createElement("button");
       plus.type="button";
@@ -656,13 +666,15 @@
       plus.setAttribute("aria-label",`Increase ${d.label}`);
 
       minus.addEventListener("click",()=>{
-        const v=parseInt(input.value||"0",10);
+        const v=CashBox.count(input.value);
+        if(v===null) { input.reportValidity(); return; }
         if(v>0) input.value=String(v-1);
         input.dispatchEvent(new Event("input",{bubbles:true}));
       });
       plus.addEventListener("click",()=>{
-        const v=parseInt(input.value||"0",10);
-        input.value=String(v+1);
+        const v=CashBox.count(input.value);
+        if(v===null) { input.reportValidity(); return; }
+        input.value=String(Math.min(1000000,v+1));
         input.dispatchEvent(new Event("input",{bubbles:true}));
       });
 
@@ -686,9 +698,10 @@
       checkCount++;
       const tr=document.createElement("tr");
       tr.innerHTML=`<td class="check-index">${checkCount}</td>
-        <td><input class="check-amount" type="number" step="0.01" inputmode="decimal" id="chk_${checkCount}" placeholder="0.00" value="${value}"></td>
+        <td><input class="check-amount" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Check amount" id="chk_${checkCount}" placeholder="0.00"></td>
         <td style="text-align:right"><input id="chk_${checkCount}_fmt" readonly tabindex="-1"></td>
         <td><div class="check-actions"><button type="button" class="iconbtn" data-check-action="clear">Clear</button><button type="button" class="iconbtn" data-check-action="remove">Remove</button></div></td>`;
+      tr.querySelector(".check-amount").value=String(value);
       checkTbody.appendChild(tr);
     }
 
@@ -708,7 +721,11 @@
     function calcCash(){
       let c=0;
       DENOMS.forEach(d=>{
-        const v=parseInt(document.getElementById(d.key).value||0,10);
+        const input=document.getElementById(d.key);
+        const parsed=CashBox.count(input.value);
+        input.setCustomValidity(parsed===null?"Enter a whole count from 0 to 1,000,000.":"");
+        input.setAttribute("aria-invalid",String(!input.validity.valid));
+        const v=parsed??0;
         const s=v*d.cents; c+=s;
         document.getElementById(`${d.key}Tot`).value=s?toUsd(s):"";
       });
@@ -720,7 +737,10 @@
       let c=0;
       const inputs=checkTbody.querySelectorAll(".check-amount");
       inputs.forEach(inp=>{
-        const cents=parseMoneyToCents(inp.value.trim());
+        const parsed=parseMoneyToCents(inp.value.trim());
+        inp.setCustomValidity(parsed===null?"Enter a nonnegative amount with at most two decimals.":"");
+        inp.setAttribute("aria-invalid",String(!inp.validity.valid));
+        const cents=parsed??0;
         c+=cents;
         document.getElementById(`${inp.id}_fmt`).value=cents?toUsd(cents):"";
       });
@@ -743,8 +763,8 @@
     function syncPrintHeader(){
       const account=depositAccountEl.value.trim()||"No account number";
       const printedAt=new Date().toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"});
-      printMetaLine.textContent=`Account ${account} | ${formatPrintDate(depositDateEl.value)} | Printed ${printedAt}`;
-      printTotal.textContent=toUsd(totalsState.total);
+      printMetaLine.textContent=`${depositNameEl.value.trim()||"Deposit"} | Account ${account} | ${formatPrintDate(depositDateEl.value)} | Printed ${printedAt}`;
+      printTotal.textContent=document.getElementById("validationStatus").textContent?"Invalid input":toUsd(totalsState.total);
       printDifference.textContent=expectedTotalEl.value.trim()?`${formatSignedUsd(totalsState.difference)} difference`:"Expected total not set";
     }
 
@@ -764,7 +784,18 @@
 
     function saveDraft(){
       try{
-        const state={
+        const state=readDraft();
+        /* Drafts preserve in-progress input; history requires valid totals. */
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        updateSaveStatus("Saved on this device.");
+      }catch{
+        updateSaveStatus("Unable to save on this device.");
+      }
+    }
+
+    function readDraft(){
+      return {
+          depositName: depositNameEl.value,
           depositDate: depositDateEl.value,
           depositAccount: depositAccountEl.value,
           depositNotes: depositNotesEl.value,
@@ -772,11 +803,6 @@
           cash: Object.fromEntries(DENOMS.map(d=>[d.key, document.getElementById(d.key).value])),
           checks: getSerializedChecks()
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        updateSaveStatus("Saved on this device.");
-      }catch{
-        updateSaveStatus("Unable to save on this device.");
-      }
     }
 
     function clearDraft(){
@@ -793,6 +819,18 @@
         const raw=localStorage.getItem(STORAGE_KEY);
         if(!raw) return false;
         const state=JSON.parse(raw);
+        applyDraft(state);
+        updateSaveStatus("Restored from this device.");
+        return true;
+      }catch{
+        updateSaveStatus("Saved draft could not be restored.");
+        return false;
+      }
+    }
+
+    function applyDraft(state){
+        if(!state || typeof state!=="object" || !state.cash || !Array.isArray(state.checks)) throw Error("Invalid draft.");
+        depositNameEl.value=state.depositName||"";
         depositDateEl.value=state.depositDate||"";
         depositAccountEl.value=state.depositAccount||"";
         depositNotesEl.value=state.depositNotes||"";
@@ -806,12 +844,6 @@
         checks.forEach(value=>addCheckRow(value));
         ensureExtraCheckRow();
         calcAll();
-        updateSaveStatus("Restored from this device.");
-        return true;
-      }catch{
-        updateSaveStatus("Saved draft could not be restored.");
-        return false;
-      }
     }
 
     function setDefaultDepositDate(){
@@ -833,6 +865,7 @@
         `Expected: ${expectedTotalEl.value.trim()?toUsd(totalsState.expected):"Not set"}`,
         `Difference: ${expectedTotalEl.value.trim()?formatSignedUsd(totalsState.difference):"Not set"}`
       ];
+      if(depositNameEl.value.trim()) lines.unshift(`Deposit: ${depositNameEl.value.trim()}`);
       if(depositDateEl.value) lines.unshift(`Deposit Date: ${formatPrintDate(depositDateEl.value)}`);
       if(depositAccountEl.value.trim()) lines.unshift(`Account Number: ${depositAccountEl.value.trim()}`);
       if(depositNotesEl.value.trim()) lines.push(`Notes: ${depositNotesEl.value.trim()}`);
@@ -843,6 +876,18 @@
       const hasExpected=expectedTotalEl.value.trim()!=="";
       const cash=calcCash(),checks=calcChecks(),total=cash+checks,expected=parseMoneyToCents(expectedTotalEl.value.trim()),difference=total-expected;
       totalsState={cash,checks,total,expected,difference};
+      expectedTotalEl.setCustomValidity(expected===null?"Enter a nonnegative amount with at most two decimals.":"");
+      expectedTotalEl.setAttribute("aria-invalid",String(!expectedTotalEl.validity.valid));
+      let error="";
+      try { CashBox.totals(readDraft(),DENOMS); } catch(e) { error=e.message; }
+      if(!moneyForm.checkValidity()) error=error||"Correct the highlighted amounts before saving or exporting.";
+      document.getElementById("validationStatus").textContent=error;
+      copySummaryBtn.disabled=printBtn.disabled=document.getElementById("saveDeposit").disabled=!!error;
+      if(error){
+        summaryCash.textContent=summaryChecks.textContent=summaryBoth.textContent=summaryDifference.textContent="Invalid input";
+        printTotal.textContent="Invalid input";
+        return;
+      }
       summaryCash.textContent=toUsd(cash);
       summaryChecks.textContent=toUsd(checks);
       summaryBoth.textContent=toUsd(total);
@@ -877,7 +922,9 @@
       const btn=e.target.closest("[data-denom]");
       if(!btn) return;
       const input=document.getElementById(btn.dataset.denom);
-      const nextValue=parseInt(input.value||"0",10)+parseInt(btn.dataset.add||"0",10);
+      const count=CashBox.count(input.value);
+      if(count===null) { input.reportValidity(); return; }
+      const nextValue=Math.min(1000000,count+Number(btn.dataset.add));
       input.value=String(nextValue);
       input.dispatchEvent(new Event("input",{bubbles:true}));
       input.focus();
@@ -917,6 +964,8 @@
     });
 
     copySummaryBtn.addEventListener("click",async()=>{
+      calcAll();
+      if(copySummaryBtn.disabled) return;
       const text=buildSummaryText();
       try{
         await navigator.clipboard.writeText(text);
@@ -927,13 +976,17 @@
     });
 
     printBtn.addEventListener("click",()=>{
+      calcAll();
+      if(printBtn.disabled) return;
       syncPrintHeader();
       window.print();
     });
 
     window.addEventListener("beforeprint",syncPrintHeader);
 
-    moneyForm.addEventListener("reset",()=>{
+    moneyForm.addEventListener("reset",e=>{
+      if(!confirm("Reset this draft? Saved deposit history will remain.")){ e.preventDefault(); return; }
+      try { localStorage.removeItem(STORAGE_KEY); } catch { e.preventDefault(); updateSaveStatus("Unable to clear the saved draft on this device."); return; }
       setTimeout(()=>{
         cashTbody.querySelectorAll('input[type="number"]').forEach(i=>i.value="");
         checkTbody.innerHTML="";
@@ -952,10 +1005,10 @@
         setDefaultDepositDate();
         addCheckRow();
         calcAll();
-        saveDraft();
       }
       syncPrintHeader();
     });
   </script>
+<script src="./shared/cashbox-history.js"></script>
 </body>
 </html>
