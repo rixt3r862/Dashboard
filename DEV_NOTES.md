@@ -1,5 +1,18 @@
 # Dashboard Developer Notes
 
+## App Catalog
+
+Edit `shared/app-catalog.js` to add or update launcher entries. Each app has one
+Dashboard-relative `url`, also used by persisted pins and recent history; preserve
+existing URLs when changing display names. `hidden` controls the default Dashboard
+grid only, not search or pins.
+
+Optional `games` and `time` metadata selects category membership and supplies
+`order`, descriptions, and category-specific presentation. Category links are
+derived from the canonical URL. All three launchers load this classic script
+before their inline code so direct file opening still works. Include the catalog
+in the service-worker core cache, and run `npm test` after catalog changes.
+
 ## New Standalone HTML Pages
 
 When adding a new standalone page, include these head entries so browser/PWA tooling stays quiet and consistent:

@@ -14,6 +14,7 @@ const TRAM_PAUSE_MS = 1250;
 const TRAM_COLLECT_MS = 880;
 const PASS_DIRECTIONS = ["left", "right", "across", "hold"];
 const STORAGE_SESSIONS_KEY = "dashboard.hearts.sessions";
+const STORAGE_AUTOSAVE_KEY = "dashboard.hearts.autosave.v1";
 const SESSION_EXPORT_VERSION = 1;
 const SUITS = ["clubs", "diamonds", "spades", "hearts"];
 const SUIT_SYMBOLS = {
@@ -109,6 +110,7 @@ const els = {
   importSessionFile: document.getElementById("importSessionFile"),
   exportScoreKeeperBtn: document.getElementById("exportScoreKeeperBtn"),
   sessionStatus: document.getElementById("sessionStatus"),
+  autosaveStatus: document.getElementById("autosaveStatus"),
   eventNotice: document.getElementById("eventNotice"),
   winnerBanner: document.getElementById("winnerBanner"),
   scoreBoard: document.getElementById("scoreBoard"),
@@ -144,6 +146,7 @@ function bindEvents() {
   els.resetTableBtn.addEventListener("click", () => {
     if (state.gameStarted && !state.winnerId && !window.confirm("Reset this Hearts table?")) return;
     resetState();
+    clearAutosave();
     shuffleSetupBotNames();
     renderBotNameFields();
     render();
@@ -1170,6 +1173,7 @@ function sessionSnapshot() {
     setupBotDifficulties: state.setupBotDifficulties,
     sessionExpanded: state.sessionExpanded,
     tramBadgePlayerId: state.tramBadgePlayerId,
+    tramPlayerId: state.tramPlayerId,
     winnerId: state.winnerId,
     winnerIds: state.winnerIds,
     notice: state.notice,
@@ -1252,8 +1256,23 @@ function restoreSessionSnapshot(snapshot) {
     notice: snapshot.notice || "Session loaded.",
     busy: false,
   });
-  if (state.stage === "passing-out" || state.stage === "trick-complete" || state.stage === "trick-collecting") {
-    state.stage = "playing";
+  els.humanName.value = state.players[0]?.name || "";
+  els.targetScore.value = state.targetScore;
+  state.setupBotNames = state.players.filter((player) => player.bot).map((player) => player.name);
+  els.botNameFields.innerHTML = "";
+  renderBotNameFields();
+  // Finish durable transitions; animation timers themselves are never restored.
+  if (state.stage === "passing-out") {
+    resolveHumanPass();
+    return;
+  }
+  if (state.trick.length === 4 && ["playing", "trick-complete", "trick-collecting"].includes(state.stage)) {
+    beginTrickPause();
+    return;
+  }
+  if (snapshot.tramPlayerId && findTramCandidate()?.id === snapshot.tramPlayerId) {
+    completeTramClaim(snapshot.tramPlayerId);
+    return;
   }
   if (state.stage === "passing") {
     state.players.forEach((player) => {
@@ -1270,6 +1289,89 @@ function normalizeStage(stage) {
   return ["setup", "passing", "passing-out", "playing", "trick-complete", "trick-collecting", "hand-end", "game-end"].includes(stage)
     ? stage
     : "setup";
+}
+
+function validAutosave(snapshot) {
+  if (!snapshot || snapshot.game !== "hearts" || snapshot.version !== SESSION_EXPORT_VERSION ||
+      snapshot.gameStarted !== true || !Array.isArray(snapshot.players) || snapshot.players.length !== 4 ||
+      !["passing", "passing-out", "playing", "trick-complete", "trick-collecting", "hand-end", "game-end"].includes(snapshot.stage) ||
+      !Number.isInteger(snapshot.currentPlayerIndex) || snapshot.currentPlayerIndex < 0 || snapshot.currentPlayerIndex > 3 ||
+      !Number.isInteger(snapshot.passDirectionIndex) || snapshot.passDirectionIndex < 0 || snapshot.passDirectionIndex > 3 ||
+      !Number.isInteger(snapshot.handNumber) || snapshot.handNumber < 1 ||
+      !Number.isInteger(snapshot.trickNumber) || snapshot.trickNumber < 1 || snapshot.trickNumber > 13 ||
+      !Number.isFinite(snapshot.targetScore) || snapshot.targetScore <= 0 ||
+      !Array.isArray(snapshot.trick) || snapshot.trick.length > 4 ||
+      !Array.isArray(snapshot.handHistory) || !Array.isArray(snapshot.selectedPassIds) ||
+      !Array.isArray(snapshot.passedToHumanIds)) return false;
+  const ids = new Set();
+  const cards = [];
+  for (const [index, player] of snapshot.players.entries()) {
+    if (!player || typeof player.id !== "string" || ids.has(player.id) ||
+        typeof player.name !== "string" || player.bot !== (index !== 0) ||
+        !Number.isFinite(player.score) || !Number.isFinite(player.handPoints) ||
+        !Array.isArray(player.hand) || !Array.isArray(player.taken) ||
+        !Array.isArray(player.pendingPass)) return false;
+    ids.add(player.id);
+    cards.push(...player.hand, ...player.taken);
+    if (!player.pendingPass.every(id => player.hand.some(card => card?.id === id))) return false;
+  }
+  const trickPlayers = new Set();
+  for (const play of snapshot.trick) {
+    if (!play || !Number.isInteger(play.playerIndex) || play.playerIndex < 0 || play.playerIndex > 3 ||
+        trickPlayers.has(play.playerIndex)) return false;
+    trickPlayers.add(play.playerIndex);
+    cards.push(play.card);
+  }
+  const deck = new Map(createDeck().map(card => [card.id, card]));
+  if (cards.length !== 52 || new Set(cards.map(card => card?.id)).size !== 52 ||
+      !cards.every(card => card && deck.get(card.id)?.rank === card.rank &&
+        deck.get(card.id)?.suit === card.suit && deck.get(card.id)?.value === card.value)) return false;
+  if (new Set(snapshot.selectedPassIds).size !== snapshot.selectedPassIds.length ||
+      snapshot.selectedPassIds.length > 3 ||
+      !snapshot.selectedPassIds.every(id => snapshot.players[0].hand.some(card => card.id === id))) return false;
+  if (["passing", "passing-out"].includes(snapshot.stage) &&
+      (snapshot.trick.length || snapshot.players.some(player => player.hand.length !== 13))) return false;
+  if (snapshot.stage === "passing-out" && snapshot.selectedPassIds.length !== 3) return false;
+  if (["passing", "passing-out"].includes(snapshot.stage) && snapshot.players.slice(1).some(player =>
+    player.pendingPass.length !== 3 || new Set(player.pendingPass).size !== 3)) return false;
+  if (snapshot.stage === "playing" && snapshot.trick.length < 4 &&
+      snapshot.players[snapshot.currentPlayerIndex].hand.length === 0) return false;
+  if (["trick-complete", "trick-collecting"].includes(snapshot.stage) && snapshot.trick.length !== 4) return false;
+  if (["hand-end", "game-end"].includes(snapshot.stage) &&
+      (snapshot.trick.length || snapshot.players.some(player => player.hand.length))) return false;
+  return snapshot.handHistory.every(hand => hand && Array.isArray(hand.points) &&
+    Array.isArray(hand.scores) && hand.points.length === 4 && hand.scores.length === 4 &&
+    [...hand.points, ...hand.scores].every(Number.isFinite));
+}
+
+function saveAutosave() {
+  if (!state.gameStarted) return;
+  const ok = writeStoredJson(STORAGE_AUTOSAVE_KEY, sessionSnapshot());
+  els.autosaveStatus.textContent = ok ? "Progress saved on this device." : "Unable to autosave. Download a session backup.";
+}
+
+function clearAutosave() {
+  try {
+    window.localStorage.removeItem(STORAGE_AUTOSAVE_KEY);
+    els.autosaveStatus.textContent = "Autosave cleared.";
+  } catch {
+    els.autosaveStatus.textContent = "Unable to clear autosave.";
+  }
+}
+
+function restoreAutosave() {
+  let snapshot;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_AUTOSAVE_KEY);
+    if (!raw) return false;
+    snapshot = JSON.parse(raw);
+    if (!validAutosave(snapshot)) throw new Error("Invalid autosave");
+  } catch {
+    els.autosaveStatus.textContent = "Saved progress could not be restored. Start a new table or load a saved session.";
+    return false;
+  }
+  restoreSessionSnapshot(snapshot);
+  return true;
 }
 
 function readSavedSessions() {
@@ -1761,6 +1863,7 @@ function render() {
   renderHumanHand();
   renderActions();
   renderHistory();
+  saveAutosave();
 }
 
 function renderSetupPanel() {
@@ -2077,4 +2180,5 @@ function escapeHtml(value) {
 
 renderBotNameFields();
 bindEvents();
-render();
+if (!restoreAutosave()) render();
+window.addEventListener("pagehide", saveAutosave);

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="manifest" href="./app.webmanifest" />
     <script defer src="./shared/pwa.js" data-sw="./sw.js"></script>
+    <script src="./shared/app-catalog.js"></script>
     <link rel="stylesheet" href="./dashboard.generated.css" />
     <meta name="color-scheme" content="dark light" />
     <link
@@ -222,155 +223,9 @@
     class="min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 selection:bg-indigo-200/60 dark:selection:bg-indigo-400/30"
   >
     <script>
-      /* ---------- EDITABLE BOOKMARKS ----------
-       * Add/edit your default links here.
-       * Tip: If your apps live next to this file, use relative paths like "./money.html".
-       */
-      const LINKS = [
-        {
-          name: "Money Counter",
-          url: "./MoneyCounter.html",
-          icon: "💵",
-          desc: "Cash counter utility",
-        },
-        {
-          name: "Time Tools",
-          url: "./TimeTools/index.html",
-          icon: "🕰️",
-          desc: "Clock, timer, date math, and time conversion tools",
-        },
-        {
-          name: "Clock",
-          url: "./clock.html",
-          icon: "⏰",
-          desc: "Time & display clock",
-          hidden: true,
-        },
-        {
-          name: "24h to 12h Helper",
-          url: "./Time Converter.html",
-          icon: "🕒",
-          desc: "Convert 24-hour times with quick examples and copy-ready output",
-          hidden: true,
-        },
-        {
-          name: "Timer",
-          url: "./Timer.html",
-          icon: "⏳",
-          desc: "Countdown timer",
-          hidden: true,
-        },
-        {
-          name: "Time Unit Converter",
-          url: "./Time Unit Converter.html",
-          icon: "⇄",
-          desc: "Convert values between nanoseconds, centuries, and other time units",
-          hidden: true,
-        },
+      // App definitions are shared with the category launchers.
+      const LINKS = window.DashboardCatalog.apps;
 
-        {
-          name: "ScoreKeeper",
-          url: "./ScoreKeeper/index.html",
-          iconImg: "./ScoreKeeper/img/scorekeeper-favicon.svg",
-          icon: "♠️",
-          desc: "Game score tracking utility",
-        },
-        {
-          name: "Game Room",
-          url: "./Games/index.html",
-          icon: "🎲",
-          desc: "Phase 10 and future game apps in one spot",
-        },
-        {
-          name: "Phase 10",
-          url: "./Phase10/index.html",
-          icon: "🔟",
-          desc: "Play streamlined Phase 10 against 1-3 bots",
-          hidden: true,
-        },
-        {
-          name: "SkyJo",
-          url: "./SkyJo/index.html",
-          icon: "🃏",
-          desc: "Play SkyJo against 1-3 bots",
-          hidden: true,
-        },
-        {
-          name: "SkyJo Mobile",
-          url: "./SkyJo/index.html?layout=phone-landscape",
-          icon: "📱",
-          desc: "Open SkyJo with phone controls",
-          hidden: true,
-        },
-        {
-          name: "Hearts",
-          url: "./Hearts/index.html",
-          icon: "♥️",
-          desc: "Play a single-device Hearts table against 3 bots",
-          hidden: true,
-        },
-        {
-          name: "Spades",
-          url: "./Spades/index.html",
-          icon: "♠️",
-          desc: "Play a single-device partnership Spades table against 3 bots",
-          hidden: true,
-        },
-        {
-          name: "Crazy 8s",
-          url: "./Crazy8s/index.html",
-          icon: "8️⃣",
-          desc: "Play classic Crazy 8s against 1-3 bots",
-          hidden: true,
-        },
-        {
-          name: "5 Crowns",
-          url: "./FiveCrowns/index.html",
-          icon: "👑",
-          desc: "Play 5 Crowns against 1-4 bots",
-          hidden: true,
-        },
-        {
-          name: "Skip-Bo",
-          url: "./SkipBo/index.html",
-          icon: "🔢",
-          desc: "Play Skip-Bo against 1-5 bots",
-          hidden: true,
-        },
-        {
-          name: "Unit Converter",
-          url: "./Unit Converter.html",
-          icon: "📐",
-          desc: "Length, weight, volume, temperature, and more",
-        },
-        {
-          name: "URL Encoder / Decoder",
-          url: "./URL Tool.html",
-          icon: "🔗",
-          desc: "Encode URL text or decode percent-encoded values",
-        },
-        {
-          name: "Notepad",
-          url: "./Notepad.html",
-          icon: "📝",
-          desc: "Large-font text pad for typing",
-        },
-        {
-          name: "QR Generator + Scanner",
-          url: "./QR Tool.html",
-          icon: "🔳",
-          desc: "Create QR codes and scan QR images",
-        },
-        {
-          name: "Date Math Tool",
-          url: "./Date Math Tool.html",
-          icon: "📅",
-          desc: "Add/subtract dates and calculate day differences",
-          hidden: true,
-        },
-      ];
-
-      /* Default links shown on the dashboard. */
     </script>
 
     <!-- Header -->

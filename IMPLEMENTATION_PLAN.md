@@ -8,10 +8,10 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 ## Sessions
 
 - [x] 1. Persistent checklist; full-catalog Dashboard search and individual app pinning.
-- [ ] 2. Share the app catalog across Dashboard, Game Room, and Time Tools.
-- [ ] 3. Hearts autosave and recovery.
-- [ ] 4. Spades autosave and recovery.
-- [ ] 5. Crazy 8s autosave and recovery.
+- [x] 2. Share the app catalog across Dashboard, Game Room, and Time Tools.
+- [x] 3. Hearts autosave and recovery.
+- [x] 4. Spades autosave and recovery.
+- [x] 5. Crazy 8s autosave and recovery.
 - [ ] 6. Controlled update reloads with an Update ready action.
 - [ ] 7. Resume shortcuts for all supported games.
 - [ ] 8. Compact Dashboard panels, hide file paths, and relocate Clear Recent.
@@ -69,3 +69,54 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
   the workspace mismatch. All 6 focused tests passed there, and the HTML fetched
   from localhost:5500 returned both SkyJo and SkyJo Mobile through its search
   helpers. Browser visual verification remains outstanding.
+
+### Session 2
+
+- Added shared/app-catalog.js as the single app catalog for all three launchers.
+- Preserved Dashboard URLs for saved pins/recents, category ordering, icons,
+  descriptions, and time-tool metadata. Category hrefs derive from canonical URLs.
+- Included the catalog in the offline core cache and bumped its version.
+- Updated search/integration tests and documented catalog maintenance in DEV_NOTES.md.
+- Validation: all 70 tests passed; original category fields matched exactly;
+  localhost:5500 served all updated pages and the catalog; syntax and diff checks
+  passed. Browser visual verification was not performed.
+- Next: session 3, Hearts autosave and recovery.
+
+### Session 3
+
+- Hearts now saves progress independently of named sessions and restores it on
+  page load, including names, scores, difficulty, pass selection, and bot turns.
+- Interrupted passes, trick collections, and claims finish on recovery without
+  duplicating cards or scores. Completed hands/games remain completed.
+- Invalid autosaves leave setup usable; storage errors display a status message.
+  Reset clears autosave without deleting named sessions.
+- Validation: all 32 focused recovery/shared-helper checks passed, including 7
+  Hearts recovery tests. Updated JS and status markup verified on localhost:5500;
+  script syntax and diff checks passed. Visual browser testing not performed.
+- Sessions 2 and 3 are included in the combined sessions 2-5 checkpoint.
+- Next: session 4, Spades autosave and recovery.
+
+### Session 4
+
+- Spades autosaves and restores bidding (including unsubmitted input), nil bids,
+  bot difficulty, team scores/bags, active tricks, and completed games.
+- Interrupted trick collection finishes without crediting the trick twice.
+- Reset deletes only autosave. Invalid saves preserve setup and named sessions;
+  storage failures show an explicit status.
+- Validation: all 5 focused recovery tests passed, including a full hand restored
+  after every play, completed games, corrupt data, and storage failures.
+  Diff check passed. Browser/server verification unavailable: localhost:5500
+  was stopped during this session.
+- Next: session 5, Crazy 8s autosave and recovery.
+
+### Session 5
+
+- Crazy 8s now restores progress automatically, including pending eight suit
+  selection, draw allowance, names/difficulty, bots, and completed rounds/games.
+- Restoration cancels obsolete animation timers and clears transient busy state.
+- Reset preserves named sessions. Corrupt autosaves leave setup available, and
+  storage failures display an explicit message.
+- Validation: all 86 project tests passed, including 4 new Crazy 8s recovery tests;
+  diff checks passed. Visual browser testing remains outstanding.
+- Sessions 2-5 form one commit/push checkpoint.
+- Next: session 6, controlled update reloads.

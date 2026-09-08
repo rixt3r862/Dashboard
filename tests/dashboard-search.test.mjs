@@ -10,12 +10,14 @@ const dashboard = scripts.find((script) => script.includes("function allLinks()"
 
 function setup(saved = new Map()) {
   const context = vm.createContext({
+    window: {},
     localStorage: {
       getItem: (key) => saved.get(key) ?? null,
       setItem: (key, value) => saved.set(key, value),
     },
   });
   // Run the page's catalog and data helpers without its DOM rendering/bootstrap.
+  vm.runInContext(readFileSync(new URL("../shared/app-catalog.js", import.meta.url), "utf8"), context);
   vm.runInContext(catalog, context);
   vm.runInContext('const DASHBOARD_PINS_KEY = "dash.pinnedApps";', context);
   vm.runInContext(dashboard.slice(dashboard.indexOf("      function allLinks()"), dashboard.indexOf("      function scorekeeperStatus()")), context);

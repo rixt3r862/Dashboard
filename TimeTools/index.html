@@ -8,6 +8,7 @@
     <meta name="color-scheme" content="dark light" />
     <link rel="manifest" href="../app.webmanifest" />
     <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+    <script src="../shared/app-catalog.js"></script>
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%239a3412%22/><text x=%2250%22 y=%2268%22 text-anchor=%22middle%22 font-size=%2252%22>⏱</text></svg>"
@@ -461,53 +462,7 @@
     <script>
       const DASHBOARD_THEME_KEY = "dash.theme";
       const DASHBOARD_RECENTS_KEY = "dash.recentApps";
-      const TIME_APPS = [
-        {
-          name: "Clock",
-          href: "../clock.html",
-          dashboardUrl: "./clock.html",
-          icon: "⏰",
-          tag: "Display",
-          desc: "Quick access to the current time with a dedicated display view.",
-          meta: ["live time", "large display"],
-        },
-        {
-          name: "24h to 12h Helper",
-          href: "../Time Converter.html",
-          dashboardUrl: "./Time Converter.html",
-          icon: "🕒",
-          tag: "Convert",
-          desc: "Translate 24-hour time into 12-hour format with quick examples and copy-ready output.",
-          meta: ["24h to 12h", "fast lookup"],
-        },
-        {
-          name: "Timer",
-          href: "../Timer.html",
-          dashboardUrl: "./Timer.html",
-          icon: "⏳",
-          tag: "Countdown",
-          desc: "Run a focused countdown timer for quick tasks and routines.",
-          meta: ["countdown", "single-purpose"],
-        },
-        {
-          name: "Time Unit Converter",
-          href: "../Time Unit Converter.html",
-          dashboardUrl: "./Time Unit Converter.html",
-          icon: "⇄",
-          tag: "Units",
-          desc: "Convert values between nanoseconds, centuries, and every common time unit in between.",
-          meta: ["bidirectional", "12 units"],
-        },
-        {
-          name: "Date Math Tool",
-          href: "../Date Math Tool.html",
-          dashboardUrl: "./Date Math Tool.html",
-          icon: "📅",
-          tag: "Calendar",
-          desc: "Add and subtract dates or calculate the gap between two days.",
-          meta: ["date offsets", "day differences"],
-        },
-      ];
+      const TIME_APPS = window.DashboardCatalog.forCategory("time");
 
       (function initTheme() {
         const userPref = localStorage.getItem(DASHBOARD_THEME_KEY);

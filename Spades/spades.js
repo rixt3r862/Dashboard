@@ -8,6 +8,7 @@ const TRICK_PAUSE_MS = 1200;
 const TRICK_COLLECT_MS = 720;
 const SPADE_BURST_MS = 950;
 const STORAGE_SESSIONS_KEY = "dashboard.spades.sessions";
+const STORAGE_AUTOSAVE_KEY = "dashboard.spades.autosave.v1";
 const SESSION_EXPORT_VERSION = 1;
 const SUITS = ["clubs", "diamonds", "spades", "hearts"];
 const SUIT_SYMBOLS = {
@@ -85,6 +86,7 @@ const els = {
   exportScoreKeeperBtn: document.getElementById("exportScoreKeeperBtn"),
   importSessionFile: document.getElementById("importSessionFile"),
   sessionStatus: document.getElementById("sessionStatus"),
+  autosaveStatus: document.getElementById("autosaveStatus"),
   eventNotice: document.getElementById("eventNotice"),
   winnerBanner: document.getElementById("winnerBanner"),
   scoreBoard: document.getElementById("scoreBoard"),
@@ -119,11 +121,13 @@ function bindEvents() {
   els.resetTableBtn.addEventListener("click", () => {
     if (state.gameStarted && !state.winnerTeamId && !window.confirm("Reset this Spades table?")) return;
     resetState();
+    clearAutosave();
     shuffleSetupBotNames();
     renderBotNameFields();
     render();
   });
   els.confirmBidBtn.addEventListener("click", confirmHumanBid);
+  els.humanBid.addEventListener("input", saveAutosave);
   els.nextHandBtn.addEventListener("click", dealNextHand);
   els.humanHand.addEventListener("click", handleHandClick);
   els.sessionToggleBtn.addEventListener("click", () => {
@@ -735,6 +739,8 @@ function shuffleSetupBotNames() {
 
 function sessionSnapshot() {
   return {
+    game: "spades",
+    humanBidInput: els.humanBid.value,
     version: SESSION_EXPORT_VERSION,
     gameStarted: state.gameStarted,
     players: state.players.map((player) => ({
@@ -808,9 +814,90 @@ function restoreSessionSnapshot(snapshot) {
   state.sessionExpanded = false;
   state.setupBotNames = state.players.filter((player) => player.bot).map((player) => player.name);
   state.setupBotDifficulties = state.players.filter((player) => player.bot).map((player) => normalizeDifficulty(player.difficulty));
+  state.busy = false;
+  els.humanName.value = state.players[0]?.name || "";
+  els.targetScore.value = state.targetScore;
+  els.humanBid.value = String(payload.humanBidInput ?? state.players[0]?.bid ?? 3);
+  els.botNameFields.innerHTML = "";
   renderBotNameFields();
+  // These stages already credited the winner's trick count before saving.
+  if (["trick-complete", "trick-collecting"].includes(state.stage) && state.trick.length === 4) {
+    state.currentPlayerIndex = trickWinnerIndex(state.trick);
+    resolveCollectedTrick(state.currentPlayerIndex);
+    return;
+  }
   render();
   scheduleBotTurn();
+}
+
+function validAutosave(s) {
+  const integer = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
+  if (!s || s.game !== "spades" || s.version !== SESSION_EXPORT_VERSION || s.gameStarted !== true ||
+      !["bidding", "playing", "trick-complete", "trick-collecting", "hand-end", "game-end"].includes(s.stage) ||
+      !integer(s.handNumber, 1, 999) || !integer(s.targetScore, 100, 1000) ||
+      !integer(s.dealerIndex, 0, 3) || !integer(s.currentPlayerIndex, 0, 3) ||
+      !integer(s.trickNumber, 1, 13) || !Array.isArray(s.players) || s.players.length !== 4 ||
+      !Array.isArray(s.teams) || s.teams.length !== 2 || !Array.isArray(s.trick) ||
+      s.trick.length > 4 || !Array.isArray(s.handHistory)) return false;
+  if (s.players.some((p, i) => !p || typeof p.id !== "string" || typeof p.name !== "string" ||
+      p.bot !== (i !== 0) || !Array.isArray(p.hand) || !integer(p.tricks, 0, 13) ||
+      !(p.bid === null && s.stage === "bidding" && i === 0 || integer(p.bid, 0, 13)) ||
+      p.nilBid !== (p.bid === 0))) return false;
+  if (new Set(s.players.map(p => p.id)).size !== 4) return false;
+  if (s.teams.some((t, i) => !t || t.id !== (i === 0 ? "teamA" : "teamB") ||
+      typeof t.name !== "string" || !Number.isFinite(t.score) || !integer(t.bags, 0, 9) ||
+      !Array.isArray(t.members) || t.members.length !== 2 ||
+      t.members[0] !== s.players[i].id || t.members[1] !== s.players[i + 2].id)) return false;
+  if (s.winnerTeamId && !s.teams.some(t => t.id === s.winnerTeamId)) return false;
+  if (s.trick.some(p => !p || !integer(p.playerIndex, 0, 3)) ||
+      new Set(s.trick.map(p => p.playerIndex)).size !== s.trick.length) return false;
+  const cards = [...s.players.flatMap(p => p.hand), ...s.trick.map(p => p.card)];
+  if (cards.some(c => !c || typeof c.id !== "string" || !SUITS.includes(c.suit) ||
+      !RANKS.includes(c.rank) || c.value !== RANK_VALUES[c.rank]) ||
+      new Set(cards.map(c => c.id)).size !== cards.length ||
+      new Set(cards.map(c => c.rank + c.suit)).size !== cards.length) return false;
+  const collecting = ["trick-complete", "trick-collecting"].includes(s.stage);
+  if (collecting !== (s.trick.length === 4)) return false;
+  if (cards.length + s.players.reduce((n, p) => n + p.tricks * 4, 0) - (collecting ? 4 : 0) !== 52) return false;
+  if (s.stage === "bidding" && (s.trick.length || s.players.some(p => p.hand.length !== 13))) return false;
+  if (s.stage === "playing" && !s.players[s.currentPlayerIndex].hand.length) return false;
+  if (["hand-end", "game-end"].includes(s.stage) && cards.length) return false;
+  return s.handHistory.every(h => h && Array.isArray(h.teams) && h.teams.length === 2 &&
+    h.teams.every(t => t && Number.isFinite(t.score) && Number.isFinite(t.bags)));
+}
+
+function saveAutosave() {
+  if (!state.gameStarted) return;
+  try {
+    window.localStorage.setItem(STORAGE_AUTOSAVE_KEY, JSON.stringify(sessionSnapshot()));
+    els.autosaveStatus.textContent = "Progress saved on this device.";
+  } catch {
+    els.autosaveStatus.textContent = "Unable to autosave. Download a session backup.";
+  }
+}
+
+function clearAutosave() {
+  try {
+    window.localStorage.removeItem(STORAGE_AUTOSAVE_KEY);
+    els.autosaveStatus.textContent = "Autosave cleared.";
+  } catch {
+    els.autosaveStatus.textContent = "Unable to clear autosave.";
+  }
+}
+
+function restoreAutosave() {
+  let snapshot;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_AUTOSAVE_KEY);
+    if (!raw) return false;
+    snapshot = JSON.parse(raw);
+    if (!validAutosave(snapshot)) throw new Error("Invalid autosave");
+  } catch {
+    els.autosaveStatus.textContent = "Saved progress could not be restored. Start a new table or load a saved session.";
+    return false;
+  }
+  restoreSessionSnapshot(snapshot);
+  return true;
 }
 
 function readSavedSessions() {
@@ -1030,6 +1117,7 @@ function render() {
   renderHumanHand();
   renderActions();
   renderHistory();
+  saveAutosave();
 }
 
 function renderSetupPanel() {
@@ -1496,4 +1584,5 @@ function escapeHtml(value) {
 shuffleSetupBotNames();
 renderBotNameFields();
 bindEvents();
-render();
+if (!restoreAutosave()) render();
+window.addEventListener("pagehide", saveAutosave);

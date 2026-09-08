@@ -9,6 +9,7 @@ const DEAL_ANIMATION_MS = 900;
 const PLAY_ANIMATION_MS = 620;
 const DRAW_ANIMATION_MS = 540;
 const STORAGE_SESSIONS_KEY = "dashboard.crazy8s.sessions";
+const STORAGE_AUTOSAVE_KEY = "dashboard.crazy8s.autosave.v1";
 const SESSION_EXPORT_VERSION = 1;
 const SUITS = ["clubs", "diamonds", "spades", "hearts"];
 const SUIT_SYMBOLS = { clubs: "♣", diamonds: "♦", spades: "♠", hearts: "♥" };
@@ -82,6 +83,7 @@ const els = {
   importSessionFile: document.getElementById("importSessionFile"),
   exportScoreKeeperBtn: document.getElementById("exportScoreKeeperBtn"),
   sessionStatus: document.getElementById("sessionStatus"),
+  autosaveStatus: document.getElementById("autosaveStatus"),
   winnerBanner: document.getElementById("winnerBanner"),
   scoreBoard: document.getElementById("scoreBoard"),
   leaderText: document.getElementById("leaderText"),
@@ -154,6 +156,7 @@ function bindEvents() {
   els.resetTableBtn.addEventListener("click", () => {
     if (state.gameStarted && !state.winnerId && !window.confirm("Reset this Crazy 8s table?")) return;
     resetState();
+    clearAutosave();
     shuffleSetupBotNames();
     renderBotNameFields({ syncFromInputs: false });
     render();
@@ -554,6 +557,7 @@ function sortHands() {
 }
 
 function render() {
+  saveAutosave();
   renderSetupPanel();
   renderSessionControls();
   renderStatus();
@@ -958,6 +962,8 @@ function scoreKeeperPayload(snapshot) {
 
 function sessionSnapshot() {
   return cloneJson({
+    game: "crazy8s",
+    version: SESSION_EXPORT_VERSION,
     gameStarted: state.gameStarted,
     players: state.players,
     roundNumber: state.roundNumber,
@@ -983,6 +989,10 @@ function sessionSnapshot() {
 
 function restoreSessionSnapshot(snapshot) {
   cancelPendingBotTurn();
+  clearDealAnimationTimer();
+  clearDiscardAnimationTimer();
+  clearDrawAnimationTimers();
+  state.busy = false;
   state.gameStarted = Boolean(snapshot.gameStarted);
   state.players = Array.isArray(snapshot.players) ? snapshot.players.map((player, index) => ({
     ...createPlayer(player.id || `p${index + 1}`, player.name, player.bot, player.difficulty),
@@ -1023,9 +1033,79 @@ function restoreSessionSnapshot(snapshot) {
   state.winnerId = snapshot.winnerId || null;
   state.notice = snapshot.notice || "";
   state.sessionExpanded = false;
+  els.humanName.value = state.players[0]?.name || "";
+  els.playerCount.value = String(state.playerCount);
+  els.targetScore.value = String(state.targetScore);
+  state.setupBotNames = state.players.slice(1).map(player => player.name);
+  state.setupBotDifficulties = state.players.slice(1).map(player => player.difficulty);
+  renderBotNameFields({ syncFromInputs: false });
   sortHands();
   render();
   scheduleBotTurnIfNeeded();
+}
+
+function validAutosave(s) {
+  const integer = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
+  if (!s || s.game !== "crazy8s" || s.version !== SESSION_EXPORT_VERSION || s.gameStarted !== true ||
+      !integer(s.playerCount, 2, 4) || !Array.isArray(s.players) || s.players.length !== s.playerCount ||
+      !integer(s.roundNumber, 1, 999) || !integer(s.targetScore, 25, 500) ||
+      !integer(s.currentPlayerIndex, 0, s.playerCount - 1) ||
+      !integer(s.drawsThisTurn, 0, MAX_DRAWS_PER_TURN) ||
+      !["playing", "roundOver", "gameOver"].includes(s.stage) || !SUITS.includes(s.currentSuit) ||
+      !Array.isArray(s.drawPile) || !Array.isArray(s.discardPile) || !s.discardPile.length ||
+      !Array.isArray(s.roundHistory)) return false;
+  if (s.players.some((p, i) => !p || typeof p.id !== "string" || typeof p.name !== "string" ||
+      p.bot !== (i !== 0) || !Number.isFinite(p.score) || p.score < 0 || !Array.isArray(p.hand)) ||
+      new Set(s.players.map(p => p.id)).size !== s.playerCount) return false;
+  const cards = [...s.drawPile, ...s.discardPile, ...s.players.flatMap(p => p.hand)];
+  if (cards.length !== 52 || cards.some(c => !c || typeof c.id !== "string" ||
+      !SUITS.includes(c.suit) || !RANKS.includes(c.rank)) ||
+      new Set(cards.map(c => c.id)).size !== 52 ||
+      new Set(cards.map(c => c.rank + c.suit)).size !== 52) return false;
+  if (s.pendingEightCardId && (s.stage !== "playing" || s.currentPlayerIndex !== 0 ||
+      s.discardPile.at(-1).id !== s.pendingEightCardId || s.discardPile.at(-1).rank !== "8")) return false;
+  if (s.stage === "playing" && s.players.some((p, i) =>
+      !p.hand.length && !(i === 0 && s.pendingEightCardId))) return false;
+  if (s.stage !== "playing" && (!s.players.some(p => p.id === s.roundWinnerId && !p.hand.length) ||
+      s.pendingEightCardId)) return false;
+  if (s.stage === "gameOver" && !s.players.some(p => p.id === s.winnerId && p.score >= s.targetScore)) return false;
+  return s.roundHistory.every(h => h && Array.isArray(h.players) &&
+    h.players.length === s.playerCount && Number.isFinite(h.winnerScore) && h.totals &&
+    s.players.every(p => Number.isFinite(h.totals[p.id])));
+}
+
+function saveAutosave() {
+  if (!state.gameStarted) return;
+  try {
+    window.localStorage.setItem(STORAGE_AUTOSAVE_KEY, JSON.stringify(sessionSnapshot()));
+    els.autosaveStatus.textContent = "Progress saved on this device.";
+  } catch {
+    els.autosaveStatus.textContent = "Unable to autosave. Download a session backup.";
+  }
+}
+
+function clearAutosave() {
+  try {
+    window.localStorage.removeItem(STORAGE_AUTOSAVE_KEY);
+    els.autosaveStatus.textContent = "Autosave cleared.";
+  } catch {
+    els.autosaveStatus.textContent = "Unable to clear autosave.";
+  }
+}
+
+function restoreAutosave() {
+  let snapshot;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_AUTOSAVE_KEY);
+    if (!raw) return false;
+    snapshot = JSON.parse(raw);
+    if (!validAutosave(snapshot)) throw new Error("Invalid autosave");
+  } catch {
+    els.autosaveStatus.textContent = "Saved progress could not be restored. Start a new table or load a saved session.";
+    return false;
+  }
+  restoreSessionSnapshot(snapshot);
+  return true;
 }
 
 function parseImportedSession(json, filename = "") {
@@ -1292,4 +1372,5 @@ shuffleSetupBotNames();
 ensureSetupBotNames();
 bindEvents();
 renderBotNameFields();
-render();
+if (!restoreAutosave()) render();
+window.addEventListener("pagehide", saveAutosave);

@@ -6,8 +6,9 @@ import {PRESETS} from '../../ScoreKeeper/js/config.js';
 import * as E from '../engine.mjs';
 const read = path => fs.readFileSync(new URL(path,import.meta.url),'utf8');
 test('Skip-Bo is linked, cached, and exposes the matching ScoreKeeper preset',()=>{
- assert.match(read('../../Games/index.html'),/\.\.\/SkipBo\/index.html/);
- assert.match(read('../../index.html'),/\.\/SkipBo\/index.html/);
+ const catalogWindow={};vm.runInNewContext(read('../../shared/app-catalog.js'),{window:catalogWindow});
+ assert.ok(catalogWindow.DashboardCatalog.apps.some(app=>app.url==='./SkipBo/index.html'));
+ assert.ok(catalogWindow.DashboardCatalog.forCategory('games').some(app=>app.href==='../SkipBo/index.html'));
  for(const asset of ['index.html','skipbo.css','skipbo.js','engine.mjs','icon.svg']) assert.ok(read('../../sw.js').includes(`./SkipBo/${asset}`));
  assert.equal(PRESETS.skipbo.target,500);assert.equal(PRESETS.skipbo.winMode,'high');
  assert.equal((read('../../ScoreKeeper/index.html').match(/value="skipbo"/g)||[]).length,2);
