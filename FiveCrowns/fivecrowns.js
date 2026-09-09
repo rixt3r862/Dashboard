@@ -18,6 +18,20 @@ const RANK_VALUES = { 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, J: 11, Q
 const FACE_VALUES = { J: 11, Q: 12, K: 13 };
 
 let botTurnTimer = null;
+let checkedMeldIds = new Set();
+
+function meldCheckMessage(cards) {
+  if (cards.length < 3) return `Selected ${cards.length}; a meld needs at least 3 cards.`;
+  if (isBook(cards)) return `Valid book: ${cards.length} cards.`;
+  if (isRun(cards)) return `Valid run: ${cards.length} cards.`;
+  const naturals = cards.filter(card => !isWild(card));
+  const reason = new Set(naturals.map(card => card.suit)).size > 1
+    ? 'A run must use one suit.'
+    : new Set(naturals.map(card => card.rank)).size < naturals.length
+      ? 'A run cannot repeat a natural rank.'
+      : 'There are not enough wild cards to fill the run gaps.';
+  return 'Not a book: natural ranks differ. ' + reason;
+}
 let botTurnToken = 0;
 const animatedMeldRevealKeys = new Set();
 
@@ -146,6 +160,8 @@ const winnerBannerMarkup = window.GameRoom?.winnerBannerMarkup || ((options) => 
 const slugify = window.GameRoom?.slugify || ((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "session");
 
 function bindEvents() {
+  document.getElementById("checkMeldMode").addEventListener("change", () => { checkedMeldIds.clear(); renderHumanHand(); });
+  document.getElementById("clearMeldCheck").addEventListener("click", () => { checkedMeldIds.clear(); renderHumanHand(); });
   els.setupForm.addEventListener("submit", (event) => {
     event.preventDefault();
     if (state.gameStarted && state.stage !== "gameOver" && !window.confirm("Restart this 5 Crowns table?")) return;
@@ -323,6 +339,13 @@ function dealNextRound() {
 
 function handleHandClick(event) {
   const button = event.target.closest("[data-card-id]");
+  if (button && document.getElementById("checkMeldMode").checked) {
+    if (!humanPlayer()?.hand.some(card => card.id === button.dataset.cardId)) return;
+    if (checkedMeldIds.has(button.dataset.cardId)) checkedMeldIds.delete(button.dataset.cardId);
+    else checkedMeldIds.add(button.dataset.cardId);
+    renderHumanHand();
+    return;
+  }
   if (!button || !isHumanTurn() || state.stage !== "playing" || state.busy || state.dealAnimationActive || state.turnPhase !== "discard") return;
   const card = humanPlayer().hand.find((entry) => entry.id === button.dataset.cardId);
   if (!card) return;
@@ -1058,6 +1081,11 @@ function renderActionControls() {
 }
 
 function renderHumanHand() {
+  const checking = document.getElementById("checkMeldMode").checked;
+  const checkedCards = (humanPlayer()?.hand || []).filter(card => checkedMeldIds.has(card.id));
+  checkedMeldIds = new Set(checkedCards.map(card => card.id));
+  document.getElementById("meldCheckStatus").textContent = checking ? meldCheckMessage(checkedCards) : "";
+  document.getElementById("clearMeldCheck").disabled = !checkedCards.length;
   const player = humanPlayer();
   els.sortHandBtn.textContent = `Sort by ${state.handSortMode === "suit" ? "Rank" : "Suit"}`;
   els.sortHandBtn.title = `Switch to ${state.handSortMode === "suit" ? "rank-first" : "suit-first"} sorting`;
@@ -1102,12 +1130,13 @@ function renderHumanHand() {
       state.dealAnimationActive ? "dealt" : "",
       freshDraw ? "draw-to-bottom" : "",
       drawnCard ? "drawn-card" : "",
+      checking && checkedMeldIds.has(card.id) ? "meld-checked" : "",
       legal ? "legal" : "illegal",
     ].filter(Boolean).join(" ");
     const styleVars = [`--hand-index: ${index};`];
     if (state.dealAnimationActive) styleVars.push(`--deal-index: ${dealIndex};`);
     return `
-      <button class="${classes}" type="button" data-card-id="${card.id}" aria-label="${cardLabel(card)}" style="${styleVars.join(" ")}">
+      <button class="${classes}" type="button" data-card-id="${card.id}" ${checking ? `aria-pressed="${checkedMeldIds.has(card.id)}"` : ""} aria-label="${cardLabel(card)}" style="${styleVars.join(" ")}">
         ${renderCard(card)}
       </button>
     `;

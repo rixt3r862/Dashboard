@@ -4,6 +4,13 @@ const COLORS = [
   { id: "green", label: "Green", short: "G", css: "#36a56c" },
   { id: "yellow", label: "Yellow", short: "Y", css: "#d8a329" },
 ];
+let chosenPhasePath = null;
+function phaseHandKey(hand) { return hand.map(card => card.id).sort().join("|"); }
+function phasePathFeedback(layout) {
+  return layout.missingCount
+    ? layout.groups.filter(group => group.missingLabel).map(group => phasePreviewGroupLabel(group) + ": needs " + group.missingLabel).join("; ")
+    : "All required groups are complete.";
+}
 
 const BOT_NAMES = window.GameRoom?.BOT_NAMES || ["Nick", "Sam", "Nate", "Garth", "Kyle", "Kip"];
 
@@ -3736,6 +3743,7 @@ function renderStatus() {
     !humanCanLay ||
     Boolean(human?.laidGroups.length);
   els.layPhaseBtn.textContent = previewMeld ? "Confirm Lay Phase" : "Lay Phase";
+  els.layPhaseBtn.title = humanCanLay ? "Preview the complete phase" : "The required groups are incomplete; each path lists its missing cards.";
   els.discardBtn.disabled =
     !isHumanTurn() ||
     state.turnStage !== "main" ||
@@ -3771,7 +3779,7 @@ function renderStatus() {
   } else if (humanCanLay) {
     els.actionHint.textContent = `You can lay Phase ${humanPhase?.number ?? "?"} right now before discarding.`;
   } else {
-    els.actionHint.textContent = `Select one card to discard when you are ready.`;
+    els.actionHint.textContent = `Phase incomplete. The closest paths list the missing cards. Select a card to discard.`;
   }
 
   els.selectedDiscard.textContent = selectedCard ? cardLabel(selectedCard) : "None";
@@ -3987,6 +3995,7 @@ function applyPossiblePhaseMeldOrder(layoutIndex) {
   const layout = closestPhasePaths(player.hand, phase)[layoutIndex];
   if (!layout) return;
   const phaseCards = layout.groups.flatMap(phasePathCardsForDisplay);
+  chosenPhasePath = { handKey: phaseHandKey(player.hand), ids: phaseCards.map(card => card.id), feedback: phasePathFeedback(layout) };
   const phaseCardIds = new Set(phaseCards.map((card) => card.id));
   const leftovers = player.hand.filter((card) => !phaseCardIds.has(card.id));
   player.hand = [...phaseCards, ...leftovers];
@@ -4083,13 +4092,15 @@ function renderHand() {
         cardId: card.id,
         selected: state.selectedCardId === card.id,
         justDrew: state.lastDrawnCardId === card.id,
-        previewed: previewCardIds.has(card.id),
+        previewed: previewCardIds.has(card.id) || (chosenPhasePath?.handKey === phaseHandKey(human.hand) && chosenPhasePath.ids.includes(card.id)),
         dealt: dealAnimationIndexById.has(card.id),
         dealIndex: dealAnimationIndexById.get(card.id),
       }),
     )
     .join("");
   updatePossiblePhaseMelds(renderPossiblePhaseMelds(human, phase));
+  document.getElementById("phasePathStatus").textContent = chosenPhasePath?.handKey === phaseHandKey(human.hand) && !human.laidGroups.length
+    ? chosenPhasePath.feedback : "";
 }
 
 function renderRoundHistory() {

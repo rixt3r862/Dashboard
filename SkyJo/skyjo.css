@@ -1390,3 +1390,22 @@ body.phone-landscape.game-active .table-pile-row {
     display: contents;
   }
 }
+@media (max-width: 720px) {
+  .players-board .current-card-panel.in-player-grid {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .players-board .current-card-panel.in-player-grid .table-card-controls,
+  .players-board .current-card-panel.in-player-grid .table-card-row {
+    grid-column: 1;
+    grid-row: auto;
+    min-width: 0;
+  }
+  .players-board .current-card-panel.in-player-grid .table-card-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+  .players-board .current-card-panel.in-player-grid .table-pile-row { display: contents; }
+  .players-board .current-card-panel.in-player-grid .table-drawn-card-wrap { min-width: 0; }
+  .players-board .current-card-panel.in-player-grid .skyjo-card { width: min(100%, 4rem); }
+}

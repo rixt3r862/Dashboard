@@ -1,6 +1,7 @@
 import * as E from './engine.mjs';
 import { createMotion } from './motion.mjs';
 import { confirmDiscard } from './discard-dialog.mjs';
+import { explainHint } from './hints.mjs';
 const motion = createMotion(document, window);
 let moving = false;
 const $ = id => document.getElementById(id);
@@ -193,7 +194,12 @@ document.addEventListener('click', async e => {
     }
   }
 });
-$('hint').onclick = () => { const move = E.botMove(state, 'hard'); if (move.type === 'play') { selected = move.source; notify(`Try ${move.source.kind === 'stock' ? 'your stock top' : move.source.kind === 'hand' ? 'the selected hand card' : 'the selected discard top'} on build ${move.pile+1}.`); } else if (move.type === 'discard') { selected = {kind:'hand',index:move.index}; notify(`No legal plays. Try discarding the selected card onto discard ${move.pile+1}.`); } else notify('No cards available. Pass your turn.'); };
+$('hint').onclick = () => {
+  if (!humanTurn()) return;
+  const move = E.botMove(state, 'hard');
+  selected = move.type === 'play' ? move.source : move.type === 'discard' ? {kind:'hand',index:move.index} : null;
+  notify(explainHint(state, move));
+};
 $('sortHand').onclick = () => { state.players[0].hand.sort((a,b)=>(a || 13)-(b || 13)); changed(); };
 $('passTurn').onclick = () => moveWithAnimation({ type: 'pass' }, () => E.pass(state));
 $('nextRound').onclick = () => moveWithAnimation({ type: 'deal' }, () => E.nextRound(state));

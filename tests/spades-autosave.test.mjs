@@ -25,6 +25,8 @@ function table(saved = new Map(), failWrites = false) {
   const context = vm.createContext({ window, localStorage, document: { getElementById: node },
     setTimeout: window.setTimeout, clearTimeout: window.clearTimeout });
   vm.runInContext(source.slice(0, source.lastIndexOf("\nshuffleSetupBotNames();")), context);
+  vm.runInContext(readFileSync(new URL("../shared/last-trick.js", import.meta.url), "utf8"), context);
+  vm.runInContext("window.LastTrick.render = () => {}", context);
   const run = expression => vm.runInContext(expression, context);
   // Exercise real state transitions, snapshots, and timers; omit visual DOM rendering.
   run(`renderBotNameFields = () => {};
@@ -41,6 +43,27 @@ function table(saved = new Map(), failWrites = false) {
   };
 }
 
+
+test("last trick survives recovery and clears on the next hand", () => {
+  const first = table(); first.deal();
+  first.run('state.players.forEach(player => { player.bid = 3; }); state.trick = state.players.map((player, playerIndex) => ({ playerIndex, card: player.hand.shift() })); completeTrick();');
+  const expected = first.snapshot().lastTrick;
+  assert.equal(expected.plays.length, 4);
+  const next = table(first.saved);
+  assert.equal(next.run("restoreAutosave()"), true);
+  assert.deepEqual(next.snapshot().lastTrick, expected);
+  next.run("dealHand()");
+  assert.equal(next.snapshot().lastTrick, null);
+});
+
+test("score breakdown includes contract, nil and bag penalties", () => {
+  const h = table();
+  const text = h.run('spadesHistoryScoreLine({ bid: 4, tricks: 6, takenPoints: 40, bagsWon: 2, bagPoints: 2, nilScore: -100, bagPenalty: 100, roundScore: -158 })');
+  assert.match(text, /Taken Points: 40/);
+  assert.match(text, /Nil: -100/);
+  assert.match(text, /Bag Penalty: -100/);
+  assert.match(text, /Total: -158/);
+});
 
 test("bidding, nil, team bags and difficulty survive refresh", () => {
   const first = table(); first.deal();

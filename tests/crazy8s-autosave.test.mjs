@@ -43,6 +43,31 @@ function table(saved = new Map(), failWrites = false) {
 
 
 
+test("named draw rule restores with a legacy default", () => {
+  const first = table(); first.deal();
+  first.run('state.drawRule = "one"; state.drawsThisTurn = 1; saveAutosave();');
+  const next = table(first.saved); assert.equal(next.run("restoreAutosave()"), true);
+  assert.equal(next.run("drawLimit()"), 1);
+  assert.equal(next.node("drawRule").value, "one");
+  const legacy = first.snapshot(); delete legacy.drawRule;
+  const old = table(new Map([[key, JSON.stringify(legacy)]]));
+  assert.equal(old.run("restoreAutosave()"), true);
+  assert.equal(old.run("drawLimit()"), 5);
+});
+
+test("human and bot draw limits use the same selected rule", () => {
+  for (const rule of ["one", "five"]) {
+    const h = table(); h.deal();
+    h.run(`state.drawRule = "${rule}"; state.stage = "playing"; state.currentPlayerIndex = 0;
+      state.dealAnimationActive = false; legalCards = () => []; isPlayable = () => false;
+      canDrawCard = () => true; let draws = 0; drawOne = () => { draws++; return {rank:"2",suit:"clubs"}; };
+      cardLabel = () => "2"; for(let i=0;i<8;i++)drawForHuman();`);
+    assert.equal(h.run("draws"), rule === "one" ? 1 : 5);
+    h.run('draws = 0; state.currentPlayerIndex = 1; takeBotTurn();');
+    assert.equal(h.run("draws"), rule === "one" ? 1 : 5);
+  }
+});
+
 test("draw allowance and two-player settings survive refresh", () => {
   const first = table(); first.deal();
   first.run('state.players[1].difficulty = "hard"; state.drawsThisTurn = 4; render();');

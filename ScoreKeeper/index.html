@@ -332,6 +332,16 @@
           <div class="hr"></div>
 
           <div id="playerNamesWrap" class="row" aria-label="Player names"></div>
+          <datalist id="playerRosterNames"></datalist>
+          <div class="row u-mt-8">
+            <button class="btn" id="saveRosterPlayers" type="button">Save Player Names</button>
+            <div class="field">
+              <label for="savedRosterPlayer">Player roster</label>
+              <select id="savedRosterPlayer"></select>
+            </div>
+            <button class="btn" id="deleteRosterPlayer" type="button" disabled>Remove Saved Player</button>
+          </div>
+          <p id="rosterStatus" class="muted" role="status" aria-live="polite"></p>
 
           <div class="hr"></div>
 

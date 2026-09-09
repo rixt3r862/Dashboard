@@ -2839,3 +2839,17 @@ body.game-active .hero-copy {
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 760px) {
+  body.game-active .mobile-summary-bar:not([hidden]) { position: static; }
+  .mobile-play-dock {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "hand" "actions" "feedback" "paths";
+  }
+  #phasePathStatus { grid-area: feedback; overflow-wrap: anywhere; margin: 0; }
+  #possiblePhaseMelds { grid-area: paths; min-width: 0; }
+}
+#phasePathStatus,
+#possiblePhaseMelds { grid-column: 1; min-width: 0; }

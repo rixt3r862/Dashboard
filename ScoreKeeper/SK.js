@@ -23,6 +23,7 @@ import {
 import { createHistoryController } from "./js/history.js";
 import { createRoundEntryController } from "./js/roundEntry.js";
 import { createScoreboardController } from "./js/scoreboard.js";
+import { createRosterController } from "./js/roster.mjs";
 
 (() => {
   const AUTOSAVE_KEY = "scorekeeper.v3.autosave";
@@ -303,6 +304,9 @@ import { createScoreboardController } from "./js/scoreboard.js";
     entityName,
     renderHistoryTable: () => history.renderHistoryTable(),
   });
+
+  createRosterController({ document, window, currentNames: currentNameInputs,
+    storage: { getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) } });
 
   const uid = () => Math.random().toString(36).slice(2, 10);
   let scoreboardRoundAckTimer = null;
@@ -2514,6 +2518,8 @@ import { createScoreboardController } from "./js/scoreboard.js";
       input.type = "text";
       input.id = `pname_${i}`;
       input.name = `playerName${i + 1}`;
+      input.setAttribute("list", "playerRosterNames");
+      input.maxLength = 40;
       input.setAttribute("data-player-name", "1");
       input.autocomplete = "off";
       input.spellcheck = false;
@@ -3035,10 +3041,12 @@ import { createScoreboardController } from "./js/scoreboard.js";
   }
 
   function validateRoundScores(scores, opts = {}) {
-    const { contextLabel = "round" } = opts;
+    const { contextLabel = "round", roundN } = opts;
     return validateScoresByRules({
       scores,
-      players: activePlayers(),
+      players: Number.isInteger(roundN)
+        ? state.players.filter(player => isPlayerActiveInRound(player.id, roundN))
+        : activePlayers(),
       presetKey: state.presetKey,
       heartsDeckCount: state.heartsDeckCount,
       contextLabel,

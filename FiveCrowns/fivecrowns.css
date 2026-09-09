@@ -1378,3 +1378,6 @@ button {
     justify-content: flex-start;
   }
 }
+.card-button.meld-checked { outline:3px solid #f4d66b; outline-offset:3px; }
+#checkMeldMode { width:auto; }
+#meldCheckStatus { min-height:2.5em; overflow-wrap:anywhere; }

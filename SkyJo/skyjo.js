@@ -129,6 +129,7 @@ function syncDeviceLayout() {
     forcePhoneLandscape || (touchCapable && landscapeShape && shortSide <= 650 && longSide <= 1400),
   );
   document.body.classList.toggle("phone-landscape", phoneLandscape);
+  if (state.players.length) positionCurrentCardPanel();
 }
 
 function bindEvents() {
@@ -1103,6 +1104,7 @@ function renderFinalTurnBanner() {
     els.finalTurnBanner.innerHTML = `
       <strong>${escapeHtml(liveTrigger.name)} went out.</strong>
       <span>${escapeHtml(lastMoveText)}</span>
+      <span>${state.finalTurnRemainingIds.length} final ${state.finalTurnRemainingIds.length === 1 ? 'turn' : 'turns'} left: ${state.finalTurnRemainingIds.map(id => escapeHtml(state.players.find(player => player.id === id)?.name || 'Player')).join(', ')}.</span>
     `;
     return;
   }
@@ -1195,6 +1197,11 @@ function renderPlayers() {
 
 function positionCurrentCardPanel() {
   if (!els.currentCardPanel || !els.playersBoard) return;
+  if (window.matchMedia?.("(max-width: 720px)").matches) {
+    els.currentCardPanel.classList.add("in-player-grid");
+    els.playersBoard.insertBefore(els.currentCardPanel, els.playersBoard.children[1] || null);
+    return;
+  }
   if (state.players.length === 4) {
     els.currentCardPanel.classList.add("in-player-grid");
     els.playersBoard.appendChild(els.currentCardPanel);

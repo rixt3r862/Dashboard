@@ -228,9 +228,6 @@ export function createHistoryController(deps) {
     state.lastRoundScores = state.rounds.length
       ? state.rounds[state.rounds.length - 1].scores || {}
       : {};
-    state.currentRoundScores = Object.fromEntries(
-      state.players.map((p) => [p.id, 0]),
-    );
 
     const playerTotals = totalsByPlayerId();
     let entries = [];
@@ -2035,6 +2032,8 @@ export function createHistoryController(deps) {
 
   function beginHistoryEdit(roundN) {
     if (!Number.isInteger(roundN) || roundN < 1) return;
+    if (state.historyEditingRoundN !== null && state.historyEditingRoundN !== roundN &&
+        !window.confirm("Discard the unsaved round edit?")) return;
     state.historyEditingRoundN = roundN;
     renderHistoryTable();
   }
@@ -2065,8 +2064,8 @@ export function createHistoryController(deps) {
       if (!inp) return null;
 
       const raw = String(inp.value ?? "").trim();
-      const n = raw === "" ? 0 : Number.parseInt(raw, 10);
-      if (Number.isNaN(n)) return null;
+      const n = raw === "" ? 0 : Number(raw);
+      if ((raw !== "" && !/^-?\d+$/.test(raw)) || !Number.isSafeInteger(n)) return null;
       scores[p.id] = n;
     }
     return scores;
@@ -2087,8 +2086,8 @@ export function createHistoryController(deps) {
           null;
         if (!(input instanceof HTMLInputElement)) return null;
         const raw = String(input.value ?? "").trim();
-        const value = raw === "" ? 0 : Number.parseInt(raw, 10);
-        if (!Number.isInteger(value) || value < 0 || value > 13) return null;
+        const value = raw === "" ? 0 : Number(raw);
+        if ((raw !== "" && !/^\d+$/.test(raw)) || !Number.isInteger(value) || value < 0 || value > 13) return null;
         if (stat === "bid") bids[player.id] = value;
         if (stat === "tricks") tricks[player.id] = value;
       }
@@ -2145,6 +2144,7 @@ export function createHistoryController(deps) {
   function saveHistoryEdit(roundN) {
     const idx = state.rounds.findIndex((r) => r.n === roundN);
     if (idx < 0) return;
+    const updated = { ...state.rounds[idx] };
 
     if (usesSpadesTeamHistory()) {
       const spadesStats = readHistoryEditSpadesTeamStats(roundN);
@@ -2152,9 +2152,10 @@ export function createHistoryController(deps) {
         showMsg(els.roundMsg, spadesStats?.error || "Spades bids and tricks must be whole numbers from 0 to 13.");
         return;
       }
-      state.rounds[idx].spadesBids = spadesStats.bids;
-      state.rounds[idx].spadesTricks = spadesStats.tricks;
-      state.rounds[idx].ts = Date.now();
+      updated.spadesBids = spadesStats.bids;
+      updated.spadesTricks = spadesStats.tricks;
+      updated.ts = Date.now();
+      state.rounds[idx] = updated;
       showMsg(els.roundMsg, "");
       recalcAfterHistoryChange(`Round ${roundN} updated.`);
       return;
@@ -2180,11 +2181,12 @@ export function createHistoryController(deps) {
         return;
       }
       scores = normalized.scores;
-      state.rounds[idx].rummikubRackTotalsByPlayerId = normalized.rackTotals;
-      state.rounds[idx].rummikubWinnerId = normalized.winnerId;
+      updated.rummikubRackTotalsByPlayerId = normalized.rackTotals;
+      updated.rummikubWinnerId = normalized.winnerId;
     }
     const validation = validateRoundScores(scores, {
       contextLabel: `round ${roundN}`,
+      roundN,
     });
     if (!validation.ok) {
       showMsg(els.roundMsg, validation.error || "Invalid scores.");
@@ -2197,14 +2199,14 @@ export function createHistoryController(deps) {
       if (!proceed) return;
     }
 
-    state.rounds[idx].scores = scores;
+    updated.scores = scores;
     if (state.presetKey === "skyjo") {
       const wentOutId = readHistoryEditSkyjoWentOut(roundN);
       if (!wentOutId) {
         showMsg(els.roundMsg, "SkyJo: select who went out this round.");
         return;
       }
-      state.rounds[idx].skyjoWentOutPlayerId = wentOutId;
+      updated.skyjoWentOutPlayerId = wentOutId;
     }
     if (isPhase10()) {
       const completions = readHistoryEditPhase10Completions(roundN);
@@ -2212,9 +2214,10 @@ export function createHistoryController(deps) {
         showMsg(els.roundMsg, "Phase 10 completion flags could not be read.");
         return;
       }
-      state.rounds[idx].phase10CompletedByPlayerId = completions;
+      updated.phase10CompletedByPlayerId = completions;
     }
-    state.rounds[idx].ts = Date.now();
+    updated.ts = Date.now();
+    state.rounds[idx] = updated;
     showMsg(els.roundMsg, "");
     recalcAfterHistoryChange(`Round ${roundN} updated.`);
   }
@@ -3024,7 +3027,7 @@ export function createHistoryController(deps) {
     }
 
     window.addEventListener("resize", () => {
-      renderHistoryTable();
+      if (state.historyEditingRoundN === null) renderHistoryTable();
     });
   }
 

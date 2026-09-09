@@ -3,7 +3,7 @@ const BOT_DIFFICULTIES = window.GameRoom?.botDifficultyLevels?.("standard") || [
 const DEFAULT_TARGET_SCORE = 100;
 const DEFAULT_PLAYER_COUNT = 4;
 const DEAL_SIZE = 5;
-const MAX_DRAWS_PER_TURN = 5;
+function drawLimit(rule = state.drawRule) { return rule === "one" ? 1 : 5; }
 const BOT_TURN_DELAY_MS = 900;
 const DEAL_ANIMATION_MS = 900;
 const PLAY_ANIMATION_MS = 620;
@@ -34,6 +34,7 @@ const state = {
   currentSuit: null,
   pendingEightCardId: null,
   drawsThisTurn: 0,
+  drawRule: "five",
   dealAnimationTimer: null,
   dealAnimationActive: false,
   discardAnimationTimer: null,
@@ -191,12 +192,14 @@ function startNewGame(options = {}) {
     bot: player.bot,
     difficulty: player.difficulty,
   })) : [];
+  const drawRule = samePlayers ? state.drawRule : document.getElementById("drawRule").value;
   const targetScore = samePlayers ? state.targetScore : readTargetScore();
   const playerCount = samePlayers ? previousPlayers.length : readPlayerCount();
   resetState();
   state.gameStarted = true;
   state.sessionExpanded = false;
   state.targetScore = targetScore;
+  state.drawRule = drawRule === "one" ? "one" : "five";
   state.playerCount = playerCount;
   state.players = samePlayers && previousPlayers.length >= 2
     ? previousPlayers.map((player) => createPlayer(player.id, player.name, player.bot, player.difficulty))
@@ -328,16 +331,16 @@ function handleHandClick(event) {
 function drawForHuman() {
   const player = currentPlayer();
   if (!isHumanTurn() || state.stage !== "playing" || state.busy || state.dealAnimationActive || state.pendingEightCardId) return;
-  if (legalCards(player).length || state.drawsThisTurn >= MAX_DRAWS_PER_TURN || !canDrawCard()) return;
+  if (legalCards(player).length || state.drawsThisTurn >= drawLimit() || !canDrawCard()) return;
   const card = drawOne(player);
   if (!card) return;
   state.drawsThisTurn += 1;
-  const remaining = Math.max(0, MAX_DRAWS_PER_TURN - state.drawsThisTurn);
+  const remaining = Math.max(0, drawLimit() - state.drawsThisTurn);
   state.notice = isPlayable(card)
     ? `${player.name} drew ${cardLabel(card)}. It can be played.`
     : remaining
       ? `${player.name} drew one card. ${remaining} draw${remaining === 1 ? "" : "s"} left this turn.`
-      : `${player.name} drew a fifth card and must pass if still blocked.`;
+      : `${player.name} reached the draw limit and must pass if still blocked.`;
   render();
 }
 
@@ -348,8 +351,8 @@ function passHumanTurn() {
     renderNotice();
     return;
   }
-  if (state.drawsThisTurn < MAX_DRAWS_PER_TURN && canDrawCard()) {
-    state.notice = `Draw up to ${MAX_DRAWS_PER_TURN} cards before passing.`;
+  if (state.drawsThisTurn < drawLimit() && canDrawCard()) {
+    state.notice = `Draw up to ${drawLimit()} cards before passing.`;
     renderNotice();
     return;
   }
@@ -433,7 +436,7 @@ function takeBotTurn() {
   }
   let draws = 0;
   let drawnCard = null;
-  while (draws < MAX_DRAWS_PER_TURN && !playable.length && canDrawCard()) {
+  while (draws < drawLimit() && !playable.length && canDrawCard()) {
     drawnCard = drawOne(player);
     draws += drawnCard ? 1 : 0;
     playable = legalCards(player);
@@ -593,7 +596,7 @@ function renderSetupPanel() {
   }
   els.setupSummary.innerHTML = `
     <strong>${escapeHtml(state.players.map((player) => player.name).join(" vs "))}</strong>
-    <span>${state.players.length} players • Target ${state.targetScore}</span>
+    <span>${state.players.length} players • Target ${state.targetScore} • ${state.drawRule === "one" ? "Draw one" : "Draw up to five"}</span>
   `;
 }
 
@@ -695,7 +698,7 @@ function renderPiles() {
     && !state.dealAnimationActive
     && !state.pendingEightCardId
     && !legalCards(humanPlayer()).length
-    && state.drawsThisTurn < MAX_DRAWS_PER_TURN
+    && state.drawsThisTurn < drawLimit()
     && canDrawCard();
   els.drawPileBtn.disabled = !canHumanDraw;
   els.drawPileCount.textContent = String(state.drawPile.length);
@@ -734,14 +737,14 @@ function renderActionControls() {
   }
   if (state.stage === "playing" && isHumanTurn()) {
     const canPlay = legalCards(humanPlayer()).length > 0;
-    const canDraw = !canPlay && state.drawsThisTurn < MAX_DRAWS_PER_TURN && canDrawCard();
+    const canDraw = !canPlay && state.drawsThisTurn < drawLimit() && canDrawCard();
     const canPass = !canPlay && !state.pendingEightCardId && !canDraw && (state.drawsThisTurn > 0 || !canDrawCard());
     els.actionHint.textContent = state.pendingEightCardId
       ? "Pick the suit everyone must follow next."
       : canPlay
         ? "Play a highlighted card."
         : canDraw
-          ? `No play available. Draw up to ${MAX_DRAWS_PER_TURN - state.drawsThisTurn} more.`
+          ? `No play available. Draw up to ${drawLimit() - state.drawsThisTurn} more.`
           : "No play available after the draw limit. Pass to continue.";
     els.actionControls.innerHTML = `
       <button class="btn btn-primary" type="button" data-action="draw" ${!canDraw ? "disabled" : ""}>Draw Card</button>
@@ -762,7 +765,7 @@ function renderActionControls() {
 function renderHumanHand() {
   const player = humanPlayer();
   els.suitControls.hidden = !state.pendingEightCardId || !isHumanTurn();
-  els.passTurnBtn.hidden = !(state.stage === "playing" && isHumanTurn() && !legalCards(player).length && !state.pendingEightCardId && (state.drawsThisTurn >= MAX_DRAWS_PER_TURN || !canDrawCard()));
+  els.passTurnBtn.hidden = !(state.stage === "playing" && isHumanTurn() && !legalCards(player).length && !state.pendingEightCardId && (state.drawsThisTurn >= drawLimit() || !canDrawCard()));
   els.nextRoundBtn.hidden = state.stage !== "roundOver";
   if (!player) {
     els.handSummary.textContent = "Start a game to see your cards.";
@@ -976,6 +979,7 @@ function sessionSnapshot() {
     currentSuit: state.currentSuit,
     pendingEightCardId: state.pendingEightCardId,
     drawsThisTurn: state.drawsThisTurn,
+    drawRule: state.drawRule,
     roundHistory: state.roundHistory,
     historySortDir: state.historySortDir,
     setupBotNames: state.setupBotNames,
@@ -1008,10 +1012,12 @@ function restoreSessionSnapshot(snapshot) {
   state.discardPile = Array.isArray(snapshot.discardPile) ? snapshot.discardPile : [];
   state.currentSuit = SUITS.includes(snapshot.currentSuit) ? snapshot.currentSuit : topDiscard()?.suit || null;
   state.pendingEightCardId = typeof snapshot.pendingEightCardId === "string" ? snapshot.pendingEightCardId : null;
+  state.drawRule = snapshot.drawRule === "one" ? "one" : "five";
+  document.getElementById("drawRule").value = state.drawRule;
   state.drawsThisTurn = clampInteger(
     snapshot.drawsThisTurn ?? (snapshot.drewThisTurn ? 1 : 0),
     0,
-    MAX_DRAWS_PER_TURN,
+    drawLimit(),
     0,
   );
   state.dealAnimationActive = false;
@@ -1050,7 +1056,7 @@ function validAutosave(s) {
       !integer(s.playerCount, 2, 4) || !Array.isArray(s.players) || s.players.length !== s.playerCount ||
       !integer(s.roundNumber, 1, 999) || !integer(s.targetScore, 25, 500) ||
       !integer(s.currentPlayerIndex, 0, s.playerCount - 1) ||
-      !integer(s.drawsThisTurn, 0, MAX_DRAWS_PER_TURN) ||
+      !integer(s.drawsThisTurn, 0, drawLimit(s.drawRule)) ||
       !["playing", "roundOver", "gameOver"].includes(s.stage) || !SUITS.includes(s.currentSuit) ||
       !Array.isArray(s.drawPile) || !Array.isArray(s.discardPile) || !s.discardPile.length ||
       !Array.isArray(s.roundHistory)) return false;

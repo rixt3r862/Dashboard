@@ -25,6 +25,8 @@ function table(saved = new Map(), failWrites = false) {
   const context = vm.createContext({ window, localStorage, document: { getElementById: node },
     setTimeout: window.setTimeout, clearTimeout: window.clearTimeout });
   vm.runInContext(source.slice(0, source.lastIndexOf("\nrenderBotNameFields();")), context);
+  vm.runInContext(readFileSync(new URL("../shared/last-trick.js", import.meta.url), "utf8"), context);
+  vm.runInContext("window.LastTrick.render = () => {}", context);
   const run = expression => vm.runInContext(expression, context);
   // Exercise real state transitions, snapshots, and timers; omit visual DOM rendering.
   run(`renderBotNameFields = () => {};
@@ -40,6 +42,18 @@ function table(saved = new Map(), failWrites = false) {
     flush() { const item = timers.entries().next().value; if (item) { timers.delete(item[0]); item[1](); } return !!item; },
   };
 }
+
+test("last trick survives recovery and clears on the next hand", () => {
+  const first = table(); first.deal();
+  first.run('state.trick = state.players.map((player, playerIndex) => ({ playerIndex, card: player.hand.shift() })); beginTrickPause();');
+  const expected = first.snapshot().lastTrick;
+  assert.equal(expected.plays.length, 4);
+  const next = table(first.saved);
+  assert.equal(next.run("restoreAutosave()"), true);
+  assert.deepEqual(next.snapshot().lastTrick, expected);
+  next.run("dealHand()");
+  assert.equal(next.snapshot().lastTrick, null);
+});
 
 test("passing selections, names, scores and difficulty survive a fresh page", () => {
   const first = table(); first.deal();

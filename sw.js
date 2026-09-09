@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v150";
+const VERSION = "dashboard-v160";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -46,6 +46,7 @@ const CORE_ASSETS = [
   "./SkipBo/skipbo.js",
   "./SkipBo/discard-dialog.mjs",
   "./SkipBo/engine.mjs",
+  "./SkipBo/hints.mjs",
   "./SkipBo/motion.mjs",
   "./SkipBo/icon.svg",
   "./SkipBo/cards/0.svg",
@@ -64,6 +65,7 @@ const CORE_ASSETS = [
   "./SkipBo/cards/back.svg",
   "./shared/game-room.css",
   "./shared/game-room.js",
+  "./shared/last-trick.js",
   "./TimeTools/index.html",
   "./Phase10/index.html",
   "./Phase10/phase10.css",
@@ -88,6 +90,7 @@ const CORE_ASSETS = [
   "./ScoreKeeper/SK.js",
   "./ScoreKeeper/js/config.js",
   "./ScoreKeeper/js/history.js",
+  "./ScoreKeeper/js/roster.mjs",
   "./ScoreKeeper/js/inputUx.js",
   "./ScoreKeeper/js/roundEntry.js",
   "./ScoreKeeper/js/rules.mjs",

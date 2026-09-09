@@ -255,6 +255,7 @@ function resetState() {
   state.stage = "setup";
   state.currentPlayerIndex = 0;
   state.trickNumber = 1;
+  state.lastTrick = null;
   state.trick = [];
   state.tramClaimTimer = null;
   state.dealAnimationActive = false;
@@ -403,6 +404,7 @@ function dealHand() {
   state.players.forEach((player) => sortHand(player.hand));
   state.trick = [];
   state.trickNumber = 1;
+  state.lastTrick = null;
   state.dealAnimationActive = true;
   state.passingOutIds = [];
   state.passingOutDirection = "";
@@ -760,6 +762,7 @@ function beginTrickPause() {
   const winner = currentTrickWinner();
   const cards = state.trick.map((play) => play.card);
   const points = trickPointValue(cards);
+  state.lastTrick = { number: state.trickNumber, winnerIndex: winner.playerIndex, points, plays: cloneJson(state.trick) };
   state.stage = "trick-complete";
   state.currentPlayerIndex = winner.playerIndex;
   state.pendingTrickWinnerIndex = winner.playerIndex;
@@ -1165,6 +1168,7 @@ function sessionSnapshot() {
     currentPlayerIndex: state.currentPlayerIndex,
     trickNumber: state.trickNumber,
     trick: state.trick,
+    lastTrick: state.lastTrick || null,
     heartsBroken: state.heartsBroken,
     selectedPassIds: state.selectedPassIds,
     passedToHumanIds: state.passedToHumanIds,
@@ -1220,6 +1224,7 @@ function restoreSessionSnapshot(snapshot) {
     currentPlayerIndex: Number(snapshot.currentPlayerIndex) || 0,
     trickNumber: Number(snapshot.trickNumber) || 1,
     trick: snapshot.trick || [],
+    lastTrick: window.LastTrick?.restore(snapshot.lastTrick) || null,
     trickPauseTimer: null,
     trickCollectTimer: null,
     dealAnimationTimer: null,
@@ -1853,6 +1858,7 @@ function scoreKeeperPayloadFromRounds(options = {}) {
 }
 
 function render() {
+  window.LastTrick?.render(state.lastTrick, state.players, renderCard, escapeHtml);
   renderSetupPanel();
   renderStatus();
   renderSessionControls();

@@ -125,3 +125,10 @@ button.btn:disabled { cursor: default; }
     margin-bottom: 0.25rem;
   }
 }
+/* Read-only trick review stays separate from the active table cards. */
+#lastTrickReview { width:100%; margin-top:12px; }
+#lastTrickReview summary { cursor:pointer; padding:8px; }
+.last-trick-plays { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.last-trick-plays > div { min-width:0; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.last-trick-plays > div > span:last-child { overflow-wrap:anywhere; text-align:center; }
+.last-trick-plays .playing-card { max-width:100%; }

@@ -211,6 +211,7 @@ function resetState() {
   state.stage = "setup";
   state.currentPlayerIndex = 0;
   state.trickNumber = 1;
+  state.lastTrick = null;
   state.trick = [];
   state.pendingTrickTimer = null;
   state.trickCollectTimer = null;
@@ -284,6 +285,7 @@ function dealHand() {
   state.dealAnimationActive = true;
   state.playingToTableIds = [];
   state.trickNumber = 1;
+  state.lastTrick = null;
   state.spadesBroken = false;
   state.notice = "Bid your hand. Your partner is across the table.";
   state.currentPlayerIndex = (state.dealerIndex + 1) % 4;
@@ -406,6 +408,7 @@ function playCard(playerIndex, card) {
 function completeTrick() {
   const winnerIndex = trickWinnerIndex(state.trick);
   const winner = state.players[winnerIndex];
+  state.lastTrick = { number: state.trickNumber, winnerIndex, plays: cloneJson(state.trick) };
   winner.tricks += 1;
   state.currentPlayerIndex = winnerIndex;
   state.pendingTrickWinnerIndex = winnerIndex;
@@ -761,6 +764,7 @@ function sessionSnapshot() {
     currentPlayerIndex: state.currentPlayerIndex,
     trickNumber: state.trickNumber,
     trick: state.trick,
+    lastTrick: state.lastTrick || null,
     spadesBroken: state.spadesBroken,
     handHistory: state.handHistory,
     historySortDir: state.historySortDir,
@@ -802,6 +806,7 @@ function restoreSessionSnapshot(snapshot) {
   state.stage = ["setup", "bidding", "playing", "trick-complete", "trick-collecting", "hand-end", "game-end"].includes(payload.stage) ? payload.stage : "playing";
   state.currentPlayerIndex = clampInteger(payload.currentPlayerIndex, 0, 3, 0);
   state.trickNumber = clampInteger(payload.trickNumber, 1, 13, 1);
+  state.lastTrick = window.LastTrick?.restore(payload.lastTrick) || null;
   state.trick = Array.isArray(payload.trick) ? payload.trick : [];
   state.pendingTrickWinnerIndex = null;
   state.dealAnimationActive = false;
@@ -1108,6 +1113,7 @@ function showSessionStatus(message) {
 }
 
 function render() {
+  window.LastTrick?.render(state.lastTrick, state.players, renderCard, escapeHtml);
   renderSetupPanel();
   renderStatus();
   renderSessionControls();
@@ -1324,7 +1330,11 @@ function renderHistory() {
       <strong>${entry.handNumber}</strong>
       ${state.teams.map((team) => {
         const historyTeam = (entry.teams || []).find((entryTeam) => entryTeam.id === team.id) || {};
-        return `<span class="history-score-line">${spadesHistoryScoreLine(historyTeam)}</span>`;
+        const players = (entry.players || []).filter(player => (historyTeam.members || team.members).includes(player.id));
+        return `<details class="history-score-line"><summary>${numericHistoryValue(historyTeam.roundScore)} points</summary>
+          <p>${spadesHistoryScoreLine(historyTeam)}</p>
+          ${players.map(player => `<p>${escapeHtml(player.name)}: ${player.nilBid ? "Nil" : numericHistoryValue(player.bid)} bid, ${numericHistoryValue(player.tricks)} taken</p>`).join("")}
+        </details>`;
       }).join("")}
     </div>
   `).join("")}`;

@@ -55,6 +55,11 @@
                   <label class="field">
                     <span>Target score</span>
                     <input id="targetScore" type="number" min="25" max="500" step="5" inputmode="numeric" value="100" />
+                    <label for="drawRule">Draw rule</label>
+                    <select id="drawRule">
+                      <option value="five">Draw up to five</option>
+                      <option value="one">Draw one</option>
+                    </select>
                   </label>
                 </div>
                 <div id="botNameFields" class="bot-name-grid" aria-label="Bot names"></div>
@@ -140,8 +145,8 @@
               <li>Five cards are dealt to every player.</li>
               <li>Play by matching the current suit or rank.</li>
               <li>8s are wild and declare the next suit.</li>
-              <li>If blocked, draw up to five cards until you can play.</li>
-              <li>Pass only after five draws or when the draw pile is exhausted.</li>
+              <li>If blocked, draw until you can play or reach the selected draw limit.</li>
+              <li>Pass only after reaching that limit or when no cards can be drawn.</li>
               <li>The round ends when a player empties their hand.</li>
               <li>The round winner scores all opponents' hand points.</li>
             </ul>

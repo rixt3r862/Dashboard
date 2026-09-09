@@ -32,16 +32,16 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 23. URL Tool parsed fields and individual copy actions.
 - [x] 24. QR Tool bundled libraries and offline verification.
 - [x] 25. QR Tool Wi-Fi/contact templates and output sizing.
-- [ ] 26. ScoreKeeper earlier-round editing and recalculation.
-- [ ] 27. ScoreKeeper reusable player roster.
-- [ ] 28. Hearts last-trick review.
-- [ ] 29. Spades last-trick review and scoring breakdowns.
-- [ ] 30. Crazy 8s named draw-rule setting.
-- [ ] 31. Phase 10 meld selection feedback and invalid-group explanations.
-- [ ] 32. 5 Crowns meld selection feedback and invalid-group explanations.
-- [ ] 33. SkyJo phone action placement and final-turn status.
-- [ ] 34. Skip-Bo hint explanations.
-- [ ] 35. Final integration checks, remaining high-value tests, and Dashboard re-evaluation.
+- [x] 26. ScoreKeeper earlier-round editing and recalculation.
+- [x] 27. ScoreKeeper reusable player roster.
+- [x] 28. Hearts last-trick review.
+- [x] 29. Spades last-trick review and scoring breakdowns.
+- [x] 30. Crazy 8s named draw-rule setting.
+- [x] 31. Phase 10 meld selection feedback and invalid-group explanations.
+- [x] 32. 5 Crowns meld selection feedback and invalid-group explanations.
+- [x] 33. SkyJo phone action placement and final-turn status.
+- [x] 34. Skip-Bo hint explanations.
+- [x] 35. Final integration checks, remaining high-value tests, and Dashboard re-evaluation.
 
 ## Session Log
 
@@ -357,3 +357,93 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
   remains outstanding; Playwright is not installed in this checkout.
 - Sessions 22-25 are local and pending user-requested commit/push.
 - Next: session 26, ScoreKeeper earlier-round editing and recalculation.
+
+### Session 26
+
+- Existing history already supports earlier-round editing and score/winner replay.
+  Hardened that workflow with strict integer validation and atomic round updates;
+  missing SkyJo/Phase 10 metadata cannot partially change a saved round.
+- Recalculation preserves the current score-entry draft. Historical validation
+  uses participation in that round, not today's active-player list.
+- Switching edited rounds asks before discarding changes; resize no longer rebuilds
+  an active editor and erases its unsaved inputs.
+
+### Session 27
+
+- Added explicit Save Player Names, name-field roster suggestions, and confirmed
+  removal from a separate device-local roster. Existing games are not renamed.
+- Names are trimmed/deduplicated; corrupt or unavailable storage is preserved and
+  reported. Roster changes refresh across tabs and are included in offline assets.
+- Validation: all 151 project tests passed, including history correction/winner
+  replay, free play, rejected partial edits, and roster persistence/failure checks.
+  Desktop Chrome setup layout verified in a private window without altering saved
+  games; mobile and full browser interaction verification remain outstanding.
+- Sessions 22-25 were pushed as 74a3e9d. Sessions 26-27 are local, pending push.
+- Next: session 28, Hearts last-trick review.
+
+### Session 28
+
+- Hearts retains the last completed trick, including played cards, player names,
+  winner, trick number, and penalty points, in an expandable read-only review.
+- Review survives autosave/session recovery and clears on the next hand or reset.
+  Older saves without review data remain compatible.
+
+### Session 29
+
+- Spades uses the same last-trick review and recovery behavior.
+- Hand history now offers expandable team scoring breakdowns plus each member's
+  bid/nil declaration and tricks taken, using existing recorded scoring data.
+- Review is outside the positioned playing area to avoid overlapping live cards.
+
+### Session 30
+
+- Added named Draw up to five (existing default) and Draw one setup options.
+  Both human and bot turns, pass eligibility, and draw controls use the same limit.
+- Games retain the chosen rule through rounds, same-player restarts, autosave,
+  and session export/import. Legacy saves default to five draws.
+- Validation: all 156 tests passed, including last-trick recovery/clearing,
+  scoring breakdowns, draw-rule persistence/legacy fallback, and human/bot limits.
+  Diff checks passed. Browser visual and mobile interaction checks remain outstanding.
+- Sessions 26-30 are local and pending user-requested commit/push.
+- Next: session 31, Phase 10 meld feedback.
+
+### Session 31
+
+- Selected phase paths highlight their cards and announce missing group
+  requirements or readiness. Feedback expires when the hand changes.
+- Incomplete-phase actions explain their state. Phone cards, actions, and path
+  feedback now occupy a single scrolling column without the overlapping dock.
+
+### Session 32
+
+- Added explicit Check Meld mode with non-discarding card selection, visible
+  selection outlines, Clear Selection, and accessible status feedback.
+- Uses existing game rules to identify valid books/runs or explain minimum size,
+  mixed suits, duplicate natural ranks, and insufficient wild-card gap coverage.
+
+### Session 33
+
+- Portrait table-card controls sit immediately after the human grid for all player
+  counts and reposition on resize. Fixed the desktop grid overriding phone sizing.
+- Final-turn status lists remaining players and turn count with live announcements.
+
+### Session 34
+
+- Skip-Bo hints explain stock reduction, exposed-stock setup, discard access,
+  wild values, and discard placement. Discard hints explicitly warn of turn end.
+- Hints remain read-only and retain the existing engine and themed confirmation.
+
+### Session 35
+
+- All 160 automated tests passed; service-worker core paths exist; diff checks pass.
+- Chromium loaded all 22 catalog entry URLs at desktop and phone widths with no
+  page exceptions, failed local assets, broken images, or entry-page overflow.
+- Active-game browser checks covered new meld controls, final-turn status, phone
+  placement, and trick review. Addressed Phase 10/SkyJo layout issues and a Spades
+  full-hand grid sizing issue found in those checks.
+- QR generation succeeded on an offline browser reload with the real service
+  worker. The isolated harness registered it explicitly because normal localhost
+  development deliberately disables service-worker caching.
+- Re-evaluation is recorded in DASHBOARD_REEVALUATION.md, including remaining
+  real-device, full-playthrough, audio/camera, and accessibility verification gaps.
+- No numbered sessions remain. Sessions 26-35 are local and pending push.
