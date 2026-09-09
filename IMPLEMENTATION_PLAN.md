@@ -20,12 +20,12 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 11. Standardize game controls while preserving individual designs.
 - [x] 12. CashBox amount validation, naming, and reset protection.
 - [x] 13. CashBox named deposit history and CSV export.
-- [ ] 14. Notepad previous-version recovery and replace/append import.
-- [ ] 15. Notepad named notes.
-- [ ] 16. Timer countdown persistence and alarm initialization.
-- [ ] 17. Timer named presets.
-- [ ] 18. Clock fullscreen, date, screen-awake control, and second timezone.
-- [ ] 19. Time Helper AM/PM selection and compact reference material.
+- [x] 14. Notepad previous-version recovery and replace/append import.
+- [x] 15. Notepad named notes.
+- [x] 16. Timer countdown persistence and alarm initialization.
+- [x] 17. Timer named presets.
+- [x] 18. Clock fullscreen, date, screen-awake control, and second timezone.
+- [x] 19. Time Helper AM/PM selection and compact reference material.
 - [ ] 20. Time Unit Converter precision, copying, and remembered unit pairs.
 - [ ] 21. Unit Converter favorites and configurable precision.
 - [ ] 22. Date Math local today, inclusive counting, and weekday calculations.
@@ -237,3 +237,71 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
   and totals layout. Mobile and print-preview verification remain outstanding.
 - Sessions 12-13 form a combined commit/push checkpoint.
 - Next: session 14, Notepad previous-version recovery and replace/append import.
+
+### Session 14
+
+- Added Recover Previous with confirmation; recovery swaps the current note into
+  the recovery slot. Ordinary autosave preserves the first editing checkpoint for
+  the page visit instead of replacing it on every keystroke.
+- Clear and import preserve current text (including unsaved edits) before changing
+  the editor. Storage failure leaves the current note untouched.
+- Import now offers Cancel, Append, or Replace in a themed dialog, accepts files
+  up to 2 MB, and refreshes note statistics after changes.
+- Existing draft and metadata keys remain compatible; recovery uses a separate key.
+- Validation: all 129 tests passed, including six recovery/storage tests; inline
+  script syntax and diff checks passed. Browser visual verification is outstanding.
+- Session 14 is included in the combined sessions 14-19 checkpoint.
+- Next: session 15, Notepad named notes.
+
+### Session 15
+
+- Added named-note snapshots with New Note, Save Note, a saved-note selector,
+  Load, and Delete. Existing names require confirmation before replacement.
+- Loading and starting a blank draft use previous-version recovery; editing the
+  draft never silently updates a named note. Deletion preserves the current draft.
+- Separate storage preserves existing drafts and recovery; corrupt data and failed
+  writes report errors without replacing stored notes. Lists refresh across tabs.
+- Validation: all 132 tests passed, including three named-note workflow tests;
+  diff check passed. Browser visual verification remains outstanding.
+- Sessions 14-15 are included in the combined sessions 14-19 checkpoint.
+- Next: session 16, Timer persistence and alarm initialization.
+
+### Session 16
+
+- Timer persists a wall-clock deadline or paused remainder, duration, and status.
+  Refresh restores progress; expired timers show completion without replaying an alarm.
+- Start initializes reusable Web Audio, with Test Alarm for explicit sound setup.
+  Audio failures are reported; removed the full-screen completion flash.
+- Duration validation supports 1 second through 24 hours. Keyboard shortcuts ignore
+  editable controls, and countdown duration fields are locked while active.
+- Closed/suspended browser tabs cannot reliably sound alarms; reopening reflects expiry.
+
+### Session 17
+
+- Added named presets with save, confirmed overwrite/delete, and explicit loading.
+  Loading does not start a timer; replacing an active countdown requires confirmation.
+- Presets use separate storage and synchronize across tabs; corrupt storage is retained.
+- Validation: all 137 tests passed, including five Timer workflow tests; diff check
+  passed. Browser visual and actual audio verification remain outstanding.
+- Sessions 14-17 are included in the combined sessions 14-19 checkpoint.
+- Next: session 18, Clock display and timezone features.
+
+### Session 18
+
+- Added saved date visibility and second timezone using browser timezone formatting,
+  including the secondary date and existing 12/24-hour and seconds settings.
+- Added fullscreen and an explicit screen-awake request, with unsupported/failed
+  requests reported. Wake locks release when leaving and reacquire on visibility
+  return when still requested; screen-awake intent is not persisted.
+- Clock text fits its available width; removed repetitive live announcements.
+
+### Session 19
+
+- Added AM/PM selection to the reverse converter while preserving existing input
+  formats and PM default. Midnight/noon and seconds convert correctly.
+- Removed PM-only assumptions and redundant explanatory blocks; moved Quick
+  Reference into a compact expandable section.
+- Validation: all 140 tests passed, including three Clock/Time Helper tests.
+  Browser visual, actual fullscreen, and device wake-lock checks remain outstanding.
+- Sessions 14-19 form a combined commit/push checkpoint; all 140 tests passed.
+- Next: session 20, Time Unit Converter precision, copying, and remembered pairs.

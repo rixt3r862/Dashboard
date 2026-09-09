@@ -251,11 +251,11 @@
     <div class="grid">
       <section class="card">
         <label for="mins">Duration</label>
-        <div class="inputs" aria-describedby="durationHelp">
+        <div class="inputs" >
           <div class="unit"><input id="mins" type="number" min="0" step="1" value="0" inputmode="numeric" aria-label="Minutes"><span>min</span></div>
           <div class="unit"><input id="secs" type="number" min="0" max="59" step="1" value="30" inputmode="numeric" aria-label="Seconds"><span>sec</span></div>
         </div>
-        <div id="durationHelp" class="sub" style="margin-top:8px">Tip: use presets below for quick starts.</div>
+
         <div class="presets" style="margin-top:12px">
           <button class="preset" data-sec="10">10s</button>
           <button class="preset" data-sec="30">30s</button>
@@ -276,7 +276,7 @@
     </div>
 
     <section class="card" style="margin-top:16px">
-      <div class="progress-wrap" aria-live="polite">
+      <div class="progress-wrap">
         <div class="meta">
           <div>Progress: <strong id="percentLabel">0%</strong></div>
           <div>Remaining: <strong id="remainingLabel">00:30</strong></div>
@@ -288,193 +288,31 @@
       </div>
     </section>
 
-    <footer>
-      Keyboard: Space to start/pause, R to reset. Works offline. Accessible labels included.
-    </footer>
+    <section class="timer-presets">
+      <h2>Named Presets</h2>
+      <div class="preset-controls">
+        <label>Name <input id="presetName" maxlength="80" type="text"></label>
+        <button id="savePreset" type="button">Save Preset</button>
+        <label>Saved presets <select id="savedPresets"><option value="">Choose a preset</option></select></label>
+        <button id="loadPreset" type="button" disabled>Load</button>
+        <button id="deletePreset" type="button" disabled>Delete</button>
+      </div>
+      <p id="presetStatus" role="status" aria-live="polite"></p>
+    </section>
+    <div class="btns"><button id="testAlarm" type="button" class="secondary">Test Alarm</button></div>
+    <p id="timerStatus" role="status" aria-live="polite"></p>
   </div>
 
-  <script>
-    const $ = (sel) => document.querySelector(sel);
-    const mins = $('#mins');
-    const secs = $('#secs');
-    const timeLabel = $('#timeLabel');
-    const percentLabel = $('#percentLabel');
-    const remainingLabel = $('#remainingLabel');
-    const bar = $('#bar');
-    const startBtn = $('#startBtn');
-    const pauseBtn = $('#pauseBtn');
-    const resetBtn = $('#resetBtn');
-    const progressEl = document.querySelector('.progress');
-    const ring = document.querySelector('.ring');
-
-    let totalMs = getTotalMs();
-    let startTime = null;
-    let rafId = null;
-    let pausedAccum = 0;
-    let running = false;
-    let completed = false;
-
-    function pad(n){ return String(n).padStart(2,'0'); }
-    function fmt(ms){
-      ms = Math.max(0, ms);
-      const s = Math.ceil(ms/1000);
-      const m = Math.floor(s / 60);
-      const r = s % 60;
-      return `${pad(m)}:${pad(r)}`;
-    }
-    function getTotalMs(){
-      const m = Math.max(0, parseInt(mins.value||0,10));
-      const s = Math.max(0, Math.min(59, parseInt(secs.value||0,10)));
-      return (m*60 + s) * 1000;
-    }
-    function setTotalFromSeconds(sec){
-      sec = Math.max(0, Math.floor(sec));
-      mins.value = Math.floor(sec/60);
-      secs.value = Math.floor(sec%60);
-      totalMs = getTotalMs();
-      updateStaticLabels();
-    }
-
-    function updateStaticLabels(){
-      totalMs = getTotalMs();
-      timeLabel.textContent = fmt(totalMs);
-      remainingLabel.textContent = fmt(totalMs);
-      percentLabel.textContent = '0%';
-      bar.style.width = '0%';
-      progressEl.setAttribute('aria-valuenow', '0');
-      ring.style.setProperty('--angle', '0deg');
-      document.title = '⏳ Progress Bar Timer';
-    }
-
-    function tick(){
-      const now = performance.now();
-      const elapsed = (now - startTime) + pausedAccum;
-      const pct = Math.min(100, (elapsed / totalMs) * 100);
-      const remain = Math.max(0, totalMs - elapsed);
-
-      percentLabel.textContent = `${pct.toFixed(0)}%`;
-      remainingLabel.textContent = fmt(remain);
-      bar.style.width = `${pct}%`;
-      progressEl.setAttribute('aria-valuenow', pct.toFixed(0));
-      ring.style.setProperty('--angle', `${pct * 3.6}deg`);
-      timeLabel.textContent = fmt(remain);
-      document.title = (running? '▶️':'⏸️') + ` ${fmt(remain)} • Timer`;
-
-      if (pct >= 100) {
-        finish();
-        return;
-      }
-      rafId = requestAnimationFrame(tick);
-    }
-
-    function start(){
-      totalMs = getTotalMs();
-      if (!totalMs) return;
-      if (completed) { reset(true); }
-      startTime = performance.now();
-      running = true; completed = false;
-      startBtn.textContent = 'Resume';
-      startBtn.disabled = true; // once started, enable via pause
-      pauseBtn.disabled = false;
-      resetBtn.disabled = false;
-      rafId = requestAnimationFrame(tick);
-    }
-
-    function pause(){
-      if (!running) return;
-      running = false;
-      cancelAnimationFrame(rafId);
-      const now = performance.now();
-      pausedAccum += (now - startTime);
-      startBtn.disabled = false;
-      pauseBtn.disabled = true;
-    }
-
-    function reset(soft=false){
-      running = false; completed = false;
-      cancelAnimationFrame(rafId);
-      startTime = null; pausedAccum = 0;
-      if (!soft) updateStaticLabels(); else {
-        // soft reset keeps current duration
-        percentLabel.textContent = '0%';
-        remainingLabel.textContent = fmt(getTotalMs());
-        timeLabel.textContent = fmt(getTotalMs());
-        bar.style.width = '0%';
-        progressEl.setAttribute('aria-valuenow', '0');
-        ring.style.setProperty('--angle', '0deg');
-      }
-      startBtn.textContent = 'Start';
-      startBtn.disabled = false;
-      pauseBtn.disabled = true;
-      resetBtn.disabled = true;
-      document.title = '⏳ Progress Bar Timer';
-    }
-
-    function finish(){
-      running = false; completed = true;
-      cancelAnimationFrame(rafId);
-      percentLabel.textContent = '100%';
-      remainingLabel.textContent = '00:00';
-      timeLabel.textContent = 'Done';
-      bar.style.width = '100%';
-      progressEl.setAttribute('aria-valuenow', '100');
-      ring.style.setProperty('--angle', `360deg`);
-      pauseBtn.disabled = true;
-      startBtn.disabled = false; // allow restart
-      startBtn.textContent = 'Start';
-      notify();
-      document.title = '✅ Timer complete';
-    }
-
-    function notify(){
-      // Vibrate (if supported)
-      if (navigator.vibrate) {
-        try { navigator.vibrate([120, 80, 120]); } catch {}
-      }
-      // Beep using WebAudio (no external file)
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.value = 880; // A5
-        o.connect(g); g.connect(ctx.destination);
-        g.gain.setValueAtTime(0.0001, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
-        o.start(); o.stop(ctx.currentTime + 0.26);
-      } catch {}
-      // Screen flash accent
-      document.body.animate([
-        { filter:'brightness(1)' },
-        { filter:'brightness(1.6)' },
-        { filter:'brightness(1)' }
-      ], { duration: 500, easing: 'ease-out' });
-    }
-
-    // Event wiring
-    document.addEventListener('keydown', (e)=>{
-      if (e.code === 'Space') { e.preventDefault(); running ? pause() : start(); }
-      if (e.key.toLowerCase() === 'r') { reset(); }
-    });
-
-    startBtn.addEventListener('click', ()=> running ? start() : start());
-    pauseBtn.addEventListener('click', pause);
-    resetBtn.addEventListener('click', ()=> reset());
-
-    mins.addEventListener('change', ()=>{ if (!running) updateStaticLabels(); });
-    secs.addEventListener('change', ()=>{ if (!running) updateStaticLabels(); });
-
-    document.querySelectorAll('.preset').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const s = parseInt(btn.dataset.sec, 10) || 0;
-        setTotalFromSeconds(s);
-        reset(true);
-      });
-    });
-
-    // Initialize
-    updateStaticLabels();
-  </script>
+  <style>
+    .timer-presets { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--surface-border); }
+    .timer-presets h2 { font-size: 18px; margin: 0 0 12px; }
+    .preset-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+    .preset-controls label { display: grid; gap: 4px; flex: 1 1 160px; min-width: 0; }
+    .preset-controls input, .preset-controls select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 38px; font: inherit; }
+    #timerStatus, #presetStatus { overflow-wrap: anywhere; }
+    #timeLabel { font-size: 28px; }
+  </style>
+  <script src="./shared/timer-state.js"></script>
+  <script src="./shared/timer.js"></script>
 </body>
 </html>

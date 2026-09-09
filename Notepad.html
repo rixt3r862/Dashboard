@@ -306,6 +306,7 @@
           <button class="btn" id="importBtn" type="button">Import TXT</button>
           <button class="btn" id="exportBtn" type="button">Export TXT</button>
           <button class="btn" id="clearBtn" type="button">Clear</button>
+          <button class="btn" id="recoverBtn" type="button" disabled>Recover Previous</button>
           <button class="btn" id="decreaseTextBtn" type="button">A-</button>
           <button class="btn" id="increaseTextBtn" type="button">A+</button>
           <button class="btn" id="selectAllBtn" type="button">Select All</button>
@@ -317,6 +318,15 @@
         </div>
       </div>
 
+      <section class="named-notes" aria-label="Named notes">
+        <label>Note name <input id="noteName" maxlength="120" type="text" /></label>
+        <button class="btn" id="saveNamedNote" type="button">Save Note</button>
+        <button class="btn" id="newNamedNote" type="button">New Note</button>
+        <label>Saved notes <select id="namedNoteList"><option value="">Choose a note</option></select></label>
+        <button class="btn" id="loadNamedNote" type="button" disabled>Load</button>
+        <button class="btn" id="deleteNamedNote" type="button" disabled>Delete</button>
+        <p id="namedNoteStatus" role="status" aria-live="polite"></p>
+      </section>
       <div class="draft-bar" aria-live="polite">
         <div id="draftStatus" class="draft-status">Autosave ready.</div>
         <div class="draft-meta">
@@ -344,6 +354,30 @@
         autocorrect="on"
       ></textarea>
     </main>
+    <dialog id="importDialog" aria-labelledby="importTitle" aria-describedby="importDescription">
+      <h2 id="importTitle">Import Text</h2>
+      <p id="importDescription"></p>
+      <div class="import-actions">
+        <button class="btn" id="cancelImport" type="button" autofocus>Cancel</button>
+        <button class="btn" id="appendImport" type="button">Append</button>
+        <button class="btn" id="replaceImport" type="button">Replace</button>
+      </div>
+    </dialog>
+    <style>
+      #importDialog { box-sizing: border-box; width: min(460px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid #71717a; border-radius: 8px; padding: 24px; background: #fafafa; color: #18181b; }
+      #importDialog::backdrop { background: #0009; }
+      #importDialog h2 { font-size: 22px; margin: 0 0 12px; }
+      .named-notes { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 12px 0; border-bottom: 1px solid #71717a; }
+      .named-notes label { display: grid; gap: 4px; font-size: 13px; flex: 1 1 180px; min-width: 0; }
+      .named-notes input, .named-notes select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 36px; font: inherit; padding: 6px; border: 1px solid #71717a; border-radius: 6px; }
+      .named-notes .btn { min-height: 36px; }
+      #namedNoteStatus { flex-basis: 100%; margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+      #importDescription { overflow-wrap: anywhere; }
+      .import-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+      :root[data-theme="dark"] #importDialog { background: #18181b; color: #fafafa; }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme]) #importDialog { background: #18181b; color: #fafafa; } }
+    </style>
+    <script src="./shared/notepad-storage.js"></script>
     <script>
       const pad = document.getElementById("pad");
       const importBtn = document.getElementById("importBtn");
@@ -382,6 +416,10 @@
         },
       ];
       let saveTimer = 0;
+      let checkpointed = false;
+      let pendingImport = null;
+      const recoverBtn = document.getElementById("recoverBtn");
+      const importDialog = document.getElementById("importDialog");
       let textSizeIndex = 1;
 
       function pluralize(count, singular, plural = `${singular}s`) {
@@ -454,10 +492,11 @@
 
       function saveDraft() {
         try {
-          localStorage.setItem(DRAFT_KEY, pad.value);
-          const meta = { savedAt: Date.now() };
-          localStorage.setItem(DRAFT_META_KEY, JSON.stringify(meta));
-          updateDraftSavedAt(meta.savedAt);
+          const previous = checkpointed ? undefined : localStorage.getItem(DRAFT_KEY);
+          const savedAt = NotepadStorage.save(localStorage, pad.value, previous ?? undefined);
+          if (previous !== pad.value) checkpointed = true;
+          updateDraftSavedAt(savedAt);
+          syncRecovery();
           setDraftStatus("Saved on this device.");
         } catch {
           setDraftStatus("Unable to save on this device.");
@@ -469,6 +508,7 @@
         window.clearTimeout(saveTimer);
         setDraftStatus("Saving...");
         saveTimer = window.setTimeout(() => {
+          saveTimer = 0;
           saveDraft();
         }, 220);
       }
@@ -526,12 +566,41 @@
           return;
         }
 
-        pad.value = "";
-        updateNoteStats();
-        saveDraft();
-        setDraftStatus("Note cleared.");
-        pad.focus();
+        replaceNote("", "Note cleared. Previous version is available.");
       }
+
+      function syncRecovery() {
+        try { recoverBtn.disabled = NotepadStorage.previous(localStorage) === null; }
+        catch { recoverBtn.disabled = true; }
+      }
+
+      function replaceNote(text, message) {
+        window.clearTimeout(saveTimer);
+        saveTimer = 0;
+        try {
+          const savedAt = NotepadStorage.save(localStorage, text, pad.value);
+          pad.value = text;
+          checkpointed = true;
+          updateDraftSavedAt(savedAt);
+          updateNoteStats();
+          syncRecovery();
+          setDraftStatus(message);
+          pad.focus();
+          return true;
+        } catch {
+          setDraftStatus("Unable to save the change. Current note was kept.");
+          return false;
+        }
+      }
+
+      recoverBtn.addEventListener("click", () => {
+        try {
+          const copy = NotepadStorage.previous(localStorage);
+          if (!copy) { syncRecovery(); return; }
+          if (!window.confirm("Recover the previous version? Your current note will become the recovery copy.")) return;
+          replaceNote(copy.text, "Previous version recovered.");
+        } catch { setDraftStatus("Unable to read the recovery copy."); }
+      });
 
       selectAllBtn.addEventListener("click", () => {
         pad.focus();
@@ -563,17 +632,28 @@
         const file = importFile.files && importFile.files[0];
         if (!file) return;
         try {
+          if (file.size > 2 * 1024 * 1024) throw new Error("File too large");
           const text = await file.text();
-          pad.value = text;
-          saveDraft();
-          setDraftStatus(`Imported ${file.name}.`);
-          pad.focus();
+          pendingImport = { text, name: file.name };
+          document.getElementById("importDescription").textContent = file.name + " — " + text.length + " characters";
+          importDialog.showModal();
+          document.getElementById("cancelImport").focus();
         } catch {
-          setDraftStatus("Unable to import that file.");
+          setDraftStatus("Unable to import that file. Choose a text file up to 2 MB.");
         } finally {
           importFile.value = "";
         }
       });
+
+      document.getElementById("cancelImport").onclick = () => importDialog.close();
+      importDialog.addEventListener("close", () => { pendingImport = null; importBtn.focus(); });
+      for (const mode of ["append", "replace"]) {
+        document.getElementById(mode + "Import").onclick = () => {
+          if (!pendingImport) return;
+          const text = mode === "append" ? NotepadStorage.append(pad.value, pendingImport.text) : pendingImport.text;
+          if (replaceNote(text, "Imported " + pendingImport.name + ".")) importDialog.close();
+        };
+      }
 
       exportBtn.addEventListener("click", exportTxt);
       clearBtn.addEventListener("click", clearNote);
@@ -600,7 +680,9 @@
 
       loadTextSizePreference();
       loadDraft();
+      syncRecovery();
       syncSpellToggleLabel();
     </script>
+    <script src="./shared/notepad-notes.js"></script>
   </body>
 </html>

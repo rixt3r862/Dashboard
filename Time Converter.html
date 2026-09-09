@@ -668,6 +668,12 @@
     }
   </style>
   <link rel="stylesheet" href="./shared/utility-shell.css" />
+<style>
+    .compact-reference { margin-top: 16px; border-top: 1px solid var(--line); padding: 12px 0; }
+    .compact-reference summary { cursor: pointer; font-weight: 600; }
+    .compact-reference .reference-grid { margin-top: 12px; }
+    #periodSelect { font: inherit; padding: 6px 10px; border-radius: 6px; }
+  </style>
 </head>
 <body class="utility-page">
   <nav class="utility-nav" aria-label="Utility navigation">
@@ -687,20 +693,14 @@
       <div class="hero-main">
         <div class="eyebrow">Time Tools</div>
         <h1>24h to 12h Time Helper</h1>
-        <p class="subtitle">
-          Convert in both directions from one page. The first field turns 24-hour time into
-          12-hour time, and the second assumes what you type is <strong>PM</strong> before
-          converting it into 24-hour format.
-        </p>
+
 
         <section class="converter-block converter-block-24">
           <div class="converter-header">
             <h2 class="section-title">24h to 12h</h2>
             <div class="converter-badge">24h -> 12h</div>
           </div>
-          <p class="section-copy">
-            Paste a 24-hour time and the helper will normalize it before converting it.
-          </p>
+
 
           <div class="input-wrap">
           <div>
@@ -735,18 +735,15 @@
 
         <section class="converter-block converter-block-pm">
           <div class="converter-header">
-            <h2 class="section-title">PM to 24-hour</h2>
-            <div class="converter-badge">PM -> 24h</div>
+            <h2 class="section-title">12h to 24h</h2>
+            <div class="converter-badge">12h -> 24h</div>
           </div>
-          <p class="section-copy">
-            This field assumes the time you enter is in the afternoon or evening. For example,
-            <strong>5</strong> becomes <strong>17:00</strong> and <strong>930</strong> becomes
-            <strong>21:30</strong>.
-          </p>
+
 
           <div class="input-wrap">
             <div>
-              <label for="pmInput">PM input</label>
+              <label for="pmInput">12-hour input</label>
+              <label for="periodSelect">Period <select id="periodSelect"><option value="AM">AM</option><option value="PM" selected>PM</option></select></label>
               <div class="field">
                 <input
                   id="pmInput"
@@ -757,20 +754,20 @@
                   spellcheck="false"
                   aria-describedby="pmStatusLine"
                 />
-                <div class="field-note">PM in</div>
+                <div class="field-note">12h in</div>
               </div>
             </div>
 
-            <div class="sample-row" aria-label="Common PM input examples">
-              <button class="sample" type="button" data-pm-value="5">5 <span>5 PM</span></button>
-              <button class="sample" type="button" data-pm-value="530">530 <span>5:30 PM</span></button>
-              <button class="sample" type="button" data-pm-value="9:05">9:05 <span>9:05 PM</span></button>
-              <button class="sample" type="button" data-pm-value="12">12 <span>12 PM</span></button>
-              <button class="sample" type="button" data-pm-value="12:45">12:45 <span>12:45 PM</span></button>
+            <div class="sample-row" aria-label="Common 12-hour input examples">
+              <button class="sample" type="button" data-pm-value="5">5</button>
+              <button class="sample" type="button" data-pm-value="530">530</button>
+              <button class="sample" type="button" data-pm-value="9:05">9:05</button>
+              <button class="sample" type="button" data-pm-value="12">12</button>
+              <button class="sample" type="button" data-pm-value="12:45">12:45</button>
             </div>
 
             <div class="status-line" id="pmStatusLine" aria-live="polite">
-              Enter a PM time to convert it into 24-hour format.
+              Enter a 12-hour time.
             </div>
           </div>
         </section>
@@ -792,73 +789,28 @@
 
         <div class="result-card result-card-pm" id="resultCardPm" aria-live="polite">
           <div class="result-label">
-            <span>24-hour PM result</span>
+            <span>24-hour result</span>
             <span id="copyPmState">Ready</span>
           </div>
           <div class="result-value" id="pmResultValue">--</div>
-          <div class="result-meta" id="pmResultMeta">We will treat your entry as PM and convert it to 24-hour time.</div>
+          <div class="result-meta" id="pmResultMeta"></div>
           <div class="result-actions">
             <button class="primary-btn" id="copyPmButton" type="button" disabled>Copy Result</button>
             <button class="secondary-btn" id="clearPmButton" type="button">Clear</button>
           </div>
         </div>
 
-        <div>
-          <h2>What it accepts</h2>
-          <p class="mini-copy">Use whichever format is fastest for you. The helper will clean it up and convert it.</p>
-          <div class="chip-row" aria-label="Accepted input formats">
-            <button class="chip" type="button" data-24-value="1717">1717</button>
-            <button class="chip" type="button" data-24-value="9:05">9:05</button>
-            <button class="chip" type="button" data-24-value="17.17">17.17</button>
-            <button class="chip" type="button" data-24-value="07:05:30">07:05:30</button>
-          </div>
-        </div>
-
-        <div class="mini-list">
-          <div class="mini-item">
-            <strong>00:00 -> 12:00 AM</strong>
-            <span>Midnight stays in the AM block.</span>
-          </div>
-          <div class="mini-item">
-            <strong>12:00 -> 12:00 PM</strong>
-            <span>Noon stays 12, but flips to PM.</span>
-          </div>
-        </div>
       </aside>
     </section>
 
-    <section class="panels">
-      <section class="panel">
-        <h2>Quick Reference</h2>
-        <p class="mini-copy">Tap any card to drop that time into the converter.</p>
-        <div class="reference-grid" id="referenceGrid"></div>
-      </section>
-
-      <section class="panel">
-        <h2>Fast Rules</h2>
-        <div class="mini-list" style="margin-top: 0.9rem;">
-          <div class="mini-item">
-            <strong>00:00 to 11:59</strong>
-            <span>These stay in <strong>AM</strong>.</span>
-          </div>
-          <div class="mini-item">
-            <strong>12:00 to 23:59</strong>
-            <span>These switch to <strong>PM</strong>.</span>
-          </div>
-          <div class="mini-item">
-            <strong>13:00 and up</strong>
-            <span>Subtract 12 from the hour for the 12-hour version.</span>
-          </div>
-        </div>
-        <p class="legend">
-          <strong>Tip:</strong> three digits like <strong>905</strong> are read as <strong>09:05</strong>,
-          and four digits like <strong>1717</strong> are read as <strong>17:17</strong>.
-        </p>
-      </section>
-    </section>
+    <details class="compact-reference">
+      <summary>Quick Reference</summary>
+      <div class="reference-grid" id="referenceGrid"></div>
+    </details>
   </main>
 
   <script>
+    const periodSelect = document.getElementById("periodSelect");
     const referenceTimes = [
       "00:00",
       "06:00",
@@ -992,7 +944,7 @@
         minute = Number(parts[1]);
       } else {
         return {
-          error: "Use H, HH, HMM, HHMM, H:MM, H.MM, or H:MM:SS. PM is assumed.",
+          error: "Use H, HH, HMM, HHMM, H:MM, H.MM, or H:MM:SS.",
         };
       }
 
@@ -1006,7 +958,7 @@
         (second !== null && (Number.isNaN(second) || second < 0 || second > 59))
       ) {
         return {
-          error: "Use a valid PM time from 1:00 PM through 12:59 PM.",
+          error: "Use an hour from 1 to 12 and minutes/seconds from 00 to 59.",
         };
       }
 
@@ -1030,7 +982,7 @@
     }
 
     function toPm24HourDisplay(parsed) {
-      const hour24 = parsed.hour === 12 ? 12 : parsed.hour + 12;
+      const hour24 = parsed.hour % 12 + (periodSelect.value === "PM" ? 12 : 0);
       const second =
         parsed.second === null ? "" : ":" + normalizeTwoDigits(parsed.second);
       return normalizeTwoDigits(hour24) + ":" + normalizeTwoDigits(parsed.minute) + second;
@@ -1039,7 +991,7 @@
     function toPmDisplay(parsed) {
       const second =
         parsed.second === null ? "" : ":" + normalizeTwoDigits(parsed.second);
-      return parsed.hour + ":" + normalizeTwoDigits(parsed.minute) + second + " PM";
+      return parsed.hour + ":" + normalizeTwoDigits(parsed.minute) + second + " " + periodSelect.value;
     }
 
     function setStatus(message, type) {
@@ -1099,7 +1051,7 @@
 
     async function copyPmResult() {
       await copyText(copyPmButton.dataset.value, copyPmState, function () {
-        setPmStatus("Copied the 24-hour PM result to your clipboard.", "success");
+        setPmStatus("Copied the 24-hour result to your clipboard.", "success");
       });
 
       if (copyPmState.textContent === "Copy failed") {
@@ -1177,11 +1129,11 @@
 
       if (parsed.empty) {
         pmResultValue.textContent = "--";
-        pmResultMeta.textContent = "We will treat your entry as PM and convert it to 24-hour time.";
+        pmResultMeta.textContent = "";
         copyPmButton.disabled = true;
         copyPmButton.dataset.value = "";
         lastAutoJumpPm = "";
-        setPmStatus("Enter a PM time to convert it into 24-hour format.");
+        setPmStatus("Enter a 12-hour time.");
         return;
       }
 
@@ -1202,7 +1154,7 @@
       const hasSeconds = parsed.second !== null;
 
       pmResultValue.textContent = converted;
-      pmResultMeta.textContent = "Assumed as " + assumedPm + ".";
+      pmResultMeta.textContent = "Read as " + assumedPm + ".";
       copyPmButton.disabled = false;
       copyPmButton.dataset.value = converted;
       setPmStatus(
@@ -1263,6 +1215,7 @@
       }
     });
 
+    periodSelect.addEventListener("change", renderPmConversion);
     pmInput.addEventListener("input", renderPmConversion);
     pmInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {

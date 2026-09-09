@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v141";
+const VERSION = "dashboard-v145";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -15,6 +15,11 @@ const CORE_ASSETS = [
   "./shared/category-launcher.css",
   "./shared/utility-shell.js",
   "./shared/cashbox.js",
+  "./shared/notepad-storage.js",
+  "./shared/notepad-notes.js",
+  "./shared/timer-state.js",
+  "./shared/timer.js",
+  "./shared/clock-extras.js",
   "./shared/cashbox-history.js",
   "./shared/utility-shell.css",
   "./img/dashboard-icon.svg",
