@@ -393,6 +393,14 @@
     }
   </style>
   <link rel="stylesheet" href="./shared/utility-shell.css" />
+<script src="./shared/converter-format.js"></script>
+<style>
+      .converter-options { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+      .converter-options label { display: flex; align-items: center; gap: 6px; }
+      .converter-options select, .converter-options input { font: inherit; min-height: 36px; max-width: 100%; }
+      .converter-options input { width: 65px; }
+      .converter-options button { min-height: 36px; font: inherit; }
+    </style>
 </head>
 <body class="utility-page">
   <nav class="utility-nav" aria-label="Utility navigation">
@@ -458,6 +466,15 @@
       </div>
     </section>
 
+    <div class="converter-options">
+      <label>Precision <select id="precisionMode"><option value="auto">Automatic</option><option value="decimal">Decimal places</option><option value="significant">Significant digits</option></select></label>
+      <label>Digits <input id="precisionDigits" type="number" min="0" max="12" step="1" value="2" disabled></label>
+    </div>
+    <div class="converter-options">
+      <button id="favoritePair" type="button" title="Favorite this unit pair" aria-label="Favorite this unit pair" aria-pressed="false">☆</button>
+      <label>Favorites <select id="favoritePairs"><option value="">Choose a pair</option></select></label>
+    </div>
+    <p id="favoriteStatus" role="status" aria-live="polite"></p>
     <section class="result" aria-live="polite">
       <div class="big" id="resultValue" role="button" tabindex="0" title="Click to copy result">-</div>
       <div class="small" id="resultMeta">Enter a value to convert.</div>
@@ -717,6 +734,8 @@
 
     function formatNumber(value) {
       if (!Number.isFinite(value)) return "-";
+      const mode=document.getElementById("precisionMode").value;
+      if(mode!=="auto")return ConverterFormat.format(value,mode,Number(document.getElementById("precisionDigits").value));
       const abs = Math.abs(value);
       if (abs >= 1e9 || (abs > 0 && abs < 1e-6)) return value.toExponential(6);
       return value.toLocaleString(undefined, { maximumFractionDigits: 8 });
@@ -1162,7 +1181,14 @@
 
       const output = convertValue(inputValue, fromKey, toKey, cat);
 
-      if (cat === CATEGORIES.temperature) {
+      if(!Number.isFinite(output)){
+        resultValueEl.textContent="Invalid number"; resultMetaEl.textContent="Result is outside the supported numeric range.";
+        clearLengthDualOutput(); return;
+      }
+      if(document.getElementById("precisionMode").value!=="auto"){
+        resultValueEl.textContent=formatNumber(output)+(cat===CATEGORIES.temperature?"\u00B0":"");
+        resultMetaEl.textContent=formatNumber(inputValue)+" "+cat.units[fromKey].label+" = "+formatNumber(output)+" "+cat.units[toKey].label;
+      } else if (cat === CATEGORIES.temperature) {
         const rounded = Math.round(output);
         resultValueEl.textContent = `${rounded}\u00B0`;
         resultMetaEl.textContent = `${formatNumber(inputValue)} ${cat.units[fromKey].label} = ${rounded}\u00B0 ${cat.units[toKey].label}`;
@@ -1283,5 +1309,6 @@
 
     init();
   </script>
+<script src="./shared/unit-favorites.js"></script>
 </body>
 </html>

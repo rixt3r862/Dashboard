@@ -292,6 +292,14 @@
       }
     </style>
     <link rel="stylesheet" href="./shared/utility-shell.css" />
+<script src="./shared/converter-format.js"></script>
+<style>
+      .converter-options { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+      .converter-options label { display: flex; align-items: center; gap: 6px; }
+      .converter-options select, .converter-options input { font: inherit; min-height: 36px; max-width: 100%; }
+      .converter-options input { width: 65px; }
+      .converter-options button { min-height: 36px; font: inherit; }
+    </style>
 </head>
   <body class="utility-page">
   <nav class="utility-nav" aria-label="Utility navigation">
@@ -328,16 +336,11 @@
         </div>
       </section>
 
-      <div class="round-option" role="group" aria-label="Result formatting">
-        <label>
-          <input id="roundResult" type="checkbox" />
-          <span>Round result to 2 decimal places</span>
-        </label>
-        <label>
-          <input id="roundSignificantDigits" type="checkbox" />
-          <span>Round result to 2 significant digits</span>
-        </label>
+<div class="converter-options">
+        <label>Precision <select id="precisionMode"><option value="auto">Automatic</option><option value="decimal">Decimal places</option><option value="significant">Significant digits</option></select></label>
+        <label>Digits <input id="precisionDigits" type="number" min="0" max="12" step="1" value="2" disabled></label>
       </div>
+      <div class="converter-options"><button id="copyLeft" type="button">Copy Left</button><button id="copyRight" type="button">Copy Right</button></div>
       <p id="status" class="status" role="status" aria-live="polite"></p>
       <aside class="definition">
         <strong>Fixed calendar values:</strong> One month is 30 days and one year is 365 days. Decades and centuries are based on that 365-day year.
@@ -384,8 +387,8 @@
       const leftField = document.getElementById("leftField");
       const rightField = document.getElementById("rightField");
       const status = document.getElementById("status");
-      const roundResult = document.getElementById("roundResult");
-      const roundSignificantDigits = document.getElementById("roundSignificantDigits");
+      const precisionMode = document.getElementById("precisionMode");
+      const precisionDigits = document.getElementById("precisionDigits");
       let sourceSide = "left";
 
       function fillUnits(select) {
@@ -410,27 +413,7 @@
       }
 
       function formatValue(value) {
-        if (roundSignificantDigits.checked) value = roundToSignificantDigits(value);
-        if (roundResult.checked) {
-          return new Intl.NumberFormat("en-US", {
-            useGrouping: true,
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }).format(Math.abs(value) < 0.005 ? 0 : value);
-        }
-        if (Object.is(value, -0) || value === 0) return "0";
-        const absolute = Math.abs(value);
-        if (absolute >= 1e12 || absolute < 1e-6) {
-          return value
-            .toExponential(10)
-            .replace(/\.0+e/, "e")
-            .replace(/(\.\d*?[1-9])0+e/, "$1e")
-            .replace("e+", "e");
-        }
-        return new Intl.NumberFormat("en-US", {
-          useGrouping: true,
-          maximumSignificantDigits: 12,
-        }).format(value);
+        return ConverterFormat.format(value,precisionMode.value,Number(precisionDigits.value));
       }
 
       function addGrouping(input) {
@@ -528,6 +511,7 @@
         const sourceUnit = side === "left" ? leftUnit : rightUnit;
         const targetUnit = side === "left" ? rightUnit : leftUnit;
         const value = parseValue(sourceInput);
+        document.getElementById("copyLeft").disabled=document.getElementById("copyRight").disabled=true;
 
         if (value === null) {
           if (sourceInput.value.trim() === "") {
@@ -535,6 +519,7 @@
             targetInput.value = "";
           } else {
             showError(side);
+            targetInput.value="";
           }
           updateMagnitudes();
           fitInputValues();
@@ -542,7 +527,13 @@
         }
 
         clearError();
-        targetInput.value = formatValue((value * Number(sourceUnit.value)) / Number(targetUnit.value));
+        const output=value*(Number(sourceUnit.value)/Number(targetUnit.value));
+        if(!Number.isFinite(output)){
+          targetInput.value=""; showError(side); status.textContent="Result is outside the supported numeric range.";
+          updateMagnitudes(); fitInputValues(); return;
+        }
+        targetInput.value = formatValue(output);
+        document.getElementById("copyLeft").disabled=document.getElementById("copyRight").disabled=false;
         updateMagnitudes();
         fitInputValues();
       }
@@ -574,14 +565,34 @@
       rightValue.addEventListener("click", selectInputValue);
       leftUnit.addEventListener("change", () => convertFrom(sourceSide));
       rightUnit.addEventListener("change", () => convertFrom(sourceSide));
-      roundResult.addEventListener("change", () => {
-        if (roundResult.checked) roundSignificantDigits.checked = false;
+      const preferenceKey="timeConverter.v1.preferences";
+      function syncPrecision(){
+        precisionDigits.disabled=precisionMode.value==="auto";
+        precisionDigits.min=precisionMode.value==="significant"?"1":"0";
+      }
+      function savePreferences(){
+        syncPrecision();
+        const digits=Number(precisionDigits.value);
+        if(!ConverterFormat.valid(precisionMode.value,digits)){
+          status.textContent="Choose whole digits from "+precisionDigits.min+" to 12."; return;
+        }
         convertFrom(sourceSide);
-      });
-      roundSignificantDigits.addEventListener("change", () => {
-        if (roundSignificantDigits.checked) roundResult.checked = false;
-        convertFrom(sourceSide);
-      });
+        UtilityShell.save(preferenceKey,JSON.stringify({left:leftUnit.value,right:rightUnit.value,mode:precisionMode.value,digits}));
+      }
+      for(const el of [leftUnit,rightUnit,precisionMode,precisionDigits])el.addEventListener("change",savePreferences);
+      try{
+        const prefs=JSON.parse(localStorage.getItem(preferenceKey)||"{}");
+        if(UNITS.some(u=>String(u.seconds)===prefs.left))leftUnit.value=prefs.left;
+        if(UNITS.some(u=>String(u.seconds)===prefs.right))rightUnit.value=prefs.right;
+        if(ConverterFormat.valid(prefs.mode,prefs.digits)){precisionMode.value=prefs.mode;precisionDigits.value=prefs.digits;}
+      }catch{UtilityShell.status("utilityStatus","Saved conversion preferences unavailable.");}
+      for(const side of ["Left","Right"])document.getElementById("copy"+side).onclick=async()=>{
+        const input=side==="Left"?leftValue:rightValue;
+        if(parseValue(input)===null)return;
+        try{await navigator.clipboard.writeText(input.value);status.textContent="Copied.";}
+        catch{input.focus();input.select();status.textContent="Copy unavailable. Value selected.";}
+      };
+      syncPrecision();convertFrom(sourceSide);
       window.addEventListener("resize", fitInputValues);
     </script>
   </body>

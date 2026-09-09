@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v145";
+const VERSION = "dashboard-v146";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -20,6 +20,8 @@ const CORE_ASSETS = [
   "./shared/timer-state.js",
   "./shared/timer.js",
   "./shared/clock-extras.js",
+  "./shared/converter-format.js",
+  "./shared/unit-favorites.js",
   "./shared/cashbox-history.js",
   "./shared/utility-shell.css",
   "./img/dashboard-icon.svg",

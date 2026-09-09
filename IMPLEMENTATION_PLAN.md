@@ -26,8 +26,8 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 17. Timer named presets.
 - [x] 18. Clock fullscreen, date, screen-awake control, and second timezone.
 - [x] 19. Time Helper AM/PM selection and compact reference material.
-- [ ] 20. Time Unit Converter precision, copying, and remembered unit pairs.
-- [ ] 21. Unit Converter favorites and configurable precision.
+- [x] 20. Time Unit Converter precision, copying, and remembered unit pairs.
+- [x] 21. Unit Converter favorites and configurable precision.
 - [ ] 22. Date Math local today, inclusive counting, and weekday calculations.
 - [ ] 23. URL Tool parsed fields and individual copy actions.
 - [ ] 24. QR Tool bundled libraries and offline verification.
@@ -305,3 +305,21 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
   Browser visual, actual fullscreen, and device wake-lock checks remain outstanding.
 - Sessions 14-19 form a combined commit/push checkpoint; all 140 tests passed.
 - Next: session 20, Time Unit Converter precision, copying, and remembered pairs.
+
+### Session 20
+
+- Added automatic, decimal-place, and significant-digit formatting with configurable
+  digits; preferences and both unit choices restore on return.
+- Added Copy Left/Right with failure feedback. Invalid input clears stale output
+  and disables copy; overflow is reported. Precision changes retain source input.
+
+### Session 21
+
+- Added persistent favorite category/unit pairs, star toggling, and a favorites menu.
+  Favorites use validated unit identifiers and refresh across tabs.
+- Added saved precision settings for numeric results, including temperature/speed;
+  Automatic preserves existing category defaults. Fraction denominator controls remain.
+- Validation: all 143 project tests passed, including three converter-option tests;
+  diff check passed. Browser visual verification remains outstanding.
+- Sessions 20-21 form a combined commit/push checkpoint; all 143 tests passed.
+- Next: session 22, Date Math improvements.
