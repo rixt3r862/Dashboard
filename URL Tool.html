@@ -277,6 +277,11 @@
       <button id="clearButton" type="button">Clear</button>
     </div>
     <p id="status" class="status" role="status" aria-live="polite"></p>
+    <section class="url-parts" aria-label="Parsed input URL">
+      <h2>URL Fields</h2>
+      <p id="urlPartsStatus" role="status" aria-live="polite"></p>
+      <div id="urlParts"></div>
+    </section>
   </main>
 
   <script>
@@ -308,6 +313,7 @@
     }
 
     function convert() {
+      window.UrlFields?.render(source.value);
       const input = source.value;
       result.classList.remove("invalid");
 
@@ -358,7 +364,7 @@
       } catch {
         result.focus();
         result.select();
-        document.execCommand("copy");
+        if(!document.execCommand("copy")){setStatus("Copy unavailable. Result selected.",true);return;}
       }
       setStatus("Result copied to the clipboard.");
     }
@@ -391,6 +397,7 @@
 
     clearButton.addEventListener("click", () => {
       source.value = "";
+      window.UrlFields?.render("");
       result.value = "";
       result.classList.remove("invalid");
       setStatus();
@@ -400,5 +407,13 @@
 
     updateControls();
   </script>
+<style>
+    .url-parts { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .url-part { display: grid; grid-template-columns: 110px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .url-part span { overflow-wrap: anywhere; min-width: 0; }
+    .url-part input { min-width: 0; width: 100%; box-sizing: border-box; }
+    @media(max-width: 480px){ .url-part { grid-template-columns: minmax(0,1fr) auto; } .url-part strong { grid-column: 1/-1; } }
+  </style>
+  <script src="./shared/url-fields.js"></script>
 </body>
 </html>

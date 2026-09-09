@@ -293,6 +293,13 @@
     }
   </style>
   <link rel="stylesheet" href="./shared/utility-shell.css" />
+<style>
+    #textFields[hidden], #wifiFields[hidden], #contactFields[hidden] { display: none; }
+    .qr-check { display: flex; align-items: center; gap: 8px; }
+    .qr-check input { width: auto; }
+    #qrcode canvas { display: block; width: min(100%, 300px); height: auto; margin: auto; }
+    #qrcode { max-width: 100%; }
+  </style>
 </head>
 <body class="utility-page">
   <nav class="utility-nav" aria-label="Utility navigation">
@@ -314,8 +321,26 @@
     <section class="grid">
       <div class="panel">
         <h2>Generate</h2>
+        <label for="qrType">Content</label>
+        <select id="qrType"><option value="text">Text / URL</option><option value="wifi">Wi-Fi</option><option value="contact">Contact</option></select>
+        <div id="textFields">
         <label for="qrInput">Text or URL</label>
         <textarea id="qrInput" placeholder="Type text or paste a URL..."></textarea>
+        </div>
+        <div id="wifiFields" hidden>
+          <label for="wifiSsid">Network name (SSID)</label><input id="wifiSsid" maxlength="128" autocomplete="off">
+          <label for="wifiSecurity">Security</label><select id="wifiSecurity"><option value="WPA">WPA / WPA2 Personal</option><option value="WEP">WEP</option><option value="nopass">Open network</option></select>
+          <label for="wifiPassword">Password</label><input id="wifiPassword" type="password" autocomplete="off" maxlength="128">
+          <label class="qr-check"><input id="wifiHidden" type="checkbox"> Hidden network</label>
+        </div>
+        <div id="contactFields" hidden>
+          <label for="contactName">Full name</label><input id="contactName" maxlength="120">
+          <label for="contactOrganization">Organization</label><input id="contactOrganization" maxlength="120">
+          <label for="contactPhone">Phone</label><input id="contactPhone" type="tel" maxlength="80">
+          <label for="contactEmail">Email</label><input id="contactEmail" type="email" maxlength="160">
+        </div>
+        <label for="qrSize">PNG size</label><select id="qrSize"><option value="256">256 × 256</option><option value="512" selected>512 × 512</option><option value="1024">1024 × 1024</option></select>
+        <p id="generateStatus" role="status" aria-live="polite"></p>
         <div class="actions">
           <button id="generateBtn" class="accent" type="button">Generate QR</button>
           <button id="downloadBtn" type="button">Download PNG</button>
@@ -323,7 +348,7 @@
         <div class="qr-preview">
           <div id="qrcode">QR preview appears here</div>
         </div>
-        <div class="hint">Tip: Keep text short for denser, easier-to-scan codes.</div>
+
       </div>
 
       <div class="panel">
@@ -349,13 +374,14 @@
           <label for="scanOutput">Decoded result</label>
           <textarea id="scanOutput" readonly placeholder="Scan result appears here..."></textarea>
         </div>
-        <div id="scanStatus" class="status"></div>
+        <div id="scanStatus" class="status" role="status" aria-live="polite"></div>
       </div>
     </section>
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="./vendor/qrcodejs/qrcode.min.js"></script>
+  <script src="./vendor/jsqr/dist/jsQR.js"></script>
+  <script src="./shared/qr-templates.js"></script>
   <script>
     const qrInputEl = document.getElementById("qrInput");
     const generateBtnEl = document.getElementById("generateBtn");
@@ -448,7 +474,7 @@
     function scanCurrentCameraFrame() {
       if (!hasQrScanner()) {
         stopCameraScan({ preserveStatus: true });
-        setScanStatus("QR scanner library is unavailable. Reconnect and refresh to scan codes.");
+        setScanStatus("QR scanner library is unavailable. Reload the app to retry.");
         return;
       }
       if (!cameraStream || !cameraPreviewEl.videoWidth || !cameraPreviewEl.videoHeight) {
@@ -487,7 +513,7 @@
 
     async function startCameraScan() {
       if (!hasQrScanner()) {
-        setScanStatus("QR scanner library is unavailable. Reconnect and refresh to scan codes.");
+        setScanStatus("QR scanner library is unavailable. Reload the app to retry.");
         return;
       }
       if (!supportsCameraScan()) {
@@ -523,6 +549,7 @@
         setScanStatus("Camera live. Point it at a QR code.");
         cameraFrameId = requestAnimationFrame(scanCurrentCameraFrame);
       } catch (err) {
+        await stopCameraScan({preserveStatus:true});
         updateCameraUi(false);
         setScanStatus(
           err && err.message ? err.message : "Unable to access the camera.",
@@ -531,27 +558,42 @@
     }
 
     function generateQr() {
-      if (!hasQrGenerator()) {
-        qrcodeEl.innerHTML = "";
-        downloadBtnEl.disabled = true;
-        setScanStatus("QR generator library is unavailable. Reconnect and refresh to create codes.");
-        return;
-      }
-      const value = qrInputEl.value.trim();
-      if (!value) return;
+      qrcodeEl.replaceChildren(); downloadBtnEl.disabled=true;
+      const status=document.getElementById("generateStatus");
+      if(!hasQrGenerator()){status.textContent="QR generator unavailable. Reload the app.";return;}
+      try{
+        const field=id=>document.getElementById(id).value;
+        const value=QrTemplates.payload(field("qrType"),{
+          text:qrInputEl.value,ssid:field("wifiSsid"),security:field("wifiSecurity"),
+          password:field("wifiPassword"),hidden:document.getElementById("wifiHidden").checked,
+          name:field("contactName"),organization:field("contactOrganization"),phone:field("contactPhone"),email:field("contactEmail")
+        });
+        if(new TextEncoder().encode(value).length>2000)throw Error("Content is too long. Limit the payload to 2,000 UTF-8 bytes.");
+        const size=Number(field("qrSize"));
+        if(![256,512,1024].includes(size))throw Error("Choose an output size.");
+        qrInstance=QrTemplates.encode(QRCode,document.createElement("div"),value);
+        const canvas=QrTemplates.paint(qrInstance._oQRCode,size,document.createElement("canvas"));
+        canvas.setAttribute("role","img");canvas.setAttribute("aria-label","Generated QR code");
+        qrcodeEl.append(canvas);downloadBtnEl.disabled=false;status.textContent="QR code ready.";
+      }catch(error){status.textContent=error.message||"Unable to generate this QR code.";}
+    }
 
-      qrcodeEl.innerHTML = "";
-      qrInstance = new QRCode(qrcodeEl, {
-        text: value,
-        width: 220,
-        height: 220,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
+    function syncQrFields(){
+      const type=document.getElementById("qrType").value;
+      for(const kind of ["text","wifi","contact"])document.getElementById(kind+"Fields").hidden=type!==kind;
+      document.getElementById("wifiPassword").disabled=document.getElementById("wifiSecurity").value==="nopass";
+      downloadBtnEl.disabled=true;qrcodeEl.replaceChildren();
+      document.getElementById("generateStatus").textContent="";
+    }
+    for(const id of ["qrType","qrSize","wifiSecurity"])document.getElementById(id).addEventListener("change",syncQrFields);
+    for(const id of ["qrInput","wifiSsid","wifiPassword","wifiHidden","contactName","contactOrganization","contactPhone","contactEmail"]){
+      document.getElementById(id).addEventListener("input",()=>{
+        downloadBtnEl.disabled=true;qrcodeEl.replaceChildren();document.getElementById("generateStatus").textContent="";
       });
     }
 
     function downloadQrPng() {
+      if(downloadBtnEl.disabled)return;
       const canvas = qrcodeEl.querySelector("canvas");
       const img = qrcodeEl.querySelector("img");
       if (!canvas && !img) return;
@@ -578,7 +620,7 @@
 
     async function scanFile() {
       if (!hasQrScanner()) {
-        setScanStatus("QR scanner library is unavailable. Reconnect and refresh to scan codes.");
+        setScanStatus("QR scanner library is unavailable. Reload the app to retry.");
         return;
       }
       const file = qrFileEl.files && qrFileEl.files[0];
@@ -647,12 +689,12 @@
       startCameraBtnEl.disabled = true;
       cameraPlaceholderEl.textContent = hasQrScanner()
         ? "Live camera scanning is not supported in this browser. You can still scan uploaded images."
-        : "QR scanning is unavailable until the scanner library loads. Reconnect and refresh to scan codes.";
+        : "QR scanning is unavailable until the scanner library loads. Reload the app to retry.";
     }
     if (hasQrGenerator()) {
       generateQr();
     } else {
-      setScanStatus("QR generator library is unavailable. Reconnect and refresh to create codes.");
+      setScanStatus("QR generator library is unavailable. Reload the app to retry.");
     }
 
     document.addEventListener("visibilitychange", () => {

@@ -28,10 +28,10 @@ in the response. After session 35, re-evaluate the Dashboard and all apps.
 - [x] 19. Time Helper AM/PM selection and compact reference material.
 - [x] 20. Time Unit Converter precision, copying, and remembered unit pairs.
 - [x] 21. Unit Converter favorites and configurable precision.
-- [ ] 22. Date Math local today, inclusive counting, and weekday calculations.
-- [ ] 23. URL Tool parsed fields and individual copy actions.
-- [ ] 24. QR Tool bundled libraries and offline verification.
-- [ ] 25. QR Tool Wi-Fi/contact templates and output sizing.
+- [x] 22. Date Math local today, inclusive counting, and weekday calculations.
+- [x] 23. URL Tool parsed fields and individual copy actions.
+- [x] 24. QR Tool bundled libraries and offline verification.
+- [x] 25. QR Tool Wi-Fi/contact templates and output sizing.
 - [ ] 26. ScoreKeeper earlier-round editing and recalculation.
 - [ ] 27. ScoreKeeper reusable player roster.
 - [ ] 28. Hearts last-trick review.
@@ -323,3 +323,37 @@ Use this checkout for subsequent sessions. The initially supplied workspace at
   diff check passed. Browser visual verification remains outstanding.
 - Sessions 20-21 form a combined commit/push checkpoint; all 143 tests passed.
 - Next: session 22, Date Math improvements.
+
+### Session 22
+
+- Today uses the local calendar date. Added inclusive date counting, weekday-only
+  differences, and forward/backward weekday shifts (Monday-Friday, no holiday calendar).
+- Validates whole-number amounts and supported result years; preserves month-end
+  clamping and handles calendar years below 100 correctly.
+
+### Session 23
+
+- URL Tool displays parsed URL components and individual query parameters,
+  preserving duplicates, with per-field copy actions and clipboard failure feedback.
+- Password fields are masked; parsed content uses DOM text/value APIs and is not saved.
+
+### Session 24
+
+- Bundled pinned qrcodejs and jsQR libraries with licenses and provenance; added
+  both libraries and new helpers to the service-worker core cache.
+- Network-free tests generate pixels with the real encoder and decode them with
+  the real scanner. A UTF-8 adapter avoids the encoder's legacy BOM/surrogate bugs.
+- Offline browser reload after installation and physical camera checks remain
+  outstanding; first successful online installation is required for precaching.
+
+### Session 25
+
+- Added Wi-Fi and vCard contact templates, required-field validation, structured
+  escaping, and 256/512/1024-pixel PNG output with integer modules and quiet zones.
+- Input changes invalidate stale output; excessive density/length is reported.
+- Validation: all 147 tests passed, including date boundary stepping, URL fields,
+  template validation, and offline QR roundtrips at all sizes with Unicode coverage.
+  Inline script syntax and git diff checks passed. Browser visual verification
+  remains outstanding; Playwright is not installed in this checkout.
+- Sessions 22-25 are local and pending user-requested commit/push.
+- Next: session 26, ScoreKeeper earlier-round editing and recalculation.

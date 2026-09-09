@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v146";
+const VERSION = "dashboard-v150";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -22,6 +22,11 @@ const CORE_ASSETS = [
   "./shared/clock-extras.js",
   "./shared/converter-format.js",
   "./shared/unit-favorites.js",
+  "./shared/date-math.js",
+  "./shared/url-fields.js",
+  "./shared/qr-templates.js",
+  "./vendor/qrcodejs/qrcode.min.js",
+  "./vendor/jsqr/dist/jsQR.js",
   "./shared/cashbox-history.js",
   "./shared/utility-shell.css",
   "./img/dashboard-icon.svg",

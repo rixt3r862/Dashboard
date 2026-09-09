@@ -244,6 +244,7 @@
     }
   </style>
   <link rel="stylesheet" href="./shared/utility-shell.css" />
+<script src="./shared/date-math.js"></script>
 </head>
 <body class="utility-page">
   <nav class="utility-nav" aria-label="Utility navigation">
@@ -281,6 +282,7 @@
             <label for="unit">Unit</label>
             <select id="unit">
               <option value="days">Days</option>
+              <option value="weekdays">Weekdays (Mon–Fri)</option>
               <option value="weeks">Weeks</option>
               <option value="months">Months</option>
               <option value="years">Years</option>
@@ -311,11 +313,13 @@
           <div class="big" id="shiftResult">-</div>
           <div class="small" id="shiftMeta">Select a date and calculate.</div>
         </div>
-        <div class="status" id="shiftStatus"></div>
+        <div class="status" id="shiftStatus" role="status" aria-live="polite"></div>
       </div>
 
       <div class="panel">
         <h2>Days Between</h2>
+        <label><input id="inclusiveDays" type="checkbox" style="width:auto"> Count both dates</label>
+        <label><input id="weekdaysOnly" type="checkbox" style="width:auto"> Weekdays only (Mon–Fri, no holidays)</label>
         <div class="row">
           <div>
             <label for="fromDate">From</label>
@@ -340,7 +344,7 @@
           <div class="big" id="diffResult">-</div>
           <div class="small" id="diffMeta">Choose two dates and calculate.</div>
         </div>
-        <div class="status" id="diffStatus"></div>
+        <div class="status" id="diffStatus" role="status" aria-live="polite"></div>
       </div>
     </section>
   </main>
@@ -375,9 +379,10 @@
       const year = Number(m[1]);
       const monthIndex = Number(m[2]) - 1;
       const day = Number(m[3]);
-      const d = new Date(Date.UTC(year, monthIndex, day));
+      const d = new Date(0);
+      d.setUTCFullYear(year, monthIndex, day);
       if (
-        d.getUTCFullYear() !== year ||
+        year < 1 || d.getUTCFullYear() !== year ||
         d.getUTCMonth() !== monthIndex ||
         d.getUTCDate() !== day
       ) return null;
@@ -385,7 +390,7 @@
     }
 
     function formatDateUtc(date) {
-      const y = date.getUTCFullYear();
+      const y = String(date.getUTCFullYear()).padStart(4,"0");
       const m = String(date.getUTCMonth() + 1).padStart(2, "0");
       const d = String(date.getUTCDate()).padStart(2, "0");
       return `${y}-${m}-${d}`;
@@ -403,7 +408,7 @@
 
     function formatDateByChoice(date) {
       const mode = resultFormatEl.value;
-      const y = date.getUTCFullYear();
+      const y = String(date.getUTCFullYear()).padStart(4,"0");
       const m = String(date.getUTCMonth() + 1).padStart(2, "0");
       const d = String(date.getUTCDate()).padStart(2, "0");
       if (mode === "iso") return `${y}-${m}-${d}`;
@@ -422,7 +427,7 @@
     }
 
     function daysInUtcMonth(year, monthIndex) {
-      return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+      const d=new Date(0); d.setUTCFullYear(year,monthIndex+1,0); return d.getUTCDate();
     }
 
     function addMonthsUtc(date, months) {
@@ -435,12 +440,13 @@
       const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
       const dim = daysInUtcMonth(targetYear, targetMonth);
       const clampedDay = Math.min(day, dim);
-      return new Date(Date.UTC(targetYear, targetMonth, clampedDay));
+      const result=new Date(0); result.setUTCFullYear(targetYear,targetMonth,clampedDay); return result;
     }
 
     function shiftDate(baseDate, amount, unit, direction) {
       const signed = direction === "subtract" ? -amount : amount;
       const d = new Date(baseDate.getTime());
+      if (unit === "weekdays") return DateMath.shiftWeekdays(baseDate,signed);
       if (unit === "days") {
         d.setUTCDate(d.getUTCDate() + signed);
         return d;
@@ -476,9 +482,9 @@
     function setTodayDefaults() {
       const now = new Date();
       const todayUtc = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate()
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
       ));
       const iso = formatDateUtc(todayUtc);
       baseDateEl.value = iso;
@@ -492,13 +498,16 @@
       const unit = unitEl.value;
       const direction = directionEl.value;
 
-      if (!base || !Number.isFinite(amount)) {
+      if (!base || amountEl.value.trim()==="" || !Number.isSafeInteger(amount) || Math.abs(amount)>1000000) {
         shiftResultEl.textContent = "Invalid input";
-        shiftMetaEl.textContent = "Choose a valid date and amount.";
+        shiftMetaEl.textContent = "Choose a valid date and a whole amount between -1,000,000 and 1,000,000.";
         return null;
       }
 
       const result = shiftDate(base, amount, unit, direction);
+      if(!Number.isFinite(result.getTime()) || result.getUTCFullYear()<1 || result.getUTCFullYear()>9999){
+        shiftResultEl.textContent="Out of range"; shiftMetaEl.textContent="Result must be between years 0001 and 9999."; return null;
+      }
       const formatted = formatDateByChoice(result);
       shiftResultEl.textContent = formatted;
       shiftMetaEl.textContent = formatDateLong(result);
@@ -517,7 +526,9 @@
 
       const msPerDay = 24 * 60 * 60 * 1000;
       const deltaDays = Math.round((to.getTime() - from.getTime()) / msPerDay);
-      const absDays = Math.abs(deltaDays);
+      const inclusive=document.getElementById("inclusiveDays").checked;
+      const weekdays=document.getElementById("weekdaysOnly").checked;
+      const absDays=weekdays?DateMath.weekdaysBetween(from,to,inclusive):Math.abs(deltaDays)+(inclusive?1:0);
       diffResultEl.textContent = `${absDays} day${absDays === 1 ? "" : "s"}`;
       const fromFmt = formatDateByChoice(from);
       const toFmt = formatDateByChoice(to);
@@ -528,12 +539,13 @@
       } else {
         diffMetaEl.textContent = `From ${fromFmt} to ${toFmt}. To date is before From date.`;
       }
-      diffStatusEl.textContent = "";
+      diffStatusEl.textContent=(weekdays?"Monday–Friday; holidays included. ":"")+(inclusive?"Both endpoints counted.":"Earlier date included; later date excluded.");
       return `${absDays} day${absDays === 1 ? "" : "s"}`;
     }
 
     calcShiftBtnEl.addEventListener("click", calculateShift);
     calcDiffBtnEl.addEventListener("click", calculateDiff);
+    for(const id of ["inclusiveDays","weekdaysOnly"])document.getElementById(id).addEventListener("change",calculateDiff);
     resultFormatEl.addEventListener("change", () => {
       calculateShift();
       calculateDiff();
@@ -544,7 +556,7 @@
 
     copyShiftBtnEl.addEventListener("click", async () => {
       const text = shiftResultEl.textContent.trim();
-      if (!text || text === "-" || text === "Invalid input") {
+      if (!text || text === "-" || text === "Invalid input" || text === "Out of range") {
         shiftStatusEl.textContent = "Nothing to copy yet.";
         return;
       }
