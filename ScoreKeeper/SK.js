@@ -1787,10 +1787,10 @@ import { createRosterController } from "./js/roster.mjs";
     return true;
   }
 
-  function renameSessionById(sessionId) {
+  async function renameSessionById(sessionId) {
     const session = getSessionById(sessionId);
     if (!session) return;
-    const answer = window.prompt("Rename this saved session:", session.name);
+    const answer = (await window.GameDialog.prompt("Rename this saved session:", session.name));
     if (answer === null) return;
 
     const nextName = normalizeName(answer);
@@ -1846,11 +1846,11 @@ import { createRosterController } from "./js/roster.mjs";
     deleteSessionById(state.selectedSessionId);
   }
 
-  function deleteSessionById(sessionId) {
+  async function deleteSessionById(sessionId) {
     const session = getSessionById(sessionId);
     if (!session) return;
 
-    const proceed = window.confirm(`Delete saved session "${session.name}"?`);
+    const proceed = (await window.GameDialog.confirm(`Delete saved session "${session.name}"?`));
     if (!proceed) return;
 
     const remaining = getStoredSessions().filter(
@@ -2917,7 +2917,7 @@ import { createRosterController } from "./js/roster.mjs";
     setLive(`${name} marked as the Rummikub round winner.`);
   }
 
-  function retirePlayer(playerId) {
+  async function retirePlayer(playerId) {
     if (state.mode !== "playing") return;
     if (state.teams) {
       showMsg(els.roundMsg, "Retiring players is not available in team games yet.");
@@ -2930,9 +2930,9 @@ import { createRosterController } from "./js/roster.mjs";
       showMsg(els.roundMsg, "At least two active players are required to continue.");
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = (await window.GameDialog.confirm(
       `Retire ${player.name} from future rounds? Past scores and history will be kept.`,
-    );
+    ));
     if (!confirmed) return;
 
     retirePlayerFromNextRound(playerId);
@@ -2951,7 +2951,7 @@ import { createRosterController } from "./js/roster.mjs";
     setLive(`${player.name} retired from future rounds.`);
   }
 
-  function unretirePlayer(playerId) {
+  async function unretirePlayer(playerId) {
     if (state.mode !== "playing") return;
     if (state.teams) {
       showMsg(els.roundMsg, "Unretiring players is not available in team games yet.");
@@ -2960,9 +2960,9 @@ import { createRosterController } from "./js/roster.mjs";
     const player = state.players.find((entry) => entry.id === playerId);
     if (!player || !isPlayerRetired(playerId)) return;
 
-    const confirmed = window.confirm(
+    const confirmed = (await window.GameDialog.confirm(
       `Bring ${player.name} back into future rounds? Missed rounds will stay blank in history.`,
-    );
+    ));
     if (!confirmed) return;
 
     const restored = restorePlayerForNextRound(playerId);
@@ -3162,7 +3162,7 @@ import { createRosterController } from "./js/roster.mjs";
     els.btnAddRound.title = reason || "Add this round";
   }
 
-  function addRound() {
+  async function addRound() {
     if (state.mode !== "playing") return;
 
     let scores = roundEntry.readRoundScores();
@@ -3213,7 +3213,7 @@ import { createRosterController } from "./js/roster.mjs";
       return;
     }
     if (validation.warning) {
-      const proceed = window.confirm(`${validation.warning} Add round anyway?`);
+      const proceed = (await window.GameDialog.confirm(`${validation.warning} Add round anyway?`));
       if (!proceed) return;
     }
     const nextN = state.rounds.length + 1;

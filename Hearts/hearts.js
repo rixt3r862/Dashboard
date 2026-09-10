@@ -130,9 +130,9 @@ const els = {
 };
 
 function bindEvents() {
-  els.setupForm.addEventListener("submit", (event) => {
+  els.setupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (state.gameStarted && !state.winnerId && !window.confirm("Restart this Hearts table?")) return;
+    if (state.gameStarted && !state.winnerId && !(await window.GameDialog.confirm("Restart this Hearts table? Current game and scores will be replaced. Saved sessions will remain."))) return;
     startNewGame();
   });
   els.samePlayersBtn.addEventListener("click", () => {
@@ -143,8 +143,8 @@ function bindEvents() {
     shuffleSetupBotNames();
     renderBotNameFields();
   });
-  els.resetTableBtn.addEventListener("click", () => {
-    if (state.gameStarted && !state.winnerId && !window.confirm("Reset this Hearts table?")) return;
+  els.resetTableBtn.addEventListener("click", async () => {
+    if (state.gameStarted && !state.winnerId && !(await window.GameDialog.confirm("Reset this Hearts table? Current game and scores will be cleared. Saved sessions will remain."))) return;
     resetState();
     clearAutosave();
     shuffleSetupBotNames();
@@ -295,7 +295,7 @@ function resetState() {
 function cancelPendingBotTurn() {
   botTurnToken += 1;
   if (botTurnTimer) {
-    window.clearTimeout(botTurnTimer);
+    window.GameDialog.clearTimeout(botTurnTimer);
     botTurnTimer = null;
   }
   state.busy = false;
@@ -548,7 +548,7 @@ function confirmHumanPass() {
   state.notice = `${passLabel()}: sending your selected cards.`;
   render();
   clearPassAnimationTimer();
-  state.passAnimationTimer = window.setTimeout(resolveHumanPass, PASS_ANIMATION_MS);
+  state.passAnimationTimer = window.GameDialog.setTimeout(resolveHumanPass, PASS_ANIMATION_MS);
 }
 
 function resolveHumanPass() {
@@ -583,7 +583,7 @@ function resolveHumanPass() {
   state.stage = "playing";
   startFirstTrick();
   render();
-  window.setTimeout(() => {
+  window.GameDialog.setTimeout(() => {
     state.passingInIds = [];
     state.passingInDirection = "";
     render();
@@ -650,7 +650,7 @@ function runBotTurns() {
     state.busy = true;
     state.notice = `${tramCandidate.name} can claim the rest.`;
     render();
-    botTurnTimer = window.setTimeout(() => {
+    botTurnTimer = window.GameDialog.setTimeout(() => {
       botTurnTimer = null;
       if (token !== botTurnToken) return;
       state.busy = false;
@@ -660,7 +660,7 @@ function runBotTurns() {
     return;
   }
   state.busy = true;
-  botTurnTimer = window.setTimeout(() => {
+  botTurnTimer = window.GameDialog.setTimeout(() => {
     botTurnTimer = null;
     if (token !== botTurnToken) return;
     if (state.stage === "playing" && state.players[state.currentPlayerIndex]?.bot) {
@@ -770,7 +770,7 @@ function beginTrickPause() {
   state.notice = `${state.players[winner.playerIndex].name} takes this trick for ${points} point${points === 1 ? "" : "s"}.`;
   render();
   clearTrickPauseTimer();
-  state.trickPauseTimer = window.setTimeout(beginTrickCollectAnimation, TRICK_PAUSE_MS);
+  state.trickPauseTimer = window.GameDialog.setTimeout(beginTrickCollectAnimation, TRICK_PAUSE_MS);
 }
 
 function beginTrickCollectAnimation() {
@@ -779,7 +779,7 @@ function beginTrickCollectAnimation() {
   state.stage = "trick-collecting";
   render();
   clearTrickCollectTimer();
-  state.trickCollectTimer = window.setTimeout(resolveCompletedTrick, TRICK_COLLECT_MS);
+  state.trickCollectTimer = window.GameDialog.setTimeout(resolveCompletedTrick, TRICK_COLLECT_MS);
 }
 
 function resolveCompletedTrick() {
@@ -803,18 +803,18 @@ function resolveCompletedTrick() {
 
 function clearTrickPauseTimer() {
   if (!state.trickPauseTimer) return;
-  window.clearTimeout(state.trickPauseTimer);
+  window.GameDialog.clearTimeout(state.trickPauseTimer);
   state.trickPauseTimer = null;
 }
 
 function clearTrickCollectTimer() {
   if (!state.trickCollectTimer) return;
-  window.clearTimeout(state.trickCollectTimer);
+  window.GameDialog.clearTimeout(state.trickCollectTimer);
   state.trickCollectTimer = null;
 }
 
 function clearTramClaimTimer() {
-  if (state.tramClaimTimer) window.clearTimeout(state.tramClaimTimer);
+  if (state.tramClaimTimer) window.GameDialog.clearTimeout(state.tramClaimTimer);
   state.tramClaimTimer = null;
   state.tramCollectingPlayerId = "";
   state.tramFlyingCards = [];
@@ -822,7 +822,7 @@ function clearTramClaimTimer() {
 
 function markCardPlayingToTable(cardId) {
   state.playingToTableIds = [...new Set([...state.playingToTableIds, cardId])];
-  const timer = window.setTimeout(() => {
+  const timer = window.GameDialog.setTimeout(() => {
     state.playingToTableIds = state.playingToTableIds.filter((id) => id !== cardId);
     state.playAnimationTimers = state.playAnimationTimers.filter((entry) => entry !== timer);
     render();
@@ -831,7 +831,7 @@ function markCardPlayingToTable(cardId) {
 }
 
 function clearPlayAnimationTimers() {
-  state.playAnimationTimers.forEach((timer) => window.clearTimeout(timer));
+  state.playAnimationTimers.forEach((timer) => window.GameDialog.clearTimeout(timer));
   state.playAnimationTimers = [];
 }
 
@@ -844,7 +844,7 @@ function triggerBreakBurst(type) {
     delay: index % 4,
     distance: 4.1 + (index % 4) * 0.75,
   }));
-  state.breakBurstTimer = window.setTimeout(() => {
+  state.breakBurstTimer = window.GameDialog.setTimeout(() => {
     state.breakBurstTimer = null;
     state.breakBurstType = "";
     state.breakBurstSymbols = [];
@@ -854,7 +854,7 @@ function triggerBreakBurst(type) {
 
 function clearBreakBurstTimer() {
   if (!state.breakBurstTimer) return;
-  window.clearTimeout(state.breakBurstTimer);
+  window.GameDialog.clearTimeout(state.breakBurstTimer);
   state.breakBurstTimer = null;
 }
 
@@ -869,7 +869,7 @@ function triggerMoonBurst(playerId) {
     cluster: index % 4,
     size: 1 + (index % 5) * 0.16,
   }));
-  state.moonBurstTimer = window.setTimeout(() => {
+  state.moonBurstTimer = window.GameDialog.setTimeout(() => {
     state.moonBurstTimer = null;
     state.moonBurstPlayerId = "";
     state.moonBurstSymbols = [];
@@ -879,13 +879,13 @@ function triggerMoonBurst(playerId) {
 
 function clearMoonBurstTimer() {
   if (!state.moonBurstTimer) return;
-  window.clearTimeout(state.moonBurstTimer);
+  window.GameDialog.clearTimeout(state.moonBurstTimer);
   state.moonBurstTimer = null;
 }
 
 function startDealAnimationTimer() {
   clearDealAnimationTimer();
-  state.dealAnimationTimer = window.setTimeout(() => {
+  state.dealAnimationTimer = window.GameDialog.setTimeout(() => {
     state.dealAnimationTimer = null;
     state.dealAnimationActive = false;
     render();
@@ -895,13 +895,13 @@ function startDealAnimationTimer() {
 
 function clearDealAnimationTimer() {
   if (!state.dealAnimationTimer) return;
-  window.clearTimeout(state.dealAnimationTimer);
+  window.GameDialog.clearTimeout(state.dealAnimationTimer);
   state.dealAnimationTimer = null;
 }
 
 function clearPassAnimationTimer() {
   if (!state.passAnimationTimer) return;
-  window.clearTimeout(state.passAnimationTimer);
+  window.GameDialog.clearTimeout(state.passAnimationTimer);
   state.passAnimationTimer = null;
 }
 
@@ -1097,7 +1097,7 @@ function beginTramClaim(player) {
   state.tramPlayerId = player.id;
   state.notice = `${player.name} claims the rest of the tricks.`;
   render();
-  state.tramClaimTimer = window.setTimeout(() => beginTramCollectAnimation(player.id), TRAM_PAUSE_MS);
+  state.tramClaimTimer = window.GameDialog.setTimeout(() => beginTramCollectAnimation(player.id), TRAM_PAUSE_MS);
 }
 
 function beginTramCollectAnimation(playerId) {
@@ -1115,7 +1115,7 @@ function beginTramCollectAnimation(playerId) {
   state.tramFlyingCards = remainingCards;
   state.notice = `${player.name} is taking the rest of the tricks.`;
   render();
-  state.tramClaimTimer = window.setTimeout(() => completeTramClaim(player.id), TRAM_COLLECT_MS);
+  state.tramClaimTimer = window.GameDialog.setTimeout(() => completeTramClaim(player.id), TRAM_COLLECT_MS);
 }
 
 function completeTramClaim(playerId) {
@@ -1390,12 +1390,12 @@ function writeSavedSessions(sessions) {
   return writeStoredJson(STORAGE_SESSIONS_KEY, sessions.map(normalizeHeartsSessionRecord).filter(Boolean));
 }
 
-function saveSession() {
+async function saveSession() {
   if (!state.gameStarted) {
     showSessionStatus("Start a game before saving.");
     return;
   }
-  const name = window.prompt("Save this Hearts session as:", defaultSessionName());
+  const name = (await window.GameDialog.prompt("Save this Hearts session as:", defaultSessionName()));
   if (!name) return;
   const sessionName = name.trim() || defaultSessionName();
   const sessions = readSavedSessions();
@@ -1420,10 +1420,10 @@ function loadSelectedSession() {
   showSessionStatus(`Loaded ${session.name}.`);
 }
 
-function deleteSelectedSession() {
+async function deleteSelectedSession() {
   const session = selectedSavedSession();
   if (!session) return;
-  if (!window.confirm(`Delete saved session "${session.name}"?`)) return;
+  if (!(await window.GameDialog.confirm(`Delete saved session "${session.name}"?`))) return;
   writeSavedSessions(readSavedSessions().filter((entry) => entry.id !== session.id));
   showSessionStatus(`Deleted ${session.name}.`);
   renderSessionControls();

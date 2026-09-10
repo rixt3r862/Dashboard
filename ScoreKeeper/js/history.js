@@ -2030,10 +2030,10 @@ export function createHistoryController(deps) {
     tbl.appendChild(tbody);
   }
 
-  function beginHistoryEdit(roundN) {
+  async function beginHistoryEdit(roundN) {
     if (!Number.isInteger(roundN) || roundN < 1) return;
     if (state.historyEditingRoundN !== null && state.historyEditingRoundN !== roundN &&
-        !window.confirm("Discard the unsaved round edit?")) return;
+        !(await window.GameDialog.confirm("Discard the unsaved round edit?"))) return;
     state.historyEditingRoundN = roundN;
     renderHistoryTable();
   }
@@ -2141,7 +2141,7 @@ export function createHistoryController(deps) {
     return inp.getAttribute("data-history-edit-rummikub-winner") || null;
   }
 
-  function saveHistoryEdit(roundN) {
+  async function saveHistoryEdit(roundN) {
     const idx = state.rounds.findIndex((r) => r.n === roundN);
     if (idx < 0) return;
     const updated = { ...state.rounds[idx] };
@@ -2193,9 +2193,9 @@ export function createHistoryController(deps) {
       return;
     }
     if (validation.warning) {
-      const proceed = window.confirm(
+      const proceed = (await window.GameDialog.confirm(
         `${validation.warning} Save changes anyway?`,
-      );
+      ));
       if (!proceed) return;
     }
 
@@ -2222,11 +2222,11 @@ export function createHistoryController(deps) {
     recalcAfterHistoryChange(`Round ${roundN} updated.`);
   }
 
-  function deleteHistoryRound(roundN) {
+  async function deleteHistoryRound(roundN) {
     const idx = state.rounds.findIndex((r) => r.n === roundN);
     if (idx < 0) return;
 
-    if (!window.confirm(`Delete round ${roundN}? This cannot be undone.`)) return;
+    if (!(await window.GameDialog.confirm(`Delete round ${roundN}? This cannot be undone.`))) return;
 
     state.rounds.splice(idx, 1);
     showMsg(els.roundMsg, "");
@@ -2988,17 +2988,17 @@ export function createHistoryController(deps) {
   }
 
   function bindEvents() {
-    const onHistoryClick = (e) => {
+    const onHistoryClick = async (e) => {
       const btn = e.target.closest("[data-history-action]");
       if (!btn) return;
       const action = btn.getAttribute("data-history-action");
       const roundN = Number.parseInt(btn.getAttribute("data-round-n"), 10);
       if (!Number.isInteger(roundN) || roundN < 1) return;
 
-      if (action === "edit") beginHistoryEdit(roundN);
+      if (action === "edit") await beginHistoryEdit(roundN);
       if (action === "cancel") cancelHistoryEdit();
-      if (action === "save") saveHistoryEdit(roundN);
-      if (action === "delete") deleteHistoryRound(roundN);
+      if (action === "save") await saveHistoryEdit(roundN);
+      if (action === "delete") await deleteHistoryRound(roundN);
     };
     els.historyTable.addEventListener("click", onHistoryClick);
     els.historyCards?.addEventListener("click", onHistoryClick);

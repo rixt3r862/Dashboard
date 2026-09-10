@@ -22,6 +22,7 @@ function table(saved = new Map(), failWrites = false) {
   const window = { localStorage, confirm: () => true,
     setTimeout(fn) { const id = ++nextTimer; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); }, addEventListener() {} };
+  window.GameDialog = { setTimeout: window.setTimeout, clearTimeout: window.clearTimeout, confirm: async () => true };
   const context = vm.createContext({ window, localStorage, document: { getElementById: node },
     setTimeout: window.setTimeout, clearTimeout: window.clearTimeout });
   vm.runInContext(source.slice(0, source.lastIndexOf("\nshuffleSetupBotNames();")), context);
@@ -130,7 +131,7 @@ test("complete hand simulation restores every transition and scores only once", 
   assert.equal(winner.snapshot().stage, "game-end");
 });
 
-test("invalid saves and storage failures leave the table usable; reset preserves sessions", () => {
+test("invalid saves and storage failures leave the table usable; reset preserves sessions", async () => {
   for (const raw of ["{broken", "null", '{"game":"spades"}']) {
     const next = table(new Map([[key, raw]]));
     assert.equal(next.run("restoreAutosave()"), false);
@@ -141,7 +142,7 @@ test("invalid saves and storage failures leave the table usable; reset preserves
   const invalid = first.snapshot(); invalid.teams[0].members = ["missing", "missing"];
   assert.equal(table(new Map([[key, JSON.stringify(invalid)]])).run("restoreAutosave()"), false);
   first.saved.set("dashboard.spades.sessions", "named sessions");
-  first.node("resetTableBtn").handlers.click();
+  await first.node("resetTableBtn").handlers.click();
   assert.equal(first.saved.has(key), false);
   assert.equal(first.saved.get("dashboard.spades.sessions"), "named sessions");
   const blocked = table(new Map(), true); blocked.deal();

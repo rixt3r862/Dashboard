@@ -136,9 +136,9 @@ const winnerBannerMarkup = window.GameRoom?.winnerBannerMarkup || ((options) => 
 const slugify = window.GameRoom?.slugify || ((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "session");
 
 function bindEvents() {
-  els.setupForm.addEventListener("submit", (event) => {
+  els.setupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (state.gameStarted && !state.winnerId && !window.confirm("Restart this Crazy 8s table?")) return;
+    if (state.gameStarted && !state.winnerId && !(await window.GameDialog.confirm("Restart this Crazy 8s table? Current game and scores will be replaced. Saved sessions will remain."))) return;
     startNewGame();
   });
   els.playerCount.addEventListener("change", () => {
@@ -154,8 +154,8 @@ function bindEvents() {
     if (!state.gameStarted || !state.winnerId || !state.players.length) return;
     startNewGame({ samePlayers: true });
   });
-  els.resetTableBtn.addEventListener("click", () => {
-    if (state.gameStarted && !state.winnerId && !window.confirm("Reset this Crazy 8s table?")) return;
+  els.resetTableBtn.addEventListener("click", async () => {
+    if (state.gameStarted && !state.winnerId && !(await window.GameDialog.confirm("Reset this Crazy 8s table? Current game and scores will be cleared. Saved sessions will remain."))) return;
     resetState();
     clearAutosave();
     shuffleSetupBotNames();
@@ -417,7 +417,7 @@ function scheduleBotTurnIfNeeded() {
   state.busy = true;
   render();
   const token = ++botTurnToken;
-  botTurnTimer = window.setTimeout(() => {
+  botTurnTimer = window.GameDialog.setTimeout(() => {
     if (token !== botTurnToken) return;
     takeBotTurn();
   }, BOT_TURN_DELAY_MS);
@@ -867,10 +867,10 @@ function loadSelectedSession() {
   showSessionStatus(`Loaded ${session.name}.`);
 }
 
-function deleteSelectedSession() {
+async function deleteSelectedSession() {
   const session = selectedSavedSession();
   if (!session) return;
-  if (!window.confirm(`Delete saved session "${session.name}"?`)) return;
+  if (!(await window.GameDialog.confirm(`Delete saved session "${session.name}"?`))) return;
   writeSavedSessions(readSavedSessions().filter((entry) => entry.id !== session.id));
   showSessionStatus(`Deleted ${session.name}.`);
   renderSessionControls();
@@ -1298,14 +1298,14 @@ function cardPointValue(card) {
 function cancelPendingBotTurn() {
   botTurnToken += 1;
   if (botTurnTimer) {
-    window.clearTimeout(botTurnTimer);
+    window.GameDialog.clearTimeout(botTurnTimer);
     botTurnTimer = null;
   }
 }
 
 function startDealAnimationTimer() {
   clearDealAnimationTimer();
-  state.dealAnimationTimer = window.setTimeout(() => {
+  state.dealAnimationTimer = window.GameDialog.setTimeout(() => {
     state.dealAnimationTimer = null;
     state.dealAnimationActive = false;
     renderSeats();
@@ -1316,7 +1316,7 @@ function startDealAnimationTimer() {
 
 function clearDealAnimationTimer() {
   if (!state.dealAnimationTimer) return;
-  window.clearTimeout(state.dealAnimationTimer);
+  window.GameDialog.clearTimeout(state.dealAnimationTimer);
   state.dealAnimationTimer = null;
 }
 
@@ -1324,7 +1324,7 @@ function markDiscardAnimation(cardId, direction) {
   clearDiscardAnimationTimer();
   state.discardAnimationCardId = cardId;
   state.discardAnimationDirection = direction;
-  state.discardAnimationTimer = window.setTimeout(() => {
+  state.discardAnimationTimer = window.GameDialog.setTimeout(() => {
     state.discardAnimationTimer = null;
     state.discardAnimationCardId = "";
     state.discardAnimationDirection = "";
@@ -1334,7 +1334,7 @@ function markDiscardAnimation(cardId, direction) {
 
 function clearDiscardAnimationTimer() {
   if (state.discardAnimationTimer) {
-    window.clearTimeout(state.discardAnimationTimer);
+    window.GameDialog.clearTimeout(state.discardAnimationTimer);
     state.discardAnimationTimer = null;
   }
   state.discardAnimationCardId = "";
@@ -1343,7 +1343,7 @@ function clearDiscardAnimationTimer() {
 
 function markDrawAnimation(cardId) {
   state.drawingToHandIds = [...new Set([...state.drawingToHandIds, cardId])];
-  const timer = window.setTimeout(() => {
+  const timer = window.GameDialog.setTimeout(() => {
     state.drawingToHandIds = state.drawingToHandIds.filter((id) => id !== cardId);
     state.drawAnimationTimers = state.drawAnimationTimers.filter((entry) => entry.cardId !== cardId);
     renderSeats();
@@ -1353,7 +1353,7 @@ function markDrawAnimation(cardId) {
 }
 
 function clearDrawAnimationTimers() {
-  state.drawAnimationTimers.forEach((entry) => window.clearTimeout(entry.timer));
+  state.drawAnimationTimers.forEach((entry) => window.GameDialog.clearTimeout(entry.timer));
   state.drawAnimationTimers = [];
   state.drawingToHandIds = [];
 }

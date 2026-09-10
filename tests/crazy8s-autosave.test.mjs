@@ -22,6 +22,7 @@ function table(saved = new Map(), failWrites = false) {
   const window = { localStorage, confirm: () => true,
     setTimeout(fn) { const id = ++nextTimer; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); }, addEventListener() {} };
+  window.GameDialog = { setTimeout: window.setTimeout, clearTimeout: window.clearTimeout, confirm: async () => true };
   const context = vm.createContext({ window, localStorage, document: { getElementById: node },
     setTimeout: window.setTimeout, clearTimeout: window.clearTimeout });
   vm.runInContext(source.slice(0, source.lastIndexOf("\nshuffleSetupBotNames();")), context);
@@ -115,7 +116,7 @@ test("pending bot turn resumes and preserves the deck", () => {
   assert.ok(next.snapshot().currentPlayerIndex !== 1 || next.snapshot().stage !== "playing");
 });
 
-test("invalid saves and storage errors leave setup usable; reset preserves named sessions", () => {
+test("invalid saves and storage errors leave setup usable; reset preserves named sessions", async () => {
   for (const raw of ["{broken", "null", '{"game":"crazy8s"}']) {
     const next = table(new Map([[key,raw]])); assert.equal(next.run("restoreAutosave()"), false);
     next.run("render()"); assert.equal(next.saved.get(key), raw);
@@ -124,7 +125,7 @@ test("invalid saves and storage errors leave setup usable; reset preserves named
   const bad = first.snapshot(); bad.drawPile[0] = bad.players[0].hand[0];
   assert.equal(table(new Map([[key,JSON.stringify(bad)]])).run("restoreAutosave()"), false);
   first.saved.set("dashboard.crazy8s.sessions", "named sessions");
-  first.node("resetTableBtn").handlers.click();
+  await first.node("resetTableBtn").handlers.click();
   assert.equal(first.saved.has(key), false);
   assert.equal(first.saved.get("dashboard.crazy8s.sessions"), "named sessions");
   const blocked = table(new Map(), true); blocked.deal();

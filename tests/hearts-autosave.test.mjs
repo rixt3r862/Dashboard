@@ -22,6 +22,7 @@ function table(saved = new Map(), failWrites = false) {
   const window = { localStorage, confirm: () => true,
     setTimeout(fn) { const id = ++nextTimer; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); }, addEventListener() {} };
+  window.GameDialog = { setTimeout: window.setTimeout, clearTimeout: window.clearTimeout, confirm: async () => true };
   const context = vm.createContext({ window, localStorage, document: { getElementById: node },
     setTimeout: window.setTimeout, clearTimeout: window.clearTimeout });
   vm.runInContext(source.slice(0, source.lastIndexOf("\nrenderBotNameFields();")), context);
@@ -122,10 +123,10 @@ test("corrupt autosaves leave setup usable and do not overwrite stored data", ()
   assert.equal(next.run("restoreAutosave()"), false);
 });
 
-test("reset clears only autosave and storage failure reports an error", () => {
+test("reset clears only autosave and storage failure reports an error", async () => {
   const first = table(); first.deal();
   first.saved.set("dashboard.hearts.sessions", "named sessions");
-  first.node("resetTableBtn").handlers.click();
+  await first.node("resetTableBtn").handlers.click();
   assert.equal(first.saved.has(key), false);
   assert.equal(first.saved.get("dashboard.hearts.sessions"), "named sessions");
   const blocked = table(new Map(), true); blocked.deal();

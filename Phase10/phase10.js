@@ -1051,17 +1051,17 @@ function resetTable() {
   render();
 }
 
-function saveNamedSession() {
+async function saveNamedSession() {
   if (!state.gameStarted || !state.players.length) {
     showSessionMessage("Start or load a game before saving a session.");
     return;
   }
 
   const currentSession = state.currentSessionId ? getSessionById(state.currentSessionId) : null;
-  const requestedName = window.prompt(
+  const requestedName = (await window.GameDialog.prompt(
     currentSession ? "Update saved session name:" : "Save this session as:",
     currentSession?.name || defaultSessionName(),
-  );
+  ));
   if (requestedName == null) return;
 
   const name = normalizeName(requestedName, defaultSessionName());
@@ -1115,14 +1115,14 @@ function loadSelectedSession() {
   resumeRestoredBotTurn();
 }
 
-function deleteSelectedSession() {
+async function deleteSelectedSession() {
   const session = state.selectedSessionId ? getSessionById(state.selectedSessionId) : null;
   if (!session) {
     showSessionMessage("Select a saved session to delete.");
     return;
   }
 
-  const proceed = window.confirm(`Delete saved session "${session.name}"?`);
+  const proceed = (await window.GameDialog.confirm(`Delete saved session "${session.name}"?`));
   if (!proceed) return;
 
   const nextSessions = readStoredSessions().filter((entry) => entry.id !== session.id);
@@ -1824,7 +1824,7 @@ function discardCard(player, card, options = {}) {
 
 function clearTransientNotice() {
   if (transientNoticeTimer) {
-    window.clearTimeout(transientNoticeTimer);
+    window.GameDialog.clearTimeout(transientNoticeTimer);
     transientNoticeTimer = null;
   }
   state.transientNotice = null;
@@ -1832,10 +1832,10 @@ function clearTransientNotice() {
 
 function setTransientNotice(message) {
   if (transientNoticeTimer) {
-    window.clearTimeout(transientNoticeTimer);
+    window.GameDialog.clearTimeout(transientNoticeTimer);
   }
   state.transientNotice = { message: String(message) };
-  transientNoticeTimer = window.setTimeout(() => {
+  transientNoticeTimer = window.GameDialog.setTimeout(() => {
     transientNoticeTimer = null;
     state.transientNotice = null;
     render();
@@ -2011,7 +2011,7 @@ async function queueBotTurnIfNeeded() {
   }
   if (!currentPlayer()?.isHuman) {
     const scheduledToken = botTurnToken;
-    window.setTimeout(() => {
+    window.GameDialog.setTimeout(() => {
       if (scheduledToken === botTurnToken) queueBotTurnIfNeeded();
     }, 120);
   }
@@ -2244,7 +2244,7 @@ function moveCardToGroup(player, card, target) {
 
 function clearPilePulse() {
   if (pilePulseTimer) {
-    window.clearTimeout(pilePulseTimer);
+    window.GameDialog.clearTimeout(pilePulseTimer);
     pilePulseTimer = null;
   }
   state.pilePulse = null;
@@ -2253,7 +2253,7 @@ function clearPilePulse() {
 function triggerPilePulse(pile) {
   clearPilePulse();
   state.pilePulse = pile;
-  pilePulseTimer = window.setTimeout(() => {
+  pilePulseTimer = window.GameDialog.setTimeout(() => {
     pilePulseTimer = null;
     state.pilePulse = null;
     render();
@@ -2262,7 +2262,7 @@ function triggerPilePulse(pile) {
 
 function clearPlayedCardFlash() {
   if (flashedCardTimer) {
-    window.clearTimeout(flashedCardTimer);
+    window.GameDialog.clearTimeout(flashedCardTimer);
     flashedCardTimer = null;
   }
   state.flashedCardId = null;
@@ -2271,7 +2271,7 @@ function clearPlayedCardFlash() {
 function triggerPlayedCardFlash(cardId) {
   clearPlayedCardFlash();
   state.flashedCardId = cardId;
-  flashedCardTimer = window.setTimeout(() => {
+  flashedCardTimer = window.GameDialog.setTimeout(() => {
     flashedCardTimer = null;
     state.flashedCardId = null;
     render();
@@ -2280,7 +2280,7 @@ function triggerPlayedCardFlash(cardId) {
 
 function clearGroupSettle() {
   if (flashedGroupsTimer) {
-    window.clearTimeout(flashedGroupsTimer);
+    window.GameDialog.clearTimeout(flashedGroupsTimer);
     flashedGroupsTimer = null;
   }
   state.flashedGroupIds = [];
@@ -2290,7 +2290,7 @@ function triggerGroupSettle(groupIds) {
   clearGroupSettle();
   state.flashedGroupIds = Array.isArray(groupIds) ? groupIds.filter(Boolean) : [];
   if (!state.flashedGroupIds.length) return;
-  flashedGroupsTimer = window.setTimeout(() => {
+  flashedGroupsTimer = window.GameDialog.setTimeout(() => {
     flashedGroupsTimer = null;
     state.flashedGroupIds = [];
     render();
@@ -2299,7 +2299,7 @@ function triggerGroupSettle(groupIds) {
 
 function clearDealAnimation() {
   if (dealAnimationTimer) {
-    window.clearTimeout(dealAnimationTimer);
+    window.GameDialog.clearTimeout(dealAnimationTimer);
     dealAnimationTimer = null;
   }
   state.dealAnimationCardIds = [];
@@ -2310,7 +2310,7 @@ function triggerDealAnimation(cardIds) {
   state.dealAnimationCardIds = Array.isArray(cardIds) ? cardIds.filter(Boolean) : [];
   if (!state.dealAnimationCardIds.length) return;
   const duration = 260 + state.dealAnimationCardIds.length * 55;
-  dealAnimationTimer = window.setTimeout(() => {
+  dealAnimationTimer = window.GameDialog.setTimeout(() => {
     dealAnimationTimer = null;
     state.dealAnimationCardIds = [];
     render();
@@ -4315,7 +4315,7 @@ function downloadJson(filename, payload) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  window.GameDialog.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function winnerBannerMarkup(options) {
@@ -4623,7 +4623,7 @@ function clampNumber(value, min, max, fallback) {
 
 function pause(ms) {
   return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
+    window.GameDialog.setTimeout(resolve, ms);
   });
 }
 

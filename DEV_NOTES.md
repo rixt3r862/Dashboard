@@ -150,6 +150,24 @@ session-validation, and Dashboard/ScoreKeeper integration coverage.
 - ScoreKeeper imports awarded round points directly through the `skipbo` preset; do not apply Uno-style opponent-hand conversion.
 - Rules reference: https://service.mattel.com/instruction_sheets/N7808-0920.pdf.
 
+## Themed Game Dialogs
+
+Games and ScoreKeeper load shared/game-dialog.js and shared/game-dialog.css.
+Use await window.GameDialog.confirm(message, options) or
+await window.GameDialog.prompt(message, initialValue, options), not native browser
+dialogs. Confirmation cancellation returns false; prompt cancellation returns
+null. Optional title/acceptLabel settings customize commands. Prompts require a
+nonblank session name and default to an 80-character limit.
+
+The native HTML dialog supplies a modal top layer; its styles inherit each
+game's palette. Confirmations initially focus Cancel, Escape cancels, and keyboard
+events stay inside the dialog. The existing Skip-Bo discard dialog is preserved.
+
+Gameplay timers use GameDialog.setTimeout and GameDialog.clearTimeout as a pair.
+They pause with their remaining delay while a shared dialog is open, so async
+confirmations cannot leave bots advancing behind the prompt. Do not mix their IDs
+with native clearTimeout. Utilities continue using their existing dialogs/timers.
+
 ## Browser compatibility diagnostics
 
 Keep `-webkit-backdrop-filter` and `-webkit-user-select` immediately before their

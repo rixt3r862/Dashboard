@@ -1,0 +1,44 @@
+.game-dialog {
+  box-sizing: border-box;
+  width: min(28rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  margin: auto;
+  padding: 1.35rem;
+  border: 1px solid var(--line, #777);
+  border-radius: 8px;
+  background: linear-gradient(var(--panel, var(--card, #fff)), var(--panel, var(--card, #fff))), var(--bg, #fff);
+  color: var(--text, #171717);
+  font-family: inherit;
+  box-shadow: 0 20px 70px #0008;
+  letter-spacing: 0;
+}
+.game-dialog::backdrop { background: #0009; }
+.game-dialog form { display: grid; gap: .85rem; margin: 0; }
+.game-dialog h2 { font-size: 1.25rem; line-height: 1.25; margin: 0; color: inherit; }
+.game-dialog p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.game-dialog .game-dialog-game { font-size: .8rem; color: var(--accent-strong, var(--accent, currentColor)); font-weight: 700; }
+.game-dialog label { font-size: .9rem; }
+.game-dialog input {
+  box-sizing: border-box; width: 100%; min-width: 0; padding: .7rem;
+  border: 1px solid var(--line, #777); border-radius: 6px;
+  background: var(--game-field-bg, var(--bg, #fff)); color: inherit; font: inherit;
+}
+.game-dialog [hidden] { display: none !important; }
+.game-dialog-error:empty { display: none; }
+.game-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; }
+.game-dialog button {
+  min-height: 44px; padding: .65rem 1rem; border-radius: 6px;
+  font: inherit; color: inherit; cursor: pointer;
+  border: 1px solid var(--line, #777);
+  background: var(--game-btn-bg, var(--bg, #eee));
+}
+.game-dialog [data-accept] {
+  background: var(--game-btn-primary-bg, var(--accent, #2463eb));
+  color: var(--game-btn-primary-color, #fff);
+  border-color: var(--game-btn-primary-border, var(--accent, #2463eb));
+  font-weight: 700;
+}
+.game-dialog :is(button,input):focus-visible {
+  outline: 3px solid var(--accent-strong, var(--accent, #2463eb)); outline-offset: 3px;
+}

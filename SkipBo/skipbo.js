@@ -9,7 +9,7 @@ const G = window.GameRoom || {};
 const esc = G.escapeHtml || (v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]));
 const read = G.readStoredJson || ((key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } });
 const write = G.writeStoredJson || ((key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; } });
-const download = G.downloadJson || ((name, value) => { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type:'application/json' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); });
+const download = G.downloadJson || ((name, value) => { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type:'application/json' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); window.GameDialog.setTimeout(() => URL.revokeObjectURL(url), 1000); });
 const KEY = 'skipbo.sessions.v1', AUTO = 'skipbo.autosave.v1';
 let state = null, selected = null, timer = null, order = 'desc', currentSession = '', difficulties = [], message = '';
 let sessions = read(KEY, []); if (!Array.isArray(sessions)) sessions = [];
@@ -49,7 +49,7 @@ function pileSelector(player, kind, index = 0) {
 }
 async function moveWithAnimation(move, mutate) {
   if (moving) return;
-  clearTimeout(timer);
+  window.GameDialog.clearTimeout(timer);
   const before = state ? structuredClone(state) : null;
   const player = before?.current;
   const source = move.type === 'play' ? move.source : { kind: 'hand', index: move.index };
@@ -110,9 +110,9 @@ async function moveWithAnimation(move, mutate) {
   }
 }
 function schedule() {
-  clearTimeout(timer);
+  window.GameDialog.clearTimeout(timer);
   if (moving || !state || state.phase !== 'playing' || state.current === 0) return;
-  timer = setTimeout(() => {
+  timer = window.GameDialog.setTimeout(() => {
     const move = E.botMove(state, difficulties[state.current - 1]);
     moveWithAnimation(move, () => move.type === 'play' ? E.play(state, move.source, move.pile) : move.type === 'discard' ? E.discard(state, move.index, move.pile) : E.pass(state));
   }, 650);
@@ -162,9 +162,9 @@ function render() {
   $('historyOrder').textContent = G.historySortLabel?.(order) || (order === 'desc' ? 'Newest First' : 'Oldest First');
   $('history').innerHTML = history.length ? `<table><thead><tr><th>Round</th>${state.players.map(p=>`<th>${esc(p.name)} - ${p.score}</th>`).join('')}</tr></thead><tbody>${history.map(h=>`<tr><td>${h.n}</td>${state.players.map((p,i)=>`<td>${h.scores[p.id]}${p.id === h.winnerId ? '<small>Winner</small>' : `<small>${h.remaining[i]} stock left</small>`}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '';
 }
-$('setupForm').addEventListener('submit', e => {
+$('setupForm').addEventListener('submit', async e => {
   e.preventDefault();
-  if (state && state.phase === 'playing' && !confirm('Start a new game and replace this table? Save first if you want to return.')) return;
+  if (state && state.phase === 'playing' && !(await window.GameDialog.confirm('Start a new game and replace this table? Save first if you want to return.'))) return;
   const names = state ? state.players.map(p => p.name) : [$('humanName').value.trim(), ...[...document.querySelectorAll('.bot-name')].map(e=>e.value.trim())];
   if (names.some(n=>!n) || new Set(names.map(n=>n.toLowerCase())).size !== names.length) { $('sessionStatus').textContent = 'Use a different, nonempty name for each player.'; return; }
   difficulties = state ? difficulties : [...document.querySelectorAll('.bot-difficulty')].map(e=>e.value);
@@ -172,7 +172,7 @@ $('setupForm').addEventListener('submit', e => {
   moveWithAnimation({ type: 'deal' }, () => { state = E.createGame(names, options); currentSession = ''; });
 });
 $('playerCount').onchange = () => namesFields(); $('shuffleNames').onclick = () => namesFields(true);
-$('resetTable').onclick = () => { if (state && !confirm('Reset this table? Saved sessions will remain.')) return; clearTimeout(timer); state = null; currentSession = ''; selected = null; try { localStorage.removeItem(AUTO); } catch {} render(); };
+$('resetTable').onclick = async () => { if (state && !(await window.GameDialog.confirm('Reset this table? Saved sessions will remain.'))) return; window.GameDialog.clearTimeout(timer); state = null; currentSession = ''; selected = null; try { localStorage.removeItem(AUTO); } catch {} render(); };
 document.addEventListener('click', async e => {
   const button = e.target.closest('button'); if (moving || !button || button.disabled || !humanTurn()) return;
   if (button.dataset.source) { const source = {kind:button.dataset.source}; if (button.dataset.index !== '') source.index = Number(button.dataset.index); selected = same(selected, source) ? null : source; message = ''; render(); }
@@ -206,13 +206,13 @@ $('nextRound').onclick = () => moveWithAnimation({ type: 'deal' }, () => E.nextR
 $('historyOrder').onclick = () => { order = order === 'desc' ? 'asc' : 'desc'; render(); };
 function sessionList() { $('savedSessions').innerHTML = '<option value="">Saved sessions on this device</option>' + sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join(''); $('savedSessions').value = currentSession; }
 function bundle() { return { app:'skipbo', version:1, exportedAt:new Date().toISOString(), payload:state, difficulties }; }
-function load(raw) { const next = E.validateState(raw.payload); clearTimeout(timer); state = next; difficulties = state.players.slice(1).map((_,i)=>['easy','medium','hard'].includes(raw.difficulties?.[i]) ? raw.difficulties[i] : 'medium'); changed(); }
-$('saveSession').onclick = () => { const existing = sessions.find(s=>s.id === currentSession); const name = existing?.name || prompt('Session name', G.defaultSessionName?.(state, {gameName:'Skip-Bo'}) || 'Skip-Bo table'); if (!name?.trim()) return; const id = existing?.id || String(Date.now()); const record = {...bundle(),id,name:name.trim(),updatedAt:Date.now()}; const next = [record,...sessions.filter(s=>s.id !== id)]; if (!write(KEY,next)) { $('sessionStatus').textContent = 'Could not save. Download JSON instead.'; return; } sessions = next; currentSession = id; sessionList(); $('sessionStatus').textContent = `Saved ${name}.`; };
-$('loadSession').onclick = () => { const record = sessions.find(s=>s.id === $('savedSessions').value); if (!record) return; if (state && !confirm('Replace the current table with this saved session?')) return; try { load(record); currentSession = record.id; $('sessionStatus').textContent = `Loaded ${record.name}.`; } catch(e) { $('sessionStatus').textContent = e.message; } };
-$('deleteSession').onclick = () => { const id = $('savedSessions').value; if (!id || !confirm('Delete this saved session?')) return; const next = sessions.filter(s=>s.id !== id); if (!write(KEY,next)) { $('sessionStatus').textContent = 'Could not delete the saved session.'; return; } sessions = next; if (currentSession === id) currentSession = ''; sessionList(); $('sessionStatus').textContent = 'Saved session deleted.'; };
+function load(raw) { const next = E.validateState(raw.payload); window.GameDialog.clearTimeout(timer); state = next; difficulties = state.players.slice(1).map((_,i)=>['easy','medium','hard'].includes(raw.difficulties?.[i]) ? raw.difficulties[i] : 'medium'); changed(); }
+$('saveSession').onclick = async () => { const existing = sessions.find(s=>s.id === currentSession); const name = existing?.name || (await window.GameDialog.prompt('Session name', G.defaultSessionName?.(state, {gameName:'Skip-Bo'}) || 'Skip-Bo table')); if (!name?.trim()) return; const id = existing?.id || String(Date.now()); const record = {...bundle(),id,name:name.trim(),updatedAt:Date.now()}; const next = [record,...sessions.filter(s=>s.id !== id)]; if (!write(KEY,next)) { $('sessionStatus').textContent = 'Could not save. Download JSON instead.'; return; } sessions = next; currentSession = id; sessionList(); $('sessionStatus').textContent = `Saved ${name}.`; };
+$('loadSession').onclick = async () => { const record = sessions.find(s=>s.id === $('savedSessions').value); if (!record) return; if (state && !(await window.GameDialog.confirm('Replace the current table with this saved session?'))) return; try { load(record); currentSession = record.id; $('sessionStatus').textContent = `Loaded ${record.name}.`; } catch(e) { $('sessionStatus').textContent = e.message; } };
+$('deleteSession').onclick = async () => { const id = $('savedSessions').value; if (!id || !(await window.GameDialog.confirm('Delete this saved session?'))) return; const next = sessions.filter(s=>s.id !== id); if (!write(KEY,next)) { $('sessionStatus').textContent = 'Could not delete the saved session.'; return; } sessions = next; if (currentSession === id) currentSession = ''; sessionList(); $('sessionStatus').textContent = 'Saved session deleted.'; };
 $('downloadSession').onclick = () => download(G.exportFileName?.('skipbo',state) || 'skipbo-session.json', bundle());
 $('importSession').onclick = () => $('importFile').click();
-$('importFile').onchange = async e => { const file = e.target.files[0]; if (!file) return; try { if (file.size > 2000000) throw new Error('Session file is too large.'); const raw = JSON.parse(await file.text()); if (raw.app !== 'skipbo' || raw.version !== 1) throw new Error('Choose a Skip-Bo session JSON file.'); E.validateState(raw.payload); if (state && !confirm('Replace the current table with this imported session?')) return; load(raw); currentSession = ''; $('sessionStatus').textContent = 'Imported session. Save it to keep a named copy.'; } catch(e) { $('sessionStatus').textContent = e.message; } finally { e.target.value = ''; } };
+$('importFile').onchange = async e => { const file = e.target.files[0]; if (!file) return; try { if (file.size > 2000000) throw new Error('Session file is too large.'); const raw = JSON.parse(await file.text()); if (raw.app !== 'skipbo' || raw.version !== 1) throw new Error('Choose a Skip-Bo session JSON file.'); E.validateState(raw.payload); if (state && !(await window.GameDialog.confirm('Replace the current table with this imported session?'))) return; load(raw); currentSession = ''; $('sessionStatus').textContent = 'Imported session. Save it to keep a named copy.'; } catch(e) { $('sessionStatus').textContent = e.message; } finally { e.target.value = ''; } };
 $('exportScores').onclick = () => { if (!G.scoreKeeperPayloadFromRounds) { $('sessionStatus').textContent = 'Shared export helpers unavailable. Reload the page and try again.'; return; } const payload = G.scoreKeeperPayloadFromRounds({payload:state,history:state.history,presetKey:'skipbo',target:state.target,winMode:'high',scoreForRound:(round,p)=>round.scores[p.id]}); download(G.exportFileName('skipbo',state,{scoreKeeper:true}),G.scoreKeeperExportBundle({sourceGame:'skipbo',scorekeeperPreset:'skipbo',sourcePayload:state,scorekeeperPayload:payload})); $('sessionStatus').textContent = 'ScoreKeeper export downloaded. Import it in ScoreKeeper.'; };
 $('sessionToggle').onclick = () => { const hidden = !$('sessionTools').hidden; $('sessionTools').hidden = hidden; $('sessionToggle').textContent = hidden ? 'Sessions' : 'Hide Sessions'; $('sessionToggle').setAttribute('aria-expanded',String(!hidden)); };
 namesFields(); sessionList();

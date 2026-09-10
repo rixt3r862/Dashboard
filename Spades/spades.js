@@ -105,9 +105,9 @@ const els = {
 };
 
 function bindEvents() {
-  els.setupForm.addEventListener("submit", (event) => {
+  els.setupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (state.gameStarted && !state.winnerTeamId && !window.confirm("Restart this Spades table?")) return;
+    if (state.gameStarted && !state.winnerTeamId && !(await window.GameDialog.confirm("Restart this Spades table? Current game and scores will be replaced. Saved sessions will remain."))) return;
     startNewGame();
   });
   els.samePlayersBtn.addEventListener("click", () => {
@@ -118,8 +118,8 @@ function bindEvents() {
     shuffleSetupBotNames();
     renderBotNameFields();
   });
-  els.resetTableBtn.addEventListener("click", () => {
-    if (state.gameStarted && !state.winnerTeamId && !window.confirm("Reset this Spades table?")) return;
+  els.resetTableBtn.addEventListener("click", async () => {
+    if (state.gameStarted && !state.winnerTeamId && !(await window.GameDialog.confirm("Reset this Spades table? Current game and scores will be cleared. Saved sessions will remain."))) return;
     resetState();
     clearAutosave();
     shuffleSetupBotNames();
@@ -415,11 +415,11 @@ function completeTrick() {
   state.stage = "trick-complete";
   state.notice = `${winner.name} takes trick ${state.trickNumber}.`;
   render();
-  state.pendingTrickTimer = window.setTimeout(() => {
+  state.pendingTrickTimer = window.GameDialog.setTimeout(() => {
     state.pendingTrickTimer = null;
     state.stage = "trick-collecting";
     render();
-    state.trickCollectTimer = window.setTimeout(() => {
+    state.trickCollectTimer = window.GameDialog.setTimeout(() => {
       state.trickCollectTimer = null;
       resolveCollectedTrick(winnerIndex);
     }, TRICK_COLLECT_MS);
@@ -542,7 +542,7 @@ function scheduleBotTurn() {
   const player = state.players[state.currentPlayerIndex];
   if (!player?.bot) return;
   const token = ++botTurnToken;
-  botTurnTimer = window.setTimeout(() => {
+  botTurnTimer = window.GameDialog.setTimeout(() => {
     if (token !== botTurnToken || state.stage !== "playing") return;
     playCard(state.currentPlayerIndex, chooseBotCard(player));
   }, BOT_TURN_DELAY_MS);
@@ -550,24 +550,24 @@ function scheduleBotTurn() {
 
 function cancelPendingBotTurn() {
   botTurnToken += 1;
-  if (botTurnTimer) window.clearTimeout(botTurnTimer);
+  if (botTurnTimer) window.GameDialog.clearTimeout(botTurnTimer);
   botTurnTimer = null;
 }
 
 function clearPendingTrickTimer() {
-  if (state.pendingTrickTimer) window.clearTimeout(state.pendingTrickTimer);
+  if (state.pendingTrickTimer) window.GameDialog.clearTimeout(state.pendingTrickTimer);
   state.pendingTrickTimer = null;
 }
 
 function clearTrickCollectTimer() {
-  if (state.trickCollectTimer) window.clearTimeout(state.trickCollectTimer);
+  if (state.trickCollectTimer) window.GameDialog.clearTimeout(state.trickCollectTimer);
   state.trickCollectTimer = null;
   state.pendingTrickWinnerIndex = null;
 }
 
 function startDealAnimationTimer() {
   clearDealAnimationTimer();
-  state.dealAnimationTimer = window.setTimeout(() => {
+  state.dealAnimationTimer = window.GameDialog.setTimeout(() => {
     state.dealAnimationTimer = null;
     state.dealAnimationActive = false;
     render();
@@ -576,14 +576,14 @@ function startDealAnimationTimer() {
 
 function clearDealAnimationTimer() {
   if (!state.dealAnimationTimer) return;
-  window.clearTimeout(state.dealAnimationTimer);
+  window.GameDialog.clearTimeout(state.dealAnimationTimer);
   state.dealAnimationTimer = null;
 }
 
 function markCardPlayingToTable(cardId) {
   clearPlayAnimationTimer();
   state.playingToTableIds = [cardId];
-  state.playAnimationTimer = window.setTimeout(() => {
+  state.playAnimationTimer = window.GameDialog.setTimeout(() => {
     state.playAnimationTimer = null;
     state.playingToTableIds = state.playingToTableIds.filter((id) => id !== cardId);
     renderTrick();
@@ -591,7 +591,7 @@ function markCardPlayingToTable(cardId) {
 }
 
 function clearPlayAnimationTimer() {
-  if (state.playAnimationTimer) window.clearTimeout(state.playAnimationTimer);
+  if (state.playAnimationTimer) window.GameDialog.clearTimeout(state.playAnimationTimer);
   state.playAnimationTimer = null;
   state.playingToTableIds = [];
 }
@@ -603,7 +603,7 @@ function triggerSpadeBurst() {
     distance: (2.6 + Math.random() * 3.2).toFixed(2),
     symbol: "♠",
   }));
-  state.spadeBurstTimer = window.setTimeout(() => {
+  state.spadeBurstTimer = window.GameDialog.setTimeout(() => {
     state.spadeBurstSymbols = [];
     state.spadeBurstTimer = null;
     renderTrick();
@@ -611,7 +611,7 @@ function triggerSpadeBurst() {
 }
 
 function clearSpadeBurstTimer() {
-  if (state.spadeBurstTimer) window.clearTimeout(state.spadeBurstTimer);
+  if (state.spadeBurstTimer) window.GameDialog.clearTimeout(state.spadeBurstTimer);
   state.spadeBurstTimer = null;
   state.spadeBurstSymbols = [];
 }
@@ -916,12 +916,12 @@ function writeSavedSessions(sessions) {
   return writeStoredJson(STORAGE_SESSIONS_KEY, sessions.map(normalizeSpadesSessionRecord).filter(Boolean));
 }
 
-function saveSession() {
+async function saveSession() {
   if (!state.gameStarted) {
     showSessionStatus("Start a game before saving.");
     return;
   }
-  const name = window.prompt("Save this Spades session as:", defaultSessionName());
+  const name = (await window.GameDialog.prompt("Save this Spades session as:", defaultSessionName()));
   if (!name) return;
   const id = uid();
   const now = Date.now();
@@ -944,10 +944,10 @@ function loadSelectedSession() {
   showSessionStatus(`Loaded ${session.name}.`);
 }
 
-function deleteSelectedSession() {
+async function deleteSelectedSession() {
   const session = selectedSavedSession();
   if (!session) return;
-  if (!window.confirm(`Delete saved session "${session.name}"?`)) return;
+  if (!(await window.GameDialog.confirm(`Delete saved session "${session.name}"?`))) return;
   writeSavedSessions(readSavedSessions().filter((entry) => entry.id !== session.id));
   showSessionStatus(`Deleted ${session.name}.`);
   renderSessionControls();

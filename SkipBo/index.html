@@ -7,8 +7,10 @@
   <link rel="icon" href="./icon.svg"><link rel="apple-touch-icon" href="./icon.svg">
   <link rel="stylesheet" href="../shared/game-room.css"><link rel="stylesheet" href="./skipbo.css">
   <script defer src="../shared/pwa.js" data-sw="../sw.js"></script>
+  <link rel="stylesheet" href="../shared/game-dialog.css">
+  <script src="../shared/game-dialog.js"></script>
 </head>
-<body>
+<body data-dialog-game="Skip-Bo">
 <dialog id="discardDialog" class="discard-dialog" aria-labelledby="discardTitle" aria-describedby="discardMessage">
   <h2 id="discardTitle">End your turn?</h2>
   <p id="discardMessage"></p>

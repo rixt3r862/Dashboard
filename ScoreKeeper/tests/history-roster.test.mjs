@@ -4,8 +4,8 @@ import { createHistoryController } from '../js/history.js';
 import { totalsByPlayerId, determineWinnerFromTotals } from '../js/rules.mjs';
 import { ROSTER_KEY, readRoster, saveRosterNames } from '../js/roster.mjs';
 
-function harness(presetKey = 'custom') {
-  globalThis.window = { addEventListener() {}, confirm: () => true };
+function harness(presetKey = 'custom', warning = '') {
+  globalThis.window = { addEventListener() {}, GameDialog: { confirm: async () => true } };
   globalThis.HTMLInputElement = class {};
   const state = { presetKey, players: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }],
     rounds: [{ n: 1, scores: { a: 60, b: 10 } }, { n: 2, scores: { a: 50, b: 20 } }],
@@ -23,13 +23,13 @@ function harness(presetKey = 'custom') {
   const controller = createHistoryController({ state, els: { historyTable: table, roundMsg: {} },
     isPhase10: () => presetKey === 'phase10', showMsg: (_, text) => { message = text; },
     setLive() {}, applyPhase10UiText() {}, save: () => saved++, renderAll() {},
-    validateRoundScores: () => ({ ok: true }),
+    validateRoundScores: () => ({ ok: true, warning }),
     totalsByPlayerId: () => totalsByPlayerId(state.players, state.rounds),
     determineWinnerFromTotals: entries => determineWinnerFromTotals(entries, state.winMode, state.target)
   });
   controller.bindEvents();
   return { state, inputs, save() {
-    click({ target: { closest: () => ({ getAttribute: key => key === 'data-history-action' ? 'save' : '1' }) } });
+    return click({ target: { closest: () => ({ getAttribute: key => key === 'data-history-action' ? 'save' : '1' }) } });
   }, get message() { return message; }, get saved() { return saved; } };
 }
 
@@ -60,6 +60,18 @@ test('history correction updates the winner and free play remains active', () =>
   assert.equal(h.state.firstWinnerAt.winnerId, 'b');
   const free = harness(); free.state.gameState = 'free_play'; free.save();
   assert.equal(free.state.mode, 'playing'); assert.equal(free.state.winnerId, null);
+});
+test('history warning waits for the custom confirmation and cancel preserves scores', async () => {
+  const h = harness('custom', 'Check the total.');
+  const before = JSON.stringify(h.state.rounds);
+  let decide;
+  window.GameDialog.confirm = () => new Promise(resolve => { decide = resolve; });
+  h.inputs.a = '5';
+  const pending = h.save();
+  assert.equal(JSON.stringify(h.state.rounds), before);
+  decide(false); await pending;
+  assert.equal(JSON.stringify(h.state.rounds), before);
+  assert.equal(h.saved, 0);
 });
 test('roster persists trimmed unique names and preserves corrupt or blocked storage', () => {
   const data = new Map();

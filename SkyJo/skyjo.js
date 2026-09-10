@@ -138,7 +138,7 @@ function bindEvents() {
   bind(window, "orientationchange", syncDeviceLayout);
   bind(window.visualViewport, "resize", syncDeviceLayout);
 
-  bind(els.setupForm, "submit", (event) => {
+  bind(els.setupForm, "submit", async (event) => {
     event.preventDefault();
     if (state.turnStage === "opening-ready" && state.openingStarter) {
       beginGamePlay();
@@ -149,7 +149,7 @@ function bindEvents() {
       return;
     }
     if (state.turnStage === "opening-reveal") return;
-    if (shouldConfirmRestart() && !window.confirm("Restart this SkyJo game? Current round and scores will be cleared.")) {
+    if (shouldConfirmRestart() && !(await window.GameDialog.confirm("Restart this SkyJo game? Current round and scores will be cleared."))) {
       return;
     }
     startNewGame();
@@ -365,8 +365,8 @@ function resetTable() {
   render();
 }
 
-function handleResetTable() {
-  if (shouldConfirmReset() && !window.confirm("Reset this SkyJo table? Current game, scores, and player setup will be cleared.")) {
+async function handleResetTable() {
+  if (shouldConfirmReset() && !(await window.GameDialog.confirm("Reset this SkyJo table? Current game, scores, and player setup will be cleared."))) {
     return;
   }
   resetTable();
@@ -468,7 +468,7 @@ function recycleDiscardIntoDeck() {
 
 function clearDealAnimation() {
   if (dealAnimationTimer) {
-    window.clearTimeout(dealAnimationTimer);
+    window.GameDialog.clearTimeout(dealAnimationTimer);
     dealAnimationTimer = null;
   }
   clearDealFlightAnimation();
@@ -490,7 +490,7 @@ function clearDealFlightAnimation() {
 function cancelPendingBotTurn() {
   botTurnToken += 1;
   if (botTurnTimer) {
-    window.clearTimeout(botTurnTimer);
+    window.GameDialog.clearTimeout(botTurnTimer);
     botTurnTimer = null;
   }
   state.busy = false;
@@ -502,7 +502,7 @@ function triggerDealAnimation(cardIds) {
   if (!state.dealAnimationCardIds.length) return;
   dealFlightRunId += 1;
   const duration = 420 + state.dealAnimationCardIds.length * DEAL_CARD_STAGGER_MS;
-  dealAnimationTimer = window.setTimeout(() => {
+  dealAnimationTimer = window.GameDialog.setTimeout(() => {
     dealAnimationTimer = null;
     state.dealAnimationCardIds = [];
     render();
@@ -639,7 +639,7 @@ function revealOpeningSlot(player, index) {
   saveGame();
   render();
   if (openingRevealCount(player) >= 2) {
-    window.setTimeout(() => completeOpeningReveal(), 360);
+    window.GameDialog.setTimeout(() => completeOpeningReveal(), 360);
   }
 }
 
@@ -775,7 +775,7 @@ function resumeBotTurn() {
   const token = botTurnToken;
   state.busy = true;
   render();
-  botTurnTimer = window.setTimeout(() => {
+  botTurnTimer = window.GameDialog.setTimeout(() => {
     botTurnTimer = null;
     if (token !== botTurnToken) return;
     const livePlayer = currentPlayer();
@@ -1747,7 +1747,7 @@ function downloadJson(filename, payload) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  window.GameDialog.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function winnerBannerMarkup(options) {
@@ -2065,17 +2065,17 @@ function showSessionMessage(message) {
   render();
 }
 
-function saveNamedSession() {
+async function saveNamedSession() {
   if (!state.gameStarted || !state.players.length) {
     showSessionMessage("Start or load a game before saving a session.");
     return;
   }
 
   const currentSession = state.currentSessionId ? getSessionById(state.currentSessionId) : null;
-  const requestedName = window.prompt(
+  const requestedName = (await window.GameDialog.prompt(
     currentSession ? "Update saved session name:" : "Save this session as:",
     currentSession?.name || defaultSessionName(),
-  );
+  ));
   if (requestedName == null) return;
 
   const name = cleanName(requestedName, defaultSessionName());
@@ -2125,14 +2125,14 @@ function loadSelectedSession() {
   resumeBotTurn();
 }
 
-function deleteSelectedSession() {
+async function deleteSelectedSession() {
   const session = state.selectedSessionId ? getSessionById(state.selectedSessionId) : null;
   if (!session) {
     showSessionMessage("Select a saved session to delete.");
     return;
   }
 
-  const proceed = window.confirm(`Delete saved session "${session.name}"?`);
+  const proceed = (await window.GameDialog.confirm(`Delete saved session "${session.name}"?`));
   if (!proceed) return;
 
   const nextSessions = readStoredSessions().filter((entry) => entry.id !== session.id);

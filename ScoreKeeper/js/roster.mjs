@@ -49,9 +49,9 @@ export function createRosterController({ document, storage, window, currentNames
     } catch (error) { status.textContent = 'Unable to save player names. ' + error.message; }
   });
   select.addEventListener('change', () => { remove.disabled = !select.value; });
-  remove.addEventListener('click', () => {
+  remove.addEventListener('click', async () => {
     const name = select.value;
-    if (!name || !window.confirm(`Remove ${name} from saved players? Existing games will not change.`)) return;
+    if (!name || !(await window.GameDialog.confirm(`Remove ${name} from saved players? Existing games will not change.`))) return;
     try {
       const names = readRoster(storage).filter(saved => saved !== name);
       storage.setItem(ROSTER_KEY, JSON.stringify(names)); refresh(); status.textContent = 'Saved player removed.';

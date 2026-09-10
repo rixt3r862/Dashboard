@@ -1,4 +1,4 @@
-const VERSION = "dashboard-v160";
+const VERSION = "dashboard-v161";
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const REMOTE_CACHE = `${VERSION}-remote`;
@@ -65,6 +65,8 @@ const CORE_ASSETS = [
   "./SkipBo/cards/back.svg",
   "./shared/game-room.css",
   "./shared/game-room.js",
+  "./shared/game-dialog.js",
+  "./shared/game-dialog.css",
   "./shared/last-trick.js",
   "./TimeTools/index.html",
   "./Phase10/index.html",
