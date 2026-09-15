@@ -22,7 +22,7 @@ function namesFields(shuffle = false) {
 }
 function face(value, label = '') {
   if (value === undefined) return '<span class="playing-card empty" aria-hidden="true">—</span>';
-  return `<span class="playing-card illustrated" aria-hidden="true"><img src="./cards/${value}.svg" alt="" draggable="false">${label ? `<span class="card-value-label">${esc(label)}</span>` : ''}</span>`;
+  return `<span class="playing-card illustrated" data-rank="${value}" aria-hidden="true"><img src="./cards/${value}.svg" alt="" draggable="false">${label ? `<span class="card-value-label">${esc(label)}</span>` : ''}</span>`;
 }
 function back() {
   return '<span class="playing-card illustrated card-back" aria-hidden="true"><img src="./cards/back.svg" alt="" draggable="false"></span>';
@@ -135,7 +135,7 @@ function render() {
   $('statusGrid').innerHTML = [['Round',state.roundNumber],['Draw pile',state.draw.length],['Your stock',human.stock.length],['Your score',human.score]].map(([label,value]) => `<div class="status-chip"><span>${label}</span><strong>${value}</strong></div>`).join('');
   $('drawPile').innerHTML = `${state.draw.length ? back() : face(undefined)}<span>${state.draw.length} cards · Draws automatically</span>`;
   $('humanSummary').textContent = `${human.name} • ${human.score} points • ${human.stock.length} stock cards left`;
-  $('actionHint').textContent = message || (humanTurn() ? selected ? `Choose a highlighted building pile${selected.kind === 'hand' ? ', or click a discard pile to end your turn' : ''}.` : 'Select a hand card, your stock top, or a discard top. Green outlines mark playable cards.' : state.phase === 'playing' ? `${current.name} is playing…` : 'The round has ended.');
+  $('actionHint').textContent = message || (humanTurn() ? selected ? `Choose a highlighted building pile${selected.kind === 'hand' ? ', or click a discard pile to end your turn' : ''}.` : 'Select a hand card, your stock top, or a discard top. Contrasting outlines mark playable cards.' : state.phase === 'playing' ? `${current.name} is playing…` : 'The round has ended.');
   $('bots').innerHTML = state.players.slice(1).map((p, i) => `<article class="bot-seat ${state.phase === 'playing' && state.current === i + 1 ? 'active' : ''}"><div class="seat-title"><strong>${esc(p.name)}</strong><span>${p.score} pts</span></div><p class="bot-meta">${esc(difficulties[i] || 'medium')} · ${p.hand.length} in hand · ${p.stock.length} stock</p><div class="bot-cards"><div class="mini-pile">${p.hand.length ? back() : face(undefined)}<small>Hand · ${p.hand.length}</small></div><div class="mini-pile">${face(p.stock.at(-1))}<small>Stock</small></div>${p.discards.map((pile, j) => `<div class="mini-pile">${face(pile.at(-1))}<small>D${j+1} · ${pile.length}</small></div>`).join('')}</div></article>`).join('');
   $('builds').innerHTML = state.builds.map((pile, i) => `<div class="pile-slot"><p>Build ${i+1}</p><button class="card-button ${selected && E.canPlay(state, selected, i) ? 'playable' : ''}" data-build="${i}" aria-label="Build ${i+1}, needs ${pile.length+1}" ${!humanTurn() || !selected || !E.canPlay(state, selected, i) ? 'disabled' : ''}>${face(pile.at(-1), pile.at(-1) === 0 ? `As ${pile.length}` : '')}</button><p>Next: ${pile.length+1}</p></div>`).join('');
   $('stock').innerHTML = card({kind:'stock'}, human.stock.at(-1), 'Your stock');
