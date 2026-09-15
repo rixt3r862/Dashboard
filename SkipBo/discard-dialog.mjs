@@ -21,6 +21,6 @@ export function confirmDiscard(document, value, pile) {
     cancel.addEventListener('click', onCancel);
     dialog.addEventListener('close', onClose);
     dialog.showModal();
-    cancel.focus();
+    accept.focus();
   });
 }

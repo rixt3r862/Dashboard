@@ -12,11 +12,12 @@ function setup() {
   const previous = new Element();
   return { elements, previous, document: { getElementById: id => elements[id], activeElement: previous } };
 }
-test('dialog names card and pile, focuses Cancel, and restores focus on dismissal', async () => {
+test('dialog names card and pile, focuses Discard & End Turn, and restores focus on dismissal', async () => {
   const s = setup();
   const result = confirmDiscard(s.document, 0, 2);
   assert.match(s.elements.discardMessage.textContent, /Skip-Bo wild.*pile 3/);
-  assert.equal(s.elements.cancelDiscard.focused, true);
+  assert.equal(s.elements.confirmDiscard.focused, true);
+  assert.notEqual(s.elements.cancelDiscard.focused, true);
   s.elements.cancelDiscard.dispatchEvent(new Event('click'));
   assert.equal(await result, false);
   assert.equal(s.previous.focused, true);
