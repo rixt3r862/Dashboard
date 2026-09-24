@@ -47,6 +47,10 @@ function pileSelector(player, kind, index = 0) {
   const slot = kind === 'hand' ? 1 : kind === 'stock' ? 2 : index + 3;
   return `#bots .bot-seat:nth-child(${player}) .mini-pile:nth-child(${slot}) .playing-card`;
 }
+function renderSupply(drawCount = state.draw.length, reserveCount = state.completed.length) {
+  $('drawPile').innerHTML = `${drawCount ? back() : face(undefined)}<span><strong>Draw pile: ${drawCount}</strong><br>Draws automatically</span>`;
+  $('recyclePile').innerHTML = `${reserveCount ? back() : face(undefined)}<span><strong>Recycling: ${reserveCount}</strong><br>Waiting until the draw pile runs out</span>`;
+}
 async function moveWithAnimation(move, mutate) {
   if (moving) return;
   window.GameDialog.clearTimeout(timer);
@@ -72,6 +76,12 @@ async function moveWithAnimation(move, mutate) {
   const main = document.querySelector('main');
   main.inert = true;
   try {
+    const completedPile = move.type === 'play' && before.builds[move.pile].length === 11;
+    const reserveBeforeDraw = (before?.completed.length || 0) + (completedPile ? 12 : 0);
+    const recycled = move.type !== 'deal' && reserveBeforeDraw > state.completed.length;
+    // Show the reserve collecting cards before any refill flight, even when both
+    // happen in one engine move (playing the last hand card can trigger a draw).
+    if (move.type !== 'deal') renderSupply(before.draw.length, before.completed.length);
     if (move.type === 'play' || move.type === 'discard') {
       const destination = move.type === 'play' ? `#builds [data-build="${move.pile}"] .playing-card` : pileSelector(player, 'discard', move.pile);
       const target = document.querySelector(destination);
@@ -79,10 +89,16 @@ async function moveWithAnimation(move, mutate) {
       if (target) target.style.visibility = 'hidden';
       try { await motion.fly(origin, end, value); }
       finally { if (target) target.style.visibility = ''; }
-      if (move.type === 'play' && before.builds[move.pile].length === 11) {
-        await motion.fly(end, motion.rect('#drawPile .playing-card'), value);
+      if (completedPile) {
+        await motion.fly(end, motion.rect('#recyclePile .playing-card'), value);
+        renderSupply(before.draw.length, reserveBeforeDraw);
       }
     }
+    if (recycled) {
+      renderSupply(0, reserveBeforeDraw);
+      await motion.fly(motion.rect('#recyclePile .playing-card'), motion.rect('#drawPile .playing-card'), 'back');
+    }
+    renderSupply();
     const draw = motion.rect('#drawPile .playing-card') || drawOrigin;
     const flights = [];
     for (let i = 0; i < state.players.length; i++) {
@@ -104,6 +120,7 @@ async function moveWithAnimation(move, mutate) {
   } finally {
     // Also reveal cards if a preceding flight fails or is cancelled.
     incomingFaces.forEach(target => { target.style.visibility = ''; });
+    renderSupply();
     main.inert = false;
     moving = false;
     schedule();
@@ -128,12 +145,12 @@ function render() {
   $('nextRound').hidden = state?.phase !== 'roundOver';
   $('passTurn').hidden = !humanTurn() || state.players[0].hand.length > 0 || E.legalMoves(state).length > 0;
   $('winnerBanner').hidden = !state || state.phase === 'playing';
-  if (!state) { ['bots','builds','hand','stock','discards','history','statusGrid','humanSummary','drawPile'].forEach(id => $(id).innerHTML = ''); $('statusText').textContent = 'Deal a table to begin.'; $('actionHint').textContent = 'Start a game to see your cards.'; $('historySummary').textContent = 'Completed rounds will appear here.'; return; }
+  if (!state) { ['bots','builds','hand','stock','discards','history','statusGrid','humanSummary','drawPile','recyclePile'].forEach(id => $(id).innerHTML = ''); $('statusText').textContent = 'Deal a table to begin.'; $('actionHint').textContent = 'Start a game to see your cards.'; $('historySummary').textContent = 'Completed rounds will appear here.'; return; }
   const human = state.players[0], current = state.players[state.current];
   $('setupSummary').textContent = `${state.players.map(p => p.name).join(', ')} • ${state.short ? '10-card stock' : 'Standard stock'} • ${state.target === 1 ? 'One round' : '500 points'}`;
   $('statusText').textContent = state.phase === 'playing' ? `${current.name}’s turn` : state.phase === 'finished' ? 'Game complete.' : 'Round complete.';
   $('statusGrid').innerHTML = [['Round',state.roundNumber],['Draw pile',state.draw.length],['Your stock',human.stock.length],['Your score',human.score]].map(([label,value]) => `<div class="status-chip"><span>${label}</span><strong>${value}</strong></div>`).join('');
-  $('drawPile').innerHTML = `${state.draw.length ? back() : face(undefined)}<span>${state.draw.length} cards · Draws automatically</span>`;
+  renderSupply();
   $('humanSummary').textContent = `${human.name} • ${human.score} points • ${human.stock.length} stock cards left`;
   $('actionHint').textContent = message || (humanTurn() ? selected ? `Choose a highlighted building pile${selected.kind === 'hand' ? ', or click a discard pile to end your turn' : ''}.` : 'Select a hand card, your stock top, or a discard top. Contrasting outlines mark playable cards.' : state.phase === 'playing' ? `${current.name} is playing…` : 'The round has ended.');
   $('bots').innerHTML = state.players.slice(1).map((p, i) => `<article class="bot-seat ${state.phase === 'playing' && state.current === i + 1 ? 'active' : ''}"><div class="seat-title"><strong>${esc(p.name)}</strong><span>${p.score} pts</span></div><p class="bot-meta">${esc(difficulties[i] || 'medium')} · ${p.hand.length} in hand · ${p.stock.length} stock</p><div class="bot-cards"><div class="mini-pile">${p.hand.length ? back() : face(undefined)}<small>Hand · ${p.hand.length}</small></div><div class="mini-pile">${face(p.stock.at(-1))}<small>Stock</small></div>${p.discards.map((pile, j) => `<div class="mini-pile">${face(pile.at(-1))}<small>D${j+1} · ${pile.length}</small></div>`).join('')}</div></article>`).join('');
