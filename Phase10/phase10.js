@@ -25,6 +25,7 @@ let flashedCardTimer = null;
 let flashedGroupsTimer = null;
 let dealAnimationTimer = null;
 let botTurnToken = 0;
+const CARD_FLIGHT_MS = 520;
 
 const PHASES = [
   {
@@ -1574,6 +1575,7 @@ function humanDraw(source) {
   if (!isHumanTurn() || state.busy || state.turnStage !== "draw") return;
   const player = currentPlayer();
   if (source === "discard" && !canTakeTopDiscard()) return;
+  const flightFrom = getPhaseCardRect(source === "discard" ? els.discardPreview.querySelector(".hand-card") : els.deckPreview.querySelector(".deck-card"));
   const drawn = source === "discard" ? takeDiscardInternal(player) : takeDeckInternal(player);
   if (!drawn) return;
   state.turnStage = "main";
@@ -1583,6 +1585,54 @@ function humanDraw(source) {
   syncSelectedSkipTarget();
   appendLog(`${player.name} drew ${cardLabel(drawn)} from the ${source === "discard" ? "discard pile" : "deck"}.`);
   render();
+  const target = els.humanHand.querySelector(`[data-card-id="${CSS.escape(drawn.id)}"]`);
+  playPhaseCardFlight(flightFrom, getPhaseCardRect(target), drawn, { faceDown: source === "deck", concealTarget: target });
+}
+
+function getPhaseCardRect(element) {
+  if (!element?.getBoundingClientRect) return null;
+  const rect = element.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const isPlayerArea = element.matches?.(".player-card");
+  const width = isPlayerArea ? 58 : rect.width;
+  const height = isPlayerArea ? width * (5 / 3) : rect.height;
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, width, height };
+}
+
+function playPhaseCardFlight(from, to, card, options = {}) {
+  if (!from || !to || !card) return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const ratio = 3 / 5;
+  const start = { ...from, height: from.width / ratio };
+  const targetWidth = Math.min(to.width, to.height * ratio);
+  const scale = targetWidth / start.width;
+  const layer = document.createElement("div");
+  layer.className = "phase-card-flight-layer";
+  layer.setAttribute("aria-hidden", "true");
+  const flyer = document.createElement("div");
+  flyer.className = `phase-card-flight${options.faceDown ? " is-face-down" : ""}`;
+  flyer.style.width = `${start.width}px`;
+  flyer.style.height = `${start.height}px`;
+  flyer.style.left = `${start.x - start.width / 2}px`;
+  flyer.style.top = `${start.y - start.height / 2}px`;
+  flyer.innerHTML = options.faceDown
+    ? `<div class="phase-card-flight-flipper"><div class="phase-card-flight-back"></div><div class="phase-card-flight-front">${faceCardMarkup(card)}</div></div>`
+    : faceCardMarkup(card);
+  layer.append(flyer);
+  document.body.append(layer);
+  if (options.concealTarget) options.concealTarget.style.visibility = "hidden";
+  flyer.animate([
+    { transform: "translate(0, 0) rotate(-4deg) scale(1)", opacity: 1 },
+    { transform: `translate(${to.x - start.x}px, ${to.y - start.y}px) rotate(0deg) scale(${scale})`, opacity: 1 },
+  ], { duration: CARD_FLIGHT_MS, easing: "cubic-bezier(.22,.72,.25,1)", fill: "forwards" });
+  if (options.faceDown) flyer.querySelector(".phase-card-flight-flipper").animate([
+    { transform: "rotateY(0deg)" },
+    { transform: "rotateY(180deg)" },
+  ], { duration: CARD_FLIGHT_MS * 0.62, delay: CARD_FLIGHT_MS * 0.2, easing: "ease-in-out", fill: "forwards" });
+  window.setTimeout(() => {
+    if (options.concealTarget) options.concealTarget.style.visibility = "";
+    layer.remove();
+  }, CARD_FLIGHT_MS + 40);
 }
 
 function handlePossiblePhaseMeldClick(event) {
@@ -1782,6 +1832,10 @@ function humanSelectSkipTarget(targetId) {
 }
 
 function discardCard(player, card, options = {}) {
+  const sourceElement = player.isHuman
+    ? els.humanHand.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`)
+    : els.playersBoard.querySelector(`[data-player-id="${CSS.escape(player.id)}"]`);
+  const flightFrom = getPhaseCardRect(sourceElement);
   const skipTarget =
     card.type === "skip" ? resolveSkipTarget(player, options.skipTargetId) : null;
   removeCardsFromHand(player, [card.id]);
@@ -1796,6 +1850,8 @@ function discardCard(player, card, options = {}) {
 
   if (!player.hand.length) {
     finishRound(player, card.type === "skip");
+    const discardTarget = els.discardPreview.querySelector(".hand-card");
+    playPhaseCardFlight(flightFrom, getPhaseCardRect(discardTarget), card, { concealTarget: discardTarget });
     return;
   }
 
@@ -1819,6 +1875,8 @@ function discardCard(player, card, options = {}) {
   }
   sortHands();
   render();
+  const discardTarget = els.discardPreview.querySelector(".hand-card");
+  playPhaseCardFlight(flightFrom, getPhaseCardRect(discardTarget), card, { concealTarget: discardTarget });
   queueBotTurnIfNeeded();
 }
 
@@ -1962,12 +2020,14 @@ async function queueBotTurnIfNeeded() {
   }
   if (state.turnStage === "draw") {
     const drawSource = chooseBotDrawSource(player);
+    const flightFrom = getPhaseCardRect(drawSource === "discard" ? els.discardPreview.querySelector(".hand-card") : els.deckPreview.querySelector(".deck-card"));
     const drawn = drawSource === "discard" ? takeDiscardInternal(player) : takeDeckInternal(player);
     if (drawn) {
       appendLog(`${player.name} drew ${drawSource === "discard" ? "the discard" : "from the deck"} (${cardLabel(drawn)}).`);
       state.turnStage = "main";
       sortHands();
       render();
+      playPhaseCardFlight(flightFrom, getPhaseCardRect(els.playersBoard.querySelector(`[data-player-id="${CSS.escape(player.id)}"]`)), drawn, { faceDown: drawSource === "deck" });
       await pause(550);
       if (!botTurnStillCurrent(player, token)) {
         finishInterruptedBotTurn(token);
@@ -3856,6 +3916,7 @@ function renderBoard() {
       return `
         <article
           class="player-card ${player === currentPlayer() ? "current" : ""} ${player.id === outPlayerId ? "round-out" : ""} ${player.isHuman ? "human" : ""} ${isSkipTarget ? "skip-target" : ""} ${isSelectedSkipTarget ? "skip-target-selected" : ""}"
+          data-player-id="${escapeHtml(player.id)}"
           ${isSkipTarget ? `data-skip-target-id="${escapeHtml(player.id)}"` : ""}
           ${isSkipTarget ? `role="button" tabindex="0"` : ""}
           aria-label="${escapeHtml(
