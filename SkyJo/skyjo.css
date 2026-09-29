@@ -324,6 +324,16 @@ button {
   letter-spacing: var(--game-field-label-spacing);
 }
 
+.play-speed-field {
+  margin-top: 0.75rem;
+}
+
+.play-speed-field small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 @keyframes flowBannerIn {
   0% {
     opacity: 0;
@@ -711,8 +721,9 @@ button {
   background: rgba(var(--surface-rgb), 0.38);
 }
 
-.table-drawn-card-wrap .skyjo-card {
-  width: 5.3rem;
+.table-drawn-card-wrap .skyjo-card,
+.pile-button .skyjo-card {
+  width: 4.35rem;
 }
 
 .table-pile-row {
@@ -846,8 +857,40 @@ button {
 }
 
 .grid-slot.dealt {
-  animation: skyjo-card-deal-in 0.46s cubic-bezier(0.2, 0.8, 0.24, 1) both;
-  animation-delay: calc(var(--deal-index, 0) * 110ms);
+  animation: skyjo-card-deal-in var(--skyjo-deal-duration, 460ms) cubic-bezier(0.2, 0.8, 0.24, 1) both;
+  animation-delay: calc(var(--deal-index, 0) * var(--skyjo-deal-stagger, 110ms));
+}
+
+.skyjo-flip-card {
+  position: relative;
+  display: block;
+  width: min(100%, 4.7rem);
+  aspect-ratio: 3 / 5;
+  perspective: 700px;
+}
+
+.skyjo-flip-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: skyjo-card-flip var(--skyjo-flip-duration, 520ms) cubic-bezier(0.2, 0.72, 0.25, 1) both;
+}
+
+.skyjo-flip-inner > .skyjo-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+}
+
+.skyjo-flip-inner > .skyjo-card:not(.card-back) {
+  transform: rotateY(180deg);
+}
+
+@keyframes skyjo-card-flip {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(180deg); }
 }
 
 .deal-flight-layer {
@@ -870,6 +913,52 @@ button {
 .deal-flight-card .skyjo-card {
   width: 100%;
   height: 100%;
+}
+
+.card-flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.card-flight-card {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.32));
+}
+
+.card-flight-card .skyjo-card {
+  width: 100%;
+  height: 100%;
+}
+
+.skyjo-flight-flipper,
+.skyjo-flight-face {
+  position: absolute;
+  inset: 0;
+}
+
+.skyjo-flight-flipper {
+  transform-style: preserve-3d;
+}
+
+.skyjo-flight-face {
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+}
+
+.skyjo-flight-front {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-flight-layer { display: none; }
+  .skyjo-flip-inner { animation-duration: 1ms; }
 }
 
 .grid-slot.interactive {

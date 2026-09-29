@@ -162,6 +162,22 @@
               <h2>Actions</h2>
               <p id="actionHint">Your controls will appear here once the game starts.</p>
             </div>
+            <label class="field play-speed-field" for="playSpeed">
+              <span>Play speed</span>
+              <select id="playSpeed" aria-describedby="playSpeedHint">
+                <option value="1">1 — Slowest</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7" selected>7 — Default</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10 — Fastest</option>
+              </select>
+              <small id="playSpeedHint">Higher speeds shorten bot pauses and animations.</small>
+            </label>
             <div id="eventNotice" class="table-notice" hidden role="status" aria-live="polite"></div>
           </section>
         </aside>

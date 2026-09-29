@@ -9,11 +9,13 @@ const SESSIONS_KEY = "skyjo.table.sessions.v1";
 const EXPORT_VERSION = 1;
 const DEAL_CARD_STAGGER_MS = 110;
 const DEAL_FLIGHT_DURATION_MS = 540;
+const CARD_FLIGHT_DURATION_MS = 300;
 let dealAnimationTimer = null;
 let dealFlightAnimationFrame = null;
 let dealFlightOverlay = null;
 let dealFlightRunId = 0;
 let renderedDealFlightRunId = 0;
+const flippingSlotKeys = new Set();
 let botTurnTimer = null;
 let botTurnToken = 0;
 
@@ -63,6 +65,7 @@ const state = {
   selectedSessionId: "",
   sessionStatusMessage: "",
   sessionToolsExpanded: false,
+  playSpeed: 7,
 };
 
 const els = {
@@ -107,6 +110,7 @@ const els = {
   winnerBanner: document.getElementById("winnerBanner"),
   currentCardPanel: document.querySelector(".current-card-panel"),
   eventNotice: document.getElementById("eventNotice"),
+  playSpeed: document.getElementById("playSpeed"),
   playersBoard: document.getElementById("playersBoard"),
   tableArea: document.querySelector(".table-area"),
   leaderText: document.getElementById("leaderText"),
@@ -134,6 +138,7 @@ function syncDeviceLayout() {
 
 function bindEvents() {
   syncDeviceLayout();
+  updateSpeedSettings();
   bind(window, "resize", syncDeviceLayout);
   bind(window, "orientationchange", syncDeviceLayout);
   bind(window.visualViewport, "resize", syncDeviceLayout);
@@ -206,6 +211,21 @@ function bindEvents() {
     humanTakeDiscard();
   });
   bind(els.playersBoard, "click", handleBoardClick);
+  bind(els.playSpeed, "change", () => {
+    state.playSpeed = clampInteger(els.playSpeed.value, 1, 10, 7);
+    updateSpeedSettings();
+  });
+  bind(els.playersBoard, "animationend", (event) => {
+    if (event.animationName !== "skyjo-card-flip") return;
+    const slotElement = event.target.closest("[data-player-id][data-slot-index]");
+    if (!slotElement) return;
+    const player = state.players.find((entry) => entry.id === slotElement.dataset.playerId);
+    const index = Number(slotElement.dataset.slotIndex);
+    const slot = player?.grid[index];
+    if (!slot?.revealed || slot.cleared) return;
+    flippingSlotKeys.delete(`${player.id}:${index}`);
+    slotElement.innerHTML = cardMarkup(slot.card);
+  });
   bind(els.roundHistoryOrderBtn, "click", () => {
     state.roundHistorySortDir = toggleRoundHistorySortDir(state.roundHistorySortDir);
     saveGame();
@@ -216,6 +236,22 @@ function bindEvents() {
 function bind(element, eventName, handler) {
   if (!element) return;
   element.addEventListener(eventName, handler);
+}
+
+function speedMultiplier() {
+  const speed = clampInteger(state.playSpeed, 1, 10, 7);
+  return speed <= 7 ? 1 + (7 - speed) * 0.25 : 1 - (speed - 7) * 0.15;
+}
+
+function scaledDuration(baseDuration) {
+  return Math.max(1, Math.round(baseDuration * speedMultiplier()));
+}
+
+function updateSpeedSettings() {
+  if (els.playSpeed) els.playSpeed.value = String(state.playSpeed);
+  document.documentElement.style.setProperty("--skyjo-flip-duration", `${scaledDuration(520)}ms`);
+  document.documentElement.style.setProperty("--skyjo-deal-duration", `${scaledDuration(460)}ms`);
+  document.documentElement.style.setProperty("--skyjo-deal-stagger", `${scaledDuration(DEAL_CARD_STAGGER_MS)}ms`);
 }
 
 function renderBotNameFields(syncInputs = true) {
@@ -501,7 +537,7 @@ function triggerDealAnimation(cardIds) {
   state.dealAnimationCardIds = Array.isArray(cardIds) ? cardIds.filter(Boolean) : [];
   if (!state.dealAnimationCardIds.length) return;
   dealFlightRunId += 1;
-  const duration = 420 + state.dealAnimationCardIds.length * DEAL_CARD_STAGGER_MS;
+  const duration = scaledDuration(420) + state.dealAnimationCardIds.length * scaledDuration(DEAL_CARD_STAGGER_MS);
   dealAnimationTimer = window.GameDialog.setTimeout(() => {
     dealAnimationTimer = null;
     state.dealAnimationCardIds = [];
@@ -509,21 +545,27 @@ function triggerDealAnimation(cardIds) {
   }, duration);
 }
 
-function revealRandomOpeningCards(player) {
-  const indexes = shuffle(Array.from({ length: GRID_SIZE }, (_, index) => index)).slice(0, 2);
-  indexes.forEach((index) => {
-    player.grid[index].revealed = true;
-  });
-  clearMatchingColumns(player);
-}
-
-function completeOpeningReveal() {
+async function completeOpeningReveal() {
   const human = state.players.find((entry) => entry.id === "p-human");
-  if (state.turnStage !== "opening-reveal" || openingRevealCount(human) < 2) return;
+  if (state.turnStage !== "opening-reveal" || state.busy || openingRevealCount(human) < 2) return;
+  state.busy = true;
+  render();
+
   for (const player of state.players.filter((entry) => entry.bot)) {
-    revealRandomOpeningCards(player);
+    const indexes = shuffle(Array.from({ length: GRID_SIZE }, (_, index) => index)).slice(0, 2);
+    for (const index of indexes) {
+      if (state.turnStage !== "opening-reveal") return;
+      const slot = player.grid[index];
+      slot.revealed = true;
+      flippingSlotKeys.add(`${player.id}:${index}`);
+      clearMatchingColumns(player);
+      render();
+      await new Promise((resolve) => window.setTimeout(resolve, scaledDuration(620)));
+    }
   }
 
+  if (state.turnStage !== "opening-reveal") return;
+  state.busy = false;
   const starter = openingRevealStandings()[0];
   state.currentPlayerIndex = Math.max(
     0,
@@ -553,26 +595,32 @@ function beginGamePlay() {
 
 function humanDrawDeck() {
   if (!canHumanAct("draw-deck")) return;
+  const flight = captureDeckFlight(els.deckPreview, els.tableDrawnCardWrap);
   state.drawnCard = drawFromDeck();
   state.drawnSource = "deck";
   state.turnStage = "deck-card-drawn";
   appendNotice(`You drew ${cardLabel(state.drawnCard)} from the deck.`);
   saveGame();
   render();
+  playCardFlight(flight, state.drawnCard, true, 0, true);
 }
 
 function humanTakeDiscard() {
   if (!canHumanAct("take-discard")) return;
+  const flight = captureCardFlight(els.discardPreview, els.tableDrawnCardWrap);
   state.drawnCard = state.discardPile.pop();
   state.drawnSource = "discard";
   state.turnStage = "discard-card-taken";
   appendNotice(`You took ${cardLabel(state.drawnCard)} from discard.`);
   saveGame();
   render();
+  playCardFlight(flight, state.drawnCard);
 }
 
 function humanDiscardDrawn() {
   if (!canHumanAct("discard-drawn")) return;
+  const flight = captureCardFlight(els.tableDrawnCardWrap, els.discardPreview);
+  const card = state.drawnCard;
   state.discardPile.push(state.drawnCard);
   appendNotice(`You discarded ${cardLabel(state.drawnCard)}. Reveal one hidden card.`);
   state.drawnCard = null;
@@ -580,6 +628,7 @@ function humanDiscardDrawn() {
   state.turnStage = "reveal-after-discard";
   saveGame();
   render();
+  playCardFlight(flight, card);
 }
 
 function handleBoardClick(event) {
@@ -608,9 +657,15 @@ function handleBoardClick(event) {
   }
 }
 
-function replaceSlotWithDrawn(player, index) {
+function replaceSlotWithDrawn(player, index, drawFlightDelay = 0) {
   const slot = player.grid[index];
   if (!state.drawnCard || !slot || slot.cleared) return;
+  const targetSlot = buttonForSlot(player.id, index);
+  const flight = captureCardFlight(els.tableDrawnCardWrap, targetSlot);
+  const card = state.drawnCard;
+  const replacedFlight = slot.card
+    ? captureCardFlight(targetSlot, els.discardPreview)
+    : null;
   const replaced = slot.card;
   slot.card = state.drawnCard;
   slot.revealed = true;
@@ -621,12 +676,108 @@ function replaceSlotWithDrawn(player, index) {
   appendNotice(
     `${player.name} replaced a card with ${cardLabel(slot.card)}${cleared ? " and cleared a column" : ""}.`,
   );
+  playCardFlight(flight, card, false, drawFlightDelay);
+  if (replaced) {
+    playCardFlight(replacedFlight, replaced, false, drawFlightDelay + scaledDuration(CARD_FLIGHT_DURATION_MS) * 0.45);
+  }
+}
+
+function buttonForSlot(playerId, index) {
+  return els.playersBoard.querySelector(`[data-player-id="${CSS.escape(playerId)}"][data-slot-index="${index}"]`);
+}
+
+function captureCardFlight(source, target, faceDown = false) {
+  if (!source || !target) return null;
+  const from = cardFlightRect(source);
+  let to = cardFlightRect(target);
+  if (!source.matches?.(".skyjo-card") && !source.querySelector?.(".skyjo-card") && source === els.tableDrawnCardWrap) {
+    const pileCard = document.querySelector(".pile-button .skyjo-card");
+    if (pileCard) {
+      const sourceBox = source.getBoundingClientRect();
+      const pileSize = cardFlightRect(pileCard);
+      Object.assign(from, { x: sourceBox.left + sourceBox.width / 2, y: sourceBox.top + sourceBox.height / 2, width: pileSize.width, height: pileSize.height });
+    }
+  }
+  if (!target.matches?.(".skyjo-card") && !target.querySelector?.(".skyjo-card") && target === els.tableDrawnCardWrap) {
+    const pileCard = document.querySelector(".pile-button .skyjo-card");
+    if (pileCard) {
+      const targetBox = target.getBoundingClientRect();
+      const pileSize = cardFlightRect(pileCard);
+      to = { ...pileSize, x: targetBox.left + targetBox.width / 2, y: targetBox.top + targetBox.height / 2 };
+    }
+  }
+  if (!from.width || !from.height || !to.width || !to.height) return null;
+  return {
+    from,
+    to,
+    faceDown,
+  };
+}
+
+function cardFlightRect(element) {
+  const card = element.matches?.(".skyjo-card") ? element : element.querySelector?.(".skyjo-card");
+  const rect = (card || element).getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function captureDeckFlight(source, target) {
+  const flight = captureCardFlight(source, target, true);
+  if (flight) return flight;
+  return null;
+}
+
+function playCardFlight(flight, card, faceDown = flight?.faceDown, delay = 0, flipDuringFlight = false) {
+  if (!flight || !card) return;
+  const layer = document.createElement("div");
+  layer.className = "card-flight-layer";
+  layer.setAttribute("aria-hidden", "true");
+  const cardNode = document.createElement("div");
+  cardNode.className = "card-flight-card";
+  const width = flight.from.width;
+  const height = flight.from.height;
+  cardNode.style.width = `${width}px`;
+  cardNode.style.height = `${height}px`;
+  cardNode.style.left = `${flight.from.x - width / 2}px`;
+  cardNode.style.top = `${flight.from.y - height / 2}px`;
+  cardNode.innerHTML = flipDuringFlight
+    ? `<span class="skyjo-flight-flipper"><span class="skyjo-flight-face skyjo-flight-back">${hiddenCardMarkup()}</span><span class="skyjo-flight-face skyjo-flight-front">${cardMarkup(card, { small: true })}</span></span>`
+    : faceDown ? hiddenCardMarkup() : cardMarkup(card, { small: true });
+  layer.append(cardNode);
+  document.body.append(layer);
+  const dx = flight.to.x - flight.from.x;
+  const dy = flight.to.y - flight.from.y;
+  const scaleX = flight.to.width / width;
+  const scaleY = flight.to.height / height;
+  window.setTimeout(() => {
+    cardNode.animate([
+      { transform: "translate(0, 0) scale(1) rotate(-7deg)", opacity: 1 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY}) rotate(0deg)`, opacity: 0.96 },
+    ], { duration: scaledDuration(CARD_FLIGHT_DURATION_MS), easing: "cubic-bezier(.22,.72,.25,1)", fill: "forwards" });
+    if (flipDuringFlight) {
+      cardNode.querySelector(".skyjo-flight-flipper")?.animate(
+        [{ transform: "rotateY(0deg)" }, { transform: "rotateY(180deg)" }],
+        {
+          duration: scaledDuration(CARD_FLIGHT_DURATION_MS) * 0.72,
+          delay: scaledDuration(CARD_FLIGHT_DURATION_MS) * 0.14,
+          easing: "ease-in-out",
+          fill: "forwards",
+        },
+      );
+    }
+    window.setTimeout(() => layer.remove(), scaledDuration(CARD_FLIGHT_DURATION_MS) + 40);
+  }, delay);
 }
 
 function revealSlot(player, index) {
   const slot = player.grid[index];
   if (!slot || slot.cleared || slot.revealed) return;
   slot.revealed = true;
+  flippingSlotKeys.add(`${player.id}:${index}`);
   const cleared = clearMatchingColumns(player);
   appendNotice(`${player.name} revealed ${cardLabel(slot.card)}${cleared ? " and cleared a column" : ""}.`);
 }
@@ -635,11 +786,12 @@ function revealOpeningSlot(player, index) {
   const slot = player.grid[index];
   if (!slot || slot.revealed || openingRevealCount(player) >= 2) return;
   slot.revealed = true;
+  flippingSlotKeys.add(`${player.id}:${index}`);
   appendNotice(`${player.name} revealed ${cardLabel(slot.card)}.`);
   saveGame();
   render();
   if (openingRevealCount(player) >= 2) {
-    window.GameDialog.setTimeout(() => completeOpeningReveal(), 360);
+    window.GameDialog.setTimeout(() => completeOpeningReveal(), scaledDuration(360));
   }
 }
 
@@ -799,7 +951,7 @@ function resumeBotTurn() {
 }
 
 function botTurnDelay() {
-  return state.finalTurnTriggerId ? 1200 : 520;
+  return scaledDuration(state.finalTurnTriggerId ? 1400 : 820);
 }
 
 function playBotTurn(player) {
@@ -809,24 +961,31 @@ function playBotTurn(player) {
   const shouldTakeDiscard = discard && bestSlot && bestSlot.score >= replacementThreshold(player, bestSlot);
 
   if (shouldTakeDiscard) {
+    const sourceFlight = captureCardFlight(els.discardPreview, els.tableDrawnCardWrap);
     state.drawnCard = state.discardPile.pop();
     state.drawnSource = "discard";
-    replaceSlotWithDrawn(player, bestSlot.index);
+    playCardFlight(sourceFlight, state.drawnCard);
+    replaceSlotWithDrawn(player, bestSlot.index, scaledDuration(CARD_FLIGHT_DURATION_MS));
     completeTurn(player);
     return;
   }
 
   const drawn = drawFromDeck();
+  const sourceFlight = captureDeckFlight(els.deckPreview, els.tableDrawnCardWrap);
   const drawnSlot = chooseReplacementSlot(player, drawn);
   if (drawnSlot && drawnSlot.score >= replacementThreshold(player, drawnSlot)) {
     state.drawnCard = drawn;
     state.drawnSource = "deck";
-    replaceSlotWithDrawn(player, drawnSlot.index);
+    playCardFlight(sourceFlight, drawn, true, 0, true);
+    replaceSlotWithDrawn(player, drawnSlot.index, scaledDuration(CARD_FLIGHT_DURATION_MS));
     completeTurn(player);
     return;
   }
 
+  const discardFlight = captureCardFlight(els.tableDrawnCardWrap, els.discardPreview);
   state.discardPile.push(drawn);
+  playCardFlight(sourceFlight, drawn, true, 0, true);
+  playCardFlight(discardFlight, drawn, false, scaledDuration(CARD_FLIGHT_DURATION_MS) * 0.9);
   const revealIndex = chooseRevealSlot(player);
   if (revealIndex >= 0) revealSlot(player, revealIndex);
   completeTurn(player);
@@ -1223,6 +1382,7 @@ function playerMarkup(player) {
   const trigger = player.id === state.finalTurnTriggerId;
   const selectable =
     player.id === "p-human" &&
+    !state.busy &&
     ((state.turnStage === "opening-reveal" && openingRevealCount(player) < 2) ||
       (current && ["deck-card-drawn", "discard-card-taken", "reveal-after-discard"].includes(state.turnStage)));
   const hiddenCount = hiddenCardCount(player);
@@ -1257,10 +1417,13 @@ function slotMarkup(player, slot, index, selectable) {
   const interactive = canReplace || canReveal || canOpeningReveal;
   const tag = interactive ? "button" : "div";
   const actionLabel = canOpeningReveal || canReveal ? "Reveal" : "Replace";
+  const flipKey = `${player.id}:${index}`;
   const content = slot.cleared
     ? clearedCardMarkup(slot.card)
     : slot.revealed
-      ? cardMarkup(slot.card)
+      ? flippingSlotKeys.has(flipKey)
+        ? `<span class="skyjo-flip-card"><span class="skyjo-flip-inner"><span class="skyjo-card card-back"><span class="back-pattern"></span></span>${cardMarkup(slot.card)}</span></span>`
+        : cardMarkup(slot.card)
       : hiddenCardMarkup();
   const dealIndex = dealAnimationIndex(slot.card?.id);
   const dealtClass = Number.isFinite(dealIndex) ? "dealt" : "";
@@ -1271,7 +1434,8 @@ function slotMarkup(player, slot, index, selectable) {
       class="grid-slot ${slot.cleared ? "cleared" : ""} ${interactive ? "interactive" : ""} ${dealtClass}"
       ${style}
       ${dealCardAttribute}
-      ${interactive ? `type="button" data-player-id="${escapeHtml(player.id)}" data-slot-index="${index}" aria-label="${actionLabel} card ${index + 1}"` : ""}
+      data-player-id="${escapeHtml(player.id)}" data-slot-index="${index}"
+      ${interactive ? `type="button" aria-label="${actionLabel} card ${index + 1}"` : ""}
     >
       ${content}
     </${tag}>
@@ -1351,8 +1515,8 @@ function playDealFlightAnimation(cardIds) {
         },
       ],
       {
-        delay: index * DEAL_CARD_STAGGER_MS,
-        duration: DEAL_FLIGHT_DURATION_MS,
+        delay: index * scaledDuration(DEAL_CARD_STAGGER_MS),
+        duration: scaledDuration(DEAL_FLIGHT_DURATION_MS),
         easing: "cubic-bezier(0.18, 0.78, 0.26, 1)",
         fill: "both",
       },
@@ -1521,6 +1685,7 @@ function actionHint() {
   const player = currentPlayer();
   if (!state.gameStarted) return "Start a game to deal the first round.";
   if (state.turnStage === "opening-reveal") {
+    if (state.busy) return "Bots are revealing their opening cards.";
     const human = state.players.find((entry) => entry.id === "p-human");
     const remaining = Math.max(0, 2 - openingRevealCount(human));
     return remaining === 1
