@@ -139,6 +139,38 @@ button {
   padding: 0.9rem;
 }
 
+.status-panel {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: space-between;
+  height: 14rem;
+}
+
+.status-panel .panel-head p {
+  height: 4.05em;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+.action-panel {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: space-between;
+  height: 20rem;
+}
+
+.action-panel .panel-head p {
+  height: 4.05em;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+.action-panel .table-notice {
+  margin-top: 0;
+  height: 4.5rem;
+  overflow: hidden;
+}
+
 .starter-banner,
 .game-flow-banner {
   display: flex;

@@ -574,20 +574,17 @@ async function completeOpeningReveal() {
   state.roundStarterIndex = state.currentPlayerIndex;
   state.openingStarter = starter ?? null;
   state.turnStage = "opening-ready";
-  appendNotice(
-    `${starter?.name ?? currentPlayer().name} has the lead with ${starter?.total ?? 0} points. Press Start Game to begin.`,
-  );
-  saveGame();
-  render();
+  beginGamePlay();
 }
 
 function beginGamePlay() {
   if (state.turnStage !== "opening-ready" || !state.openingStarter) return;
+  const starter = state.openingStarter;
   const starterName = state.openingStarter.name;
   state.openingStarter = null;
   state.turnStage = "choose-source";
   if (!topDiscard()) state.discardPile.push(drawFromDeck());
-  appendNotice(`${starterName} starts the game.`);
+  appendNotice(`${starterName} has the lead with ${starter.total} points and starts the game.`);
   saveGame();
   render();
   resumeBotTurn();
@@ -791,7 +788,7 @@ function revealOpeningSlot(player, index) {
   saveGame();
   render();
   if (openingRevealCount(player) >= 2) {
-    window.GameDialog.setTimeout(() => completeOpeningReveal(), scaledDuration(360));
+    window.GameDialog.setTimeout(() => completeOpeningReveal(), scaledDuration(620));
   }
 }
 
