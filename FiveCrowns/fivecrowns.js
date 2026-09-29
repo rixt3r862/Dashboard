@@ -373,6 +373,10 @@ function drawForHuman(source) {
 
 function drawForCurrentPlayer(source) {
   const player = currentPlayer();
+  const sourceCard = source === "discard"
+    ? els.discardPile.querySelector(".playing-card")
+    : els.drawPileBtn.querySelector(".playing-card");
+  const sourceRect = getCardFlightRect(sourceCard);
   const card = source === "discard" ? drawFromDiscard(player) : drawFromStock(player);
   if (!card) {
     state.notice = source === "discard" ? "The discard pile is empty." : "The stock pile is empty.";
@@ -384,14 +388,27 @@ function drawForCurrentPlayer(source) {
   state.notice = `${player.name} drew from the ${source === "discard" ? "discard" : "stock"} pile.`;
   sortHands();
   render();
+  const destination = cardFlightElementForHand(player, card);
+  playCardFlight(sourceRect, getCardFlightRect(destination), card, {
+    faceDown: source === "stock" || player.bot,
+    flip: (source === "stock" && !player.bot) || (source === "discard" && player.bot),
+    flipToBack: source === "discard" && player.bot,
+  });
   return card;
 }
 
 function discardCard(player, card) {
+  const sourceRect = getCardFlightRect(cardFlightElementForPlayerCard(player, card));
+  const destinationRect = getCardFlightRect(els.discardPile.querySelector(".playing-card"), els.discardPile);
   player.hand = player.hand.filter((entry) => entry.id !== card.id);
   state.discardPile.push(card);
   state.drawnCardId = "";
-  markDiscardAnimation(card.id, seatDirection(playerIndex(player)));
+  if (!player.bot) markDiscardAnimation(card.id, seatDirection(playerIndex(player)));
+  playCardFlight(sourceRect, destinationRect, card, {
+    faceDown: Boolean(player.bot),
+    flip: Boolean(player.bot),
+    preserveAspectRatio: Boolean(player.bot),
+  });
   sortHands();
   if (!state.wentOutPlayerId && canGoOut(player.hand)) {
     state.wentOutPlayerId = player.id;
@@ -432,9 +449,10 @@ function scheduleBotTurnIfNeeded() {
   }, BOT_TURN_DELAY_MS);
 }
 
-function takeBotTurn() {
+async function takeBotTurn() {
   const player = currentPlayer();
   if (!player?.bot || state.stage !== "playing") return;
+  const turnToken = botTurnToken;
   const discard = topDiscard();
   const currentScore = minDeadwoodScore(player.hand);
   const discardChoice = discard ? bestDiscardChoice(player.hand.concat(discard)) : null;
@@ -442,7 +460,10 @@ function takeBotTurn() {
     discardChoice &&
       (discardChoice.score < currentScore || discardChoice.card?.id !== discard.id),
   );
-  drawForCurrentPlayer(shouldTakeDiscard ? "discard" : "stock");
+  if (!drawForCurrentPlayer(shouldTakeDiscard ? "discard" : "stock")) return;
+  await new Promise((resolve) => window.setTimeout(resolve, DRAW_ANIMATION_MS));
+  if (turnToken !== botTurnToken || state.stage !== "playing" || currentPlayer()?.id !== player.id) return;
+  state.drawnCardId = "";
   const choice = bestDiscardChoice(player.hand);
   discardCard(player, choice.card || player.hand[player.hand.length - 1]);
 }
@@ -790,7 +811,7 @@ function renderScoreBoard() {
   const botPlayers = state.players.filter((player) => player.bot);
   els.scoreBoard.style.gridTemplateColumns = `repeat(${Math.min(botPlayers.length || 1, 4)}, minmax(0, 1fr))`;
   els.scoreBoard.innerHTML = botPlayers.map((player) => `
-    <article class="player-card ${player.id === currentPlayer()?.id ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""} ${player.id === state.wentOutPlayerId ? "out" : ""}">
+    <article class="player-card ${player.id === currentPlayer()?.id ? "current" : ""} ${player.id === state.winnerId ? "winner" : ""} ${player.id === state.wentOutPlayerId ? "out" : ""}" data-player-id="${escapeHtml(player.id)}">
       <div class="player-head">
         <h3 class="player-name">${escapeHtml(player.name)}</h3>
         <span class="badge ${player.id === state.winnerId ? "gold" : ""}">${difficultyLabel(player.difficulty)}</span>
@@ -815,7 +836,7 @@ function renderPlayerMiniHand(player) {
   const overflow = Math.max(0, player.hand.length - visibleCount);
   return `
     <div class="mini-card-row">
-      ${Array.from({ length: visibleCount }, (_item, index) => `<span class="playing-card card-back mini-card" style="--mini-index: ${index};"></span>`).join("")}
+      ${Array.from({ length: visibleCount }, (_item, index) => `<span class="playing-card card-back mini-card" data-card-id="${escapeHtml(player.hand[index].id)}" style="--mini-index: ${index};"></span>`).join("")}
       ${overflow ? `<span class="mini-card-overflow">+${overflow}</span>` : ""}
     </div>
   `;
@@ -1014,9 +1035,8 @@ function renderSeats() {
 function renderMiniHand(count, playerIndexValue, player) {
   return Array.from({ length: Math.min(count, 8) }, (_item, index) => {
     const dealIndex = playerIndexValue * currentHandSize() + index;
-    const isFreshDraw = player?.hand?.[player.hand.length - 1]
-      && index === Math.min(count, 8) - 1
-      && state.drawingToHandIds.includes(player.hand[player.hand.length - 1].id);
+    const card = player?.hand?.[index];
+    const isFreshDraw = card && state.drawingToHandIds.includes(card.id);
     const classes = [
       "playing-card",
       "card-back",
@@ -1024,8 +1044,83 @@ function renderMiniHand(count, playerIndexValue, player) {
       isFreshDraw ? `draw-to-${seatDirection(playerIndexValue)}` : "",
     ].filter(Boolean).join(" ");
     const style = state.dealAnimationActive ? ` style="--deal-index: ${dealIndex};"` : "";
-    return `<span class="${classes}"${style}></span>`;
+    return `<span class="${classes}" data-card-id="${escapeHtml(card?.id || "")}"${style}></span>`;
   }).join("");
+}
+
+function cardFlightElementForPlayerCard(player, card) {
+  if (!player?.bot) {
+    return els.humanHand.querySelector(`[data-card-id="${CSS.escape(card.id)}"] .playing-card`);
+  }
+  const playerCard = els.scoreBoard.querySelector(`[data-player-id="${CSS.escape(player.id)}"]`);
+  return playerCard?.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`)
+    || playerCard?.querySelector(".mini-card:last-child")
+    || playerCard?.querySelector(".mini-card-row");
+}
+
+function cardFlightElementForHand(player, card) {
+  if (!player?.bot) {
+    return els.humanHand.querySelector(`[data-card-id="${CSS.escape(card.id)}"] .playing-card`);
+  }
+  return cardFlightElementForPlayerCard(player, card);
+}
+
+function getCardFlightRect(element, fallbackElement = null) {
+  const cardElement = element?.matches?.(".playing-card")
+    ? element
+    : element?.querySelector?.(".playing-card");
+  const target = cardElement || element || fallbackElement;
+  if (!target?.getBoundingClientRect) return null;
+  const rect = target.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const miniStyle = target.matches?.(".mini-card") ? window.getComputedStyle(target) : null;
+  const width = Number.parseFloat(miniStyle?.width) || rect.width;
+  const height = Number.parseFloat(miniStyle?.height) || rect.height;
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, width, height };
+}
+
+function playCardFlight(from, to, card, options = {}) {
+  if (!from || !to || !card) return;
+  let start = from;
+  let scaleX = to.width / from.width;
+  let scaleY = to.height / from.height;
+  if (options.preserveAspectRatio) {
+    start = { ...from, height: from.width * (to.height / to.width) };
+    scaleX = scaleY = to.width / start.width;
+  }
+  const layer = document.createElement("div");
+  layer.className = "card-flight-layer";
+  layer.setAttribute("aria-hidden", "true");
+  const flyer = document.createElement("div");
+  flyer.className = "card-flight-card";
+  flyer.style.width = `${start.width}px`;
+  flyer.style.height = `${start.height}px`;
+  flyer.style.left = `${start.x - start.width / 2}px`;
+  flyer.style.top = `${start.y - start.height / 2}px`;
+  flyer.innerHTML = options.flip
+    ? `<span class="card-flight-flipper"><span class="card-flight-face card-flight-back"><span class="playing-card card-back"></span></span><span class="card-flight-face card-flight-front">${renderCard(card)}</span></span>`
+    : options.faceDown ? `<span class="playing-card card-back"></span>` : renderCard(card);
+  if (options.flipToBack) flyer.querySelector(".card-flight-flipper")?.style.setProperty("transform", "rotateY(180deg)");
+  layer.append(flyer);
+  document.body.append(layer);
+
+  const duration = options.duration || DRAW_ANIMATION_MS;
+  const delay = options.delay || 0;
+  window.setTimeout(() => {
+    flyer.animate([
+      { transform: "translate(0, 0) rotate(-5deg) scale(1)", opacity: 1 },
+      { transform: `translate(${to.x - start.x}px, ${to.y - start.y}px) rotate(0deg) scale(${scaleX}, ${scaleY})`, opacity: 0.98 },
+    ], { duration, easing: "cubic-bezier(.22,.72,.25,1)", fill: "forwards" });
+    if (options.flip) {
+      const flipStart = options.flipToBack ? 180 : 0;
+      const flipEnd = options.flipToBack ? 0 : 180;
+      flyer.querySelector(".card-flight-flipper")?.animate(
+        [{ transform: `rotateY(${flipStart}deg)` }, { transform: `rotateY(${flipEnd}deg)` }],
+        { duration: duration * 0.72, delay: duration * 0.14, easing: "ease-in-out", fill: "forwards" },
+      );
+    }
+    window.setTimeout(() => layer.remove(), duration + 60);
+  }, delay);
 }
 
 function renderPiles() {
