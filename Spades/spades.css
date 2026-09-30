@@ -620,6 +620,64 @@ button {
   gap: 0.3rem;
 }
 
+.trick-card-flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1000px;
+}
+
+.trick-card-flight {
+  position: fixed;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.trick-card-spin,
+.trick-card-flipper,
+.trick-card-face {
+  position: absolute;
+  inset: 0;
+}
+
+.trick-card-spin,
+.trick-card-flipper {
+  transform-style: preserve-3d;
+}
+
+.trick-card-spin > .playing-card,
+.trick-card-face > .playing-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  aspect-ratio: auto;
+  margin: 0;
+}
+
+.trick-card-face {
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+}
+
+.trick-card-flight .card-corner {
+  font-size: 11px;
+}
+
+.trick-card-flight .card-suit-center {
+  font-size: 1.1rem;
+}
+
+.trick-card-front {
+  transform: rotateY(180deg);
+}
+
 .trick-play.play-from-bottom {
   animation: hearts-play-from-bottom 0.62s cubic-bezier(0.18, 0.88, 0.24, 1.12) both;
 }

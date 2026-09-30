@@ -4,6 +4,7 @@ const BOT_DIFFICULTIES = window.GameRoom?.botDifficultyLevels?.("spades") || win
 const DEFAULT_TARGET_SCORE = 500;
 const BOT_TURN_DELAY_MS = 850;
 const DEAL_ANIMATION_MS = 1250;
+const PLAY_ANIMATION_MS = 620;
 const TRICK_PAUSE_MS = 1200;
 const TRICK_COLLECT_MS = 720;
 const SPADE_BURST_MS = 950;
@@ -22,6 +23,7 @@ const RANK_VALUES = Object.fromEntries(RANKS.map((rank, index) => [rank, index +
 
 let botTurnTimer = null;
 let botTurnToken = 0;
+const flyingTrickCardIds = new Set();
 
 const state = {
   gameStarted: false,
@@ -386,6 +388,9 @@ function playCard(playerIndex, card) {
   const player = state.players[playerIndex];
   const cardIndex = player.hand.findIndex((entry) => entry.id === card.id);
   if (cardIndex < 0) return;
+  const flightFrom = cardFlightRect(playerIndex, card.id);
+  const shouldFly = cardFlightsEnabled() && Boolean(flightFrom);
+  if (shouldFly) flyingTrickCardIds.add(card.id);
   player.hand.splice(cardIndex, 1);
   if (card.suit === "spades" && !state.spadesBroken) {
     state.spadesBroken = true;
@@ -395,13 +400,14 @@ function playCard(playerIndex, card) {
     state.notice = `${player.name} played ${cardLabel(card)}.`;
   }
   state.trick.push({ playerIndex, card });
-  markCardPlayingToTable(card.id);
   if (state.trick.length === 4) {
     completeTrick();
+    if (shouldFly) animateCardToTrick(flightFrom, card, playerIndex);
     return;
   }
   state.currentPlayerIndex = nextPlayerIndex(playerIndex);
   render();
+  if (shouldFly) animateCardToTrick(flightFrom, card, playerIndex);
   scheduleBotTurn();
 }
 
@@ -418,7 +424,12 @@ function completeTrick() {
   state.pendingTrickTimer = window.GameDialog.setTimeout(() => {
     state.pendingTrickTimer = null;
     state.stage = "trick-collecting";
+    const flightCards = state.trick.map((play) => ({
+      card: play.card,
+      from: cardFlightRectForTable(play.card.id),
+    }));
     render();
+    animateTrickCollection(flightCards, winnerIndex);
     state.trickCollectTimer = window.GameDialog.setTimeout(() => {
       state.trickCollectTimer = null;
       resolveCollectedTrick(winnerIndex);
@@ -440,6 +451,142 @@ function resolveCollectedTrick(winnerIndex) {
   state.notice = `${winner.name} leads trick ${state.trickNumber}.`;
   render();
   scheduleBotTurn();
+}
+
+function cardFlightsEnabled() {
+  return !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+function playerSeatElement(index) {
+  return [els.humanSeat, els.opponentLeft, els.opponentTop, els.opponentRight][index] || null;
+}
+
+function cardFlightRect(playerIndex, cardId) {
+  const player = state.players[playerIndex];
+  if (!player?.bot) {
+    const card = els.humanHand.querySelector(`[data-card-id="${CSS.escape(cardId)}"] .playing-card`);
+    return rectForCardElement(card);
+  }
+  const seat = playerSeatElement(playerIndex);
+  if (!seat) return null;
+  const card = seat.querySelector(".mini-hand .playing-card");
+  const cardRect = card?.getBoundingClientRect();
+  const width = card?.offsetWidth || parseFloat(getComputedStyle(document.documentElement).fontSize) * 3.35;
+  const height = card?.offsetHeight || width * 7 / 5;
+  const sourceRotation = seatCardRotation(playerIndex);
+  const radians = sourceRotation * Math.PI / 180;
+  return {
+    x: cardRect ? cardRect.left + cardRect.width / 2 : seat.getBoundingClientRect().left + seat.getBoundingClientRect().width / 2,
+    y: cardRect ? cardRect.top + cardRect.height / 2 : seat.getBoundingClientRect().top + seat.getBoundingClientRect().height / 2,
+    width,
+    height,
+    flightWidth: Math.abs(width * Math.cos(radians)) + Math.abs(height * Math.sin(radians)),
+    flightHeight: Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians)),
+    rotation: sourceRotation,
+  };
+}
+
+function rectForCardElement(element) {
+  if (!element?.getBoundingClientRect) return null;
+  const rect = element.getBoundingClientRect();
+  return rect.width && rect.height
+    ? {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      width: element.offsetWidth || rect.width,
+      height: element.offsetHeight || rect.height,
+    }
+    : null;
+}
+
+function cardFlightRectForTable(cardId) {
+  return rectForCardElement(els.trickCards.querySelector(`[data-trick-card-id="${CSS.escape(cardId)}"] .playing-card`));
+}
+
+function seatCardRotation(index) {
+  return index === 1 ? 90 : index === 3 ? -90 : 0;
+}
+
+function addCardFlight(from, to, card, options = {}) {
+  if (!from || !to || !card || !cardFlightsEnabled()) return;
+  const layer = document.createElement("div");
+  layer.className = "trick-card-flight-layer";
+  layer.setAttribute("aria-hidden", "true");
+  const flyer = document.createElement("div");
+  flyer.className = "trick-card-flight";
+  flyer.style.width = `${from.width}px`;
+  flyer.style.height = `${from.height}px`;
+  flyer.style.fontSize = "16px";
+  flyer.style.left = `${from.x - from.width / 2}px`;
+  flyer.style.top = `${from.y - from.height / 2}px`;
+  const markup = options.reveal
+    ? `<span class="trick-card-flipper"><span class="trick-card-face trick-card-back">${renderCardBack()}</span><span class="trick-card-face trick-card-front">${renderCard(card)}</span></span>`
+    : renderCard(card);
+  flyer.innerHTML = `<span class="trick-card-spin">${markup}</span>`;
+  layer.append(flyer);
+  document.body.append(layer);
+  const scale = options.scale ? to.width / from.width : 1;
+  try {
+    flyer.animate([
+      { transform: "translate3d(0,0,0) scale(1)", opacity: 1, offset: 0 },
+      { transform: `translate3d(${(to.x - from.x) * 0.42}px,${(to.y - from.y) * 0.42}px,0) scale(${1 + (scale - 1) * 0.42})`, opacity: 1, offset: 0.42 },
+      { transform: `translate3d(${to.x - from.x}px,${to.y - from.y}px,0) scale(${scale})`, opacity: 1, offset: 1 },
+    ], { duration: options.duration || PLAY_ANIMATION_MS, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" });
+  } catch {
+    layer.remove();
+    if (options.cardId) {
+      flyingTrickCardIds.delete(options.cardId);
+      renderTrick();
+    }
+    return;
+  }
+  const spin = flyer.querySelector(".trick-card-spin");
+  const spinStart = from.rotation || 0;
+  const spinEnd = options.rotation ?? 0;
+  if (spinStart !== spinEnd) spin.animate([
+    { transform: `rotate(${spinStart}deg)` },
+    { transform: `rotate(${spinEnd}deg)` },
+  ], { duration: options.duration || PLAY_ANIMATION_MS, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" });
+  if (options.reveal) flyer.querySelector(".trick-card-flipper").animate(
+    [{ transform: "rotateY(0deg)" }, { transform: "rotateY(180deg)" }],
+    { duration: (options.duration || PLAY_ANIMATION_MS) * 0.72, delay: 70, easing: "ease-in-out", fill: "forwards" },
+  );
+  if (options.fade) flyer.animate([
+    { opacity: 1, offset: 0 },
+    { opacity: 1, offset: 0.72 },
+    { opacity: 0, offset: 1 },
+  ], { duration: options.duration || PLAY_ANIMATION_MS, easing: "linear", fill: "forwards" });
+  window.setTimeout(() => {
+    layer.remove();
+    if (options.cardId) {
+      flyingTrickCardIds.delete(options.cardId);
+      renderTrick();
+    }
+  }, (options.duration || PLAY_ANIMATION_MS) + 30);
+}
+
+function animateCardToTrick(from, card, playerIndex) {
+  const target = els.trickCards.querySelector(`[data-trick-card-id="${CSS.escape(card.id)}"] .playing-card`);
+  addCardFlight(from, rectForCardElement(target), card, {
+    cardId: card.id,
+    reveal: Boolean(state.players[playerIndex]?.bot),
+    scale: true,
+    rotation: 0,
+  });
+}
+
+function animateTrickCollection(cards, winnerIndex) {
+  const seat = playerSeatElement(winnerIndex);
+  if (!seat) return;
+  const seatRect = seat.getBoundingClientRect();
+  const width = parseFloat(getComputedStyle(document.documentElement).fontSize) * 3.35;
+  const target = { x: seatRect.left + seatRect.width / 2, y: seatRect.top + seatRect.height / 2, width, height: width * 7 / 5 };
+  cards.forEach(({ card, from }) => addCardFlight(from, target, card, {
+    duration: TRICK_COLLECT_MS - 70,
+    scale: true,
+    fade: true,
+    rotation: seatCardRotation(winnerIndex),
+  }));
 }
 
 function completeHand() {
@@ -1248,7 +1395,7 @@ function renderTrick() {
     `<span style="--burst-index: ${index}; --burst-delay: ${entry.delay}; --burst-distance: ${entry.distance}rem;">${entry.symbol}</span>`
   )).join("");
   els.trickCards.innerHTML = state.trick.map((play) => `
-    <div class="trick-play ${state.playingToTableIds.includes(play.card.id) ? `play-from-${seatDirection(play.playerIndex)}` : ""} ${state.stage === "trick-collecting" ? `collect-to-${seatDirection(state.pendingTrickWinnerIndex)}` : ""}">
+    <div class="trick-play" data-trick-card-id="${escapeHtml(play.card.id)}" style="${flyingTrickCardIds.has(play.card.id) || state.stage === "trick-collecting" ? "visibility:hidden" : ""}">
       ${renderCard(play.card)}
       <span class="trick-player">${escapeHtml(state.players[play.playerIndex].name)}</span>
     </div>
