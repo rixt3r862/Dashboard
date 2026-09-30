@@ -748,6 +748,63 @@ button {
   box-shadow: 0 0 0 2px #073f78, inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
+.crazy-card-flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1000px;
+}
+
+.crazy-card-flight {
+  position: fixed;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.crazy-card-spin {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: center;
+  transform-style: preserve-3d;
+}
+
+.crazy-card-flight > .playing-card,
+.crazy-card-face > .playing-card,
+.crazy-card-spin > .playing-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  aspect-ratio: auto;
+  margin: 0;
+}
+
+.crazy-card-flipper,
+.crazy-card-face {
+  position: absolute;
+  inset: 0;
+}
+
+.crazy-card-flipper {
+  transform-style: preserve-3d;
+}
+
+.crazy-card-face {
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+}
+
+.crazy-card-front {
+  transform: rotateY(180deg);
+}
+
 .card-button.dealt,
 .playing-card.dealt {
   animation: crazy8s-card-deal 0.62s cubic-bezier(0.18, 0.88, 0.24, 1.18) both;

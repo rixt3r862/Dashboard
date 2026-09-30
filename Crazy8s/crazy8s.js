@@ -19,6 +19,7 @@ const RANK_VALUES = { A: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 50, 9: 9, 10:
 
 let botTurnTimer = null;
 let botTurnToken = 0;
+let botDrawFlight = null;
 
 const state = {
   gameStarted: false,
@@ -105,6 +106,10 @@ const els = {
   historyOrderBtn: document.getElementById("historyOrderBtn"),
   historyWrap: document.getElementById("historyWrap"),
 };
+
+function seatElement(index) {
+  return [els.humanSeat, els.opponentLeft, els.opponentTop, els.opponentRight][index] || null;
+}
 
 const escapeHtml = window.GameRoom?.escapeHtml || ((value) => String(value ?? ""));
 const uid = window.GameRoom?.uid || (() => Math.random().toString(36).slice(2, 10));
@@ -332,6 +337,7 @@ function drawForHuman() {
   const player = currentPlayer();
   if (!isHumanTurn() || state.stage !== "playing" || state.busy || state.dealAnimationActive || state.pendingEightCardId) return;
   if (legalCards(player).length || state.drawsThisTurn >= drawLimit() || !canDrawCard()) return;
+  const from = cardFlightRect(els.drawPileBtn.querySelector(".playing-card.card-back"));
   const card = drawOne(player);
   if (!card) return;
   state.drawsThisTurn += 1;
@@ -342,6 +348,8 @@ function drawForHuman() {
       ? `${player.name} drew one card. ${remaining} draw${remaining === 1 ? "" : "s"} left this turn.`
       : `${player.name} reached the draw limit and must pass if still blocked.`;
   render();
+  const target = els.humanHand.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`);
+  flyCrazyCard(from, cardFlightRect(target), card, { flip: true, concealTarget: target });
 }
 
 function passHumanTurn() {
@@ -367,15 +375,21 @@ function handleSuitChoice(event) {
 
 function playCard(player, card, options = {}) {
   if (!isPlayable(card)) return false;
+  const source = player.bot
+    ? seatElement(playerIndex(player))
+    : els.humanHand.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`);
+  const from = cardFlightRect(source);
+  const spinFrom = seatCardRotation(source);
   player.hand = player.hand.filter((entry) => entry.id !== card.id);
   state.discardPile.push(card);
   state.currentSuit = card.suit;
   state.drawsThisTurn = 0;
-  markDiscardAnimation(card.id, seatDirection(playerIndex(player)));
   if (card.rank === "8" && !options.declaredSuit) {
     state.pendingEightCardId = card.id;
     state.notice = `${player.name} played an 8. Choose the next suit.`;
     render();
+    const target = els.discardPile.querySelector(".playing-card");
+    flyCrazyCard(from, cardFlightRect(target), card, { flip: player.bot, spinFrom, concealTarget: target });
     return true;
   }
   if (card.rank === "8") {
@@ -384,9 +398,13 @@ function playCard(player, card, options = {}) {
   state.notice = `${player.name} played ${cardLabel(card)}${card.rank === "8" ? ` and called ${suitLabel(state.currentSuit)}` : ""}.`;
   if (player.hand.length === 0) {
     finishRound(player);
+    const target = els.discardPile.querySelector(".playing-card");
+    flyCrazyCard(from, cardFlightRect(target), card, { flip: player.bot, spinFrom, concealTarget: target });
     return true;
   }
   advanceTurn();
+  const target = els.discardPile.querySelector(".playing-card");
+  flyCrazyCard(from, cardFlightRect(target), card, { flip: player.bot, spinFrom, concealTarget: target });
   return true;
 }
 
@@ -419,11 +437,11 @@ function scheduleBotTurnIfNeeded() {
   const token = ++botTurnToken;
   botTurnTimer = window.GameDialog.setTimeout(() => {
     if (token !== botTurnToken) return;
-    takeBotTurn();
+    takeBotTurn(token);
   }, BOT_TURN_DELAY_MS);
 }
 
-function takeBotTurn() {
+async function takeBotTurn(token = botTurnToken) {
   const player = currentPlayer();
   if (!player?.bot || state.stage !== "playing") return;
   let playable = legalCards(player);
@@ -437,8 +455,26 @@ function takeBotTurn() {
   let draws = 0;
   let drawnCard = null;
   while (draws < drawLimit() && !playable.length && canDrawCard()) {
+    if (token !== botTurnToken || !state.busy || currentPlayer()?.id !== player.id) return;
+    const from = cardFlightRect(els.drawPileBtn.querySelector(".playing-card.card-back"));
     drawnCard = drawOne(player);
     draws += drawnCard ? 1 : 0;
+    if (drawnCard) {
+      botDrawFlight = { playerId: player.id, cardId: drawnCard.id };
+      render();
+      const target = seatElement(playerIndex(player));
+      const landingCard = target?.querySelector("[data-bot-draw-card]");
+      flyCrazyCard(from, cardFlightRect(landingCard), drawnCard, {
+        backOnly: true,
+        spinTo: seatCardRotation(target),
+        scaleToTarget: true,
+        concealTarget: landingCard,
+      });
+      await waitForCardFlight();
+      botDrawFlight = null;
+      renderSeats();
+      if (token !== botTurnToken || !state.busy || currentPlayer()?.id !== player.id) return;
+    }
     playable = legalCards(player);
   }
   if (playable.length) {
@@ -472,10 +508,91 @@ function drawOne(player) {
   const card = state.drawPile.pop();
   if (card) {
     player.hand.push(card);
-    markDrawAnimation(card.id);
   }
   sortHands();
   return card;
+}
+
+function cardFlightRect(element) {
+  const cardElement = element?.matches?.(".playing-card")
+    ? element
+    : element?.matches?.(".seat") ? element : element?.querySelector?.(".playing-card") || element;
+  if (!cardElement?.getBoundingClientRect) return null;
+  const rect = cardElement.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const isSeat = element?.matches?.(".seat");
+  const isDeckCard = cardElement.matches?.(".playing-card") && Boolean(cardElement.closest(".pile-button"));
+  const isSideHandCard = element?.matches?.(".playing-card")
+    && Boolean(element.closest(".seat-left, .seat-right"));
+  const width = isSeat
+    ? parseFloat(getComputedStyle(document.documentElement).fontSize) * 3.1
+    : isSideHandCard ? rect.height : rect.width;
+  const height = isSeat || isDeckCard
+    ? width * (7 / 5)
+    : isSideHandCard ? rect.width : rect.height;
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, width, height };
+}
+
+function seatCardRotation(seat) {
+  if (seat?.classList.contains("seat-left")) return 90;
+  if (seat?.classList.contains("seat-right")) return -90;
+  return 0;
+}
+
+function flyCrazyCard(from, to, card, options = {}) {
+  if (!from || !to || !card || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const layer = document.createElement("div");
+  layer.className = "crazy-card-flight-layer";
+  layer.setAttribute("aria-hidden", "true");
+  const flyer = document.createElement("div");
+  flyer.className = "crazy-card-flight";
+  flyer.style.width = `${from.width}px`;
+  flyer.style.height = `${from.height}px`;
+  flyer.style.left = `${from.x - from.width / 2}px`;
+  flyer.style.top = `${from.y - from.height / 2}px`;
+  const face = renderCard(card);
+  const back = `<span class="playing-card card-back"></span>`;
+  const hasFlip = options.flip || options.flipToBack;
+  const cardContent = options.backOnly
+    ? back
+    : hasFlip
+    ? `<span class="crazy-card-flipper"><span class="crazy-card-face crazy-card-back">${back}</span><span class="crazy-card-face crazy-card-front">${face}</span></span>`
+    : face;
+  flyer.innerHTML = `<span class="crazy-card-spin">${cardContent}</span>`;
+  const flipper = flyer.querySelector(".crazy-card-flipper");
+  if (options.flipToBack) flipper.style.transform = "rotateY(180deg)";
+  layer.append(flyer);
+  document.body.append(layer);
+  if (options.concealTarget) options.concealTarget.style.visibility = "hidden";
+  const endScale = options.scaleToTarget ? to.width / from.width : 1;
+  flyer.animate([
+    { transform: "translate3d(0, 0, 0) scale(1)", opacity: 1, offset: 0 },
+    { transform: `translate3d(${(to.x - from.x) * 0.42}px, ${(to.y - from.y) * 0.42}px, 0) scale(${1 + (endScale - 1) * 0.42})`, opacity: 1, offset: 0.42 },
+    { transform: `translate3d(${to.x - from.x}px, ${to.y - from.y}px, 0) scale(${endScale})`, opacity: 1, offset: 1 },
+  ], { duration: DRAW_ANIMATION_MS, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" });
+  const spinStart = options.spinFrom ?? 0;
+  const spinEnd = options.spinTo ?? 0;
+  if (spinStart !== spinEnd) flyer.querySelector(".crazy-card-spin").animate([
+    { transform: `rotate(${spinStart}deg)`, offset: 0 },
+    { transform: `rotate(${spinStart + (spinEnd - spinStart) * 0.42}deg)`, offset: 0.42 },
+    { transform: `rotate(${spinEnd}deg)`, offset: 1 },
+  ], { duration: DRAW_ANIMATION_MS, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" });
+  if (options.flip || options.flipToBack) {
+    const startRotation = options.flipToBack ? 180 : 0;
+    const endRotation = options.flipToBack ? 0 : 180;
+    flipper.animate([
+      { transform: `rotateY(${startRotation}deg)` },
+      { transform: `rotateY(${endRotation}deg)` },
+    ], { duration: DRAW_ANIMATION_MS * 0.7, delay: DRAW_ANIMATION_MS * 0.12, easing: "ease-in-out", fill: "forwards" });
+  }
+  window.setTimeout(() => {
+    if (options.concealTarget) options.concealTarget.style.visibility = "";
+    layer.remove();
+  }, DRAW_ANIMATION_MS + 40);
+}
+
+function waitForCardFlight() {
+  return new Promise((resolve) => window.GameDialog.setTimeout(resolve, DRAW_ANIMATION_MS));
 }
 
 function canDrawCard() {
@@ -676,9 +793,11 @@ function renderSeats() {
 function renderMiniHand(count, playerIndexValue, player) {
   return Array.from({ length: Math.min(count, 8) }, (_item, index) => {
     const dealIndex = playerIndexValue * DEAL_SIZE + index;
-    const isFreshDraw = player?.hand?.[player.hand.length - 1]
-      && index === Math.min(count, 8) - 1
-      && state.drawingToHandIds.includes(player.hand[player.hand.length - 1].id);
+    const drawnIndex = botDrawFlight?.playerId === player?.id
+      ? player.hand.findIndex((card) => card.id === botDrawFlight.cardId)
+      : -1;
+    const isFreshDraw = drawnIndex >= 0 && index === Math.min(drawnIndex, Math.min(count, 8) - 1);
+    const drawAttr = isFreshDraw ? " data-bot-draw-card" : "";
     const classes = [
       "playing-card",
       "card-back",
@@ -686,7 +805,7 @@ function renderMiniHand(count, playerIndexValue, player) {
       isFreshDraw ? `draw-to-${seatDirection(playerIndexValue)}` : "",
     ].filter(Boolean).join(" ");
     const style = state.dealAnimationActive ? ` style="--deal-index: ${dealIndex};"` : "";
-    return `<span class="${classes}"${style}></span>`;
+    return `<span class="${classes}"${drawAttr}${style}></span>`;
   }).join("");
 }
 
